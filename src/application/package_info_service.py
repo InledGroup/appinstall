@@ -31,50 +31,42 @@ class PackageInfoService:
             'icon': ''
         }
         
+        temp_dir = None
         try:
             # Try to extract icon and desktop file
-            temp_dir = tempfile.mkdtemp(prefix='appimage_info_')
-            # Use --appimage-extract to get metadata files if possible
-            # But let's be careful, some AppImages might not support it or be too large
-            # Alternative: use 'unsquashfs' if available or just look for the icon
+            temp_dir = tempfile.mkdtemp(prefix='appinstall_extract_')
             
             # For now, let's try a quick extraction of common metadata files
-            icon_output = os.path.join(temp_dir, 'icon.png')
-            
-            # Try to get .DirIcon
-            try:
-                # We can't easily extract just one file without running it or using squashfs-tools
-                # If squashfs-tools is available, it's better
-                if subprocess.run(['which', 'unsquashfs'], capture_output=True).returncode == 0:
-                    subprocess.run(['unsquashfs', '-d', temp_dir, '-f', '-n', '-i', file_path, '.DirIcon'], 
-                                   capture_output=True, timeout=5)
-                    extracted_icon = os.path.join(temp_dir, '.DirIcon')
-                    if os.path.exists(extracted_icon):
-                        import shutil
-                        final_icon = os.path.join(tempfile.gettempdir(), 'appinstall_icons', f"{info['name']}.png")
-                        os.makedirs(os.path.dirname(final_icon), exist_ok=True)
-                        shutil.copy(extracted_icon, final_icon)
-                        info['icon'] = final_icon
-                    
-                    # Try to find a desktop file for better name/description
-                    subprocess.run(['unsquashfs', '-d', temp_dir, '-f', '-n', '-i', file_path, '*.desktop'], 
-                                   capture_output=True, timeout=5)
-                    for f in os.listdir(temp_dir):
-                        if f.endswith('.desktop'):
-                            with open(os.path.join(temp_dir, f), 'r') as df:
-                                content = df.read()
-                                name_match = re.search(r'^Name=(.*)$', content, re.MULTILINE)
-                                if name_match: info['name'] = name_match.group(1).strip()
-                                desc_match = re.search(r'^Comment=(.*)$', content, re.MULTILINE)
-                                if desc_match: info['description'] = desc_match.group(1).strip()
-                                break
-            except:
-                pass
+            if subprocess.run(['which', 'unsquashfs'], capture_output=True).returncode == 0:
+                # Extracting only needed files to minimize time and space
+                subprocess.run(['unsquashfs', '-d', temp_dir, '-f', '-n', '-i', file_path, '.DirIcon'], 
+                               capture_output=True, timeout=5)
+                extracted_icon = os.path.join(temp_dir, '.DirIcon')
+                if os.path.exists(extracted_icon):
+                    import shutil
+                    final_icon_dir = os.path.join(tempfile.gettempdir(), 'appinstall_icons')
+                    os.makedirs(final_icon_dir, exist_ok=True)
+                    final_icon = os.path.join(final_icon_dir, f"{info['name']}.png")
+                    shutil.copy(extracted_icon, final_icon)
+                    info['icon'] = final_icon
                 
-            # Clean up temp dir
-            import shutil
-            shutil.rmtree(temp_dir)
-        except:
-            pass
+                # Try to find a desktop file for better name/description
+                subprocess.run(['unsquashfs', '-d', temp_dir, '-f', '-n', '-i', file_path, '*.desktop'], 
+                               capture_output=True, timeout=5)
+                for f in os.listdir(temp_dir):
+                    if f.endswith('.desktop'):
+                        with open(os.path.join(temp_dir, f), 'r') as df:
+                            content = df.read()
+                            name_match = re.search(r'^Name=(.*)$', content, re.MULTILINE)
+                            if name_match: info['name'] = name_match.group(1).strip()
+                            desc_match = re.search(r'^Comment=(.*)$', content, re.MULTILINE)
+                            if desc_match: info['description'] = desc_match.group(1).strip()
+                            break
+        except Exception as e:
+            print(f"Error extracting AppImage info: {e}")
+        finally:
+            if temp_dir and os.path.exists(temp_dir):
+                import shutil
+                shutil.rmtree(temp_dir)
             
         return info
