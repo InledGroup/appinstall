@@ -2996,6 +2996,7 @@ X-AppInstall=AppImage
         self.apps_button.set_sensitive(False)
         self.clean_button.set_sensitive(False)
         self.antivirus_button.set_sensitive(False)
+        self.pwa_button.set_sensitive(False)
         self.status_label.set_text(_("Instalando..."))
         self.progress_bar.set_fraction(0.0)
 
@@ -3093,6 +3094,7 @@ X-AppInstall=AppImage
         self.apps_button.set_sensitive(False)
         self.clean_button.set_sensitive(False)
         self.antivirus_button.set_sensitive(False)
+        self.pwa_button.set_sensitive(False)
         self.status_label.set_text(_("Instalando..."))
         self.progress_bar.set_fraction(0.0)
 
@@ -3127,6 +3129,9 @@ X-AppInstall=AppImage
             self.install_button.set_sensitive(True)
             self.fix_deps_button.set_sensitive(True)
             self.apps_button.set_sensitive(True)
+            self.clean_button.set_sensitive(True)
+            self.antivirus_button.set_sensitive(True)
+            self.pwa_button.set_sensitive(True)
             return
 
         thread = threading.Thread(target=self.run_installation, args=(cmd,))
@@ -3139,6 +3144,7 @@ X-AppInstall=AppImage
         self.apps_button.set_sensitive(False)
         self.clean_button.set_sensitive(False)
         self.antivirus_button.set_sensitive(False)
+        self.pwa_button.set_sensitive(False)
         self.status_label.set_text(_("Corrigiendo errores"))
         self.progress_bar.set_fraction(0.0)
 
@@ -3300,9 +3306,12 @@ X-AppInstall=PWA
         
         dialog.present(self)
         
-        self.install_button.set_sensitive(False)
+        self.install_button.set_sensitive(True)
         self.fix_deps_button.set_sensitive(True)
         self.apps_button.set_sensitive(True)
+        self.clean_button.set_sensitive(True)
+        self.antivirus_button.set_sensitive(True)
+        self.pwa_button.set_sensitive(True)
 
     def fix_deps_complete(self, message, is_error=False):
         self.progress_bar.set_fraction(1.0)
@@ -3329,6 +3338,7 @@ X-AppInstall=PWA
         self.apps_button.set_sensitive(True)
         self.clean_button.set_sensitive(True)
         self.antivirus_button.set_sensitive(True)
+        self.pwa_button.set_sensitive(True)
 
     def should_auto_install_deps(self, stderr_output):
         """Determina si el error se debe a dependencias faltantes."""
@@ -3526,6 +3536,9 @@ X-AppInstall=PWA
             self.install_button.set_sensitive(True)
             self.fix_deps_button.set_sensitive(True)
             self.apps_button.set_sensitive(True)
+            self.clean_button.set_sensitive(True)
+            self.antivirus_button.set_sensitive(True)
+            self.pwa_button.set_sensitive(True)
 
     def auto_fix_dependencies(self):
         """Ejecuta apt-get install -f automáticamente."""
@@ -3564,6 +3577,9 @@ X-AppInstall=PWA
                 self.install_button.set_sensitive(True)
                 self.fix_deps_button.set_sensitive(True)
                 self.apps_button.set_sensitive(True)
+                self.clean_button.set_sensitive(True)
+                self.antivirus_button.set_sensitive(True)
+                self.pwa_button.set_sensitive(True)
         except Exception as e:
             print(f"Dialog error: {e}")
 
@@ -3611,6 +3627,9 @@ X-AppInstall=PWA
             self.install_button.set_sensitive(True)
             self.fix_deps_button.set_sensitive(True)
             self.apps_button.set_sensitive(True)
+            self.clean_button.set_sensitive(True)
+            self.antivirus_button.set_sensitive(True)
+            self.pwa_button.set_sensitive(True)
 
     def retry_installation(self):
         """Reintenta la instalación del paquete original después de corregir dependencias."""
