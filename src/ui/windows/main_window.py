@@ -153,7 +153,10 @@ class PackageInstaller(Adw.ApplicationWindow):
         fake_search_btn.add_css_class("search-entry") # Reutilizamos estilo si existe
         
         fake_search_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        fake_search_box.set_margin_all(8)
+        fake_search_box.set_margin_top(8)
+        fake_search_box.set_margin_bottom(8)
+        fake_search_box.set_margin_start(8)
+        fake_search_box.set_margin_end(8)
         fake_search_icon = Gtk.Image.new_from_icon_name("system-search-symbolic")
         fake_search_box.append(fake_search_icon)
         fake_search_label = Gtk.Label(label=_("ej: vlc, firefox, chrome..."), xalign=0)
@@ -584,7 +587,10 @@ class PackageInstaller(Adw.ApplicationWindow):
         for res in results:
             row = Gtk.ListBoxRow()
             box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
-            box.set_margin_all(12)
+            box.set_margin_top(12)
+            box.set_margin_bottom(12)
+            box.set_margin_start(12)
+            box.set_margin_end(12)
             
             icon_name = res.get('icon')
             if not icon_name or not theme.has_icon(icon_name):
