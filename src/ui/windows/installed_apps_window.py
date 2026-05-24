@@ -21,6 +21,7 @@ class InstalledAppsWindow(Adw.Window):
         self.set_transient_for(parent)
         self.set_modal(True)
         self.add_css_class("main-window")
+        self.connect("close-request", self._on_close_request)
 
         # Header bar al estilo GNOME
         header_bar = Adw.HeaderBar()
@@ -72,6 +73,7 @@ class InstalledAppsWindow(Adw.Window):
         main_box.append(search_box)
         
         self.is_loading = False
+        self.stop_loading = False
 
         # Contenedor para el contenido (Stack para manejar estados)
         content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
@@ -148,6 +150,10 @@ class InstalledAppsWindow(Adw.Window):
         # Cargar aplicaciones
         self.load_installed_apps()
     
+    def _on_close_request(self, *args):
+        self.stop_loading = True
+        return False
+
     def load_installed_apps(self):
         # Limpiar la lista actual
         child = self.listbox.get_first_child()
@@ -171,8 +177,9 @@ class InstalledAppsWindow(Adw.Window):
         try:
             # Obtener paquetes instalados
             packages = []
-            appimages = []
+            appimages = set()
             brew_packages = []
+            pwas = set()
             
             # Obtener paquetes del sistema
             try:
@@ -195,41 +202,45 @@ class InstalledAppsWindow(Adw.Window):
                 except Exception as e:
                     print(f"Error al obtener paquetes de Homebrew: {e}")
 
-            # Obtener AppImages y PWAs
-            pwas = []
-            desktop_dir = "/usr/share/applications"
-            if os.path.exists(desktop_dir):
-                for filename in os.listdir(desktop_dir):
-                    if filename.endswith(".desktop"):
-                        desktop_path = os.path.join(desktop_dir, filename)
-                        try:
-                            with open(desktop_path, 'r') as f:
-                                content = f.read()
-                                app_name = filename.replace(".desktop", "")
+            # Obtener AppImages y PWAs (en system y user local)
+            desktop_dirs = ["/usr/share/applications", os.path.expanduser("~/.local/share/applications")]
+            
+            for desktop_dir in desktop_dirs:
+                if os.path.exists(desktop_dir):
+                    for filename in os.listdir(desktop_dir):
+                        if filename.endswith(".desktop"):
+                            desktop_path = os.path.join(desktop_dir, filename)
+                            try:
+                                with open(desktop_path, 'r') as f:
+                                    content = f.read()
+                                    app_name = filename.replace(".desktop", "")
 
-                                if "X-AppInstall=PWA" in content:
-                                    pwas.append(app_name)
-                                else:
-                                    is_appinstall_app = (
-                                        "X-AppInstall=AppImage" in content or 
-                                        ("/usr/bin/" in content and "appimage.png" in content) or
-                                        (f"Exec=/usr/bin/{app_name}" in content and f"Icon=/usr/share/pixmaps/{app_name}" in content)
-                                    )
+                                    if "X-AppInstall=PWA" in content:
+                                        pwas.add(app_name)
+                                    else:
+                                        is_appinstall_app = (
+                                            "X-AppInstall=AppImage" in content or 
+                                            ("/usr/bin/" in content and "appimage.png" in content) or
+                                            (f"Exec=/usr/bin/{app_name}" in content and f"Icon=/usr/share/pixmaps/{app_name}" in content)
+                                        )
 
-                                    if is_appinstall_app:
-                                        appimages.append(app_name)
-                        except:
-                            pass
+                                        if is_appinstall_app:
+                                            appimages.add(app_name)
+                            except:
+                                pass
             
             # Preparar la lista completa una sola vez
             all_apps = []
-            for pw in pwas: all_apps.append((pw, "pwa"))
-            for a in appimages: all_apps.append((a, "appimage"))
-            for b in brew_packages: all_apps.append((b, "brew"))
-            for p in packages: all_apps.append((p, "system"))
+            for pw in sorted(list(pwas)): all_apps.append((pw, "pwa"))
+            for a in sorted(list(appimages)): all_apps.append((a, "appimage"))
+            for b in sorted(brew_packages): all_apps.append((b, "brew"))
+            for p in sorted(packages): all_apps.append((p, "system"))
 
             # Actualizar la UI en lotes para evitar sobrecargar el bucle principal
             def update_ui_batch(index):
+                if getattr(self, "stop_loading", False):
+                    return False
+
                 if not all_apps:
                     self.is_loading = False
                     self.search_spinner.stop()
@@ -246,9 +257,6 @@ class InstalledAppsWindow(Adw.Window):
                     name, type = all_apps[i]
                     self.add_app_to_list(name, type == "appimage", type == "brew", type == "pwa")
                 
-                if self.search_entry.get_text():
-                    self.on_search_changed(self.search_entry)
-
                 if end_index < len(all_apps):
                     GLib.idle_add(lambda: update_ui_batch(end_index))
                 else:
@@ -267,6 +275,7 @@ class InstalledAppsWindow(Adw.Window):
     def add_app_to_list(self, package_name, is_appimage=False, is_brew=False, is_pwa=False):
         row = Gtk.ListBoxRow()
         row.add_css_class("list-row")
+        row.package_name = package_name.lower() # Atributo para filtrado ultra rápido
         
         hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         hbox.set_margin_top(8)
@@ -358,9 +367,10 @@ class InstalledAppsWindow(Adw.Window):
         return False
     
     def on_search_changed(self, entry):
-        if not self.is_loading:
-            self.search_spinner.start()
+        if self.is_loading:
+            return
             
+        self.search_spinner.start()
         self.listbox.invalidate_filter()
         GLib.idle_add(self.check_filter_results)
 
@@ -374,36 +384,18 @@ class InstalledAppsWindow(Adw.Window):
             child = child.get_next_sibling()
         
         if not has_visible:
-            if self.is_loading:
-                self.loading_label.set_text(_("Buscando aplicaciones..."))
-                self.stack.set_visible_child_name("loading")
-            else:
-                self.stack.set_visible_child_name("empty")
-                self.search_spinner.stop()
+            self.stack.set_visible_child_name("empty")
+            self.search_spinner.stop()
         else:
             self.stack.set_visible_child_name("list")
-            if not self.is_loading:
-                self.search_spinner.stop()
+            self.search_spinner.stop()
         return False
     
     def filter_func(self, row):
         text = self.search_entry.get_text().lower()
         if not text:
             return True
-        
-        box = row.get_child()
-        if box and isinstance(box, Gtk.Box):
-            child = box.get_first_child()
-            while child:
-                if isinstance(child, Gtk.Box) and child.get_orientation() == Gtk.Orientation.VERTICAL:
-                    label_child = child.get_first_child()
-                    while label_child:
-                        if isinstance(label_child, Gtk.Label) and hasattr(label_child, 'get_text'):
-                            if text in label_child.get_text().lower():
-                                return True
-                        label_child = label_child.get_next_sibling()
-                child = child.get_next_sibling()
-        return False
+        return text in getattr(row, "package_name", "")
     
     def on_uninstall_clicked(self, button, package_name, is_appimage=False, is_brew=False, is_pwa=False):
         if is_appimage:
@@ -437,6 +429,11 @@ class InstalledAppsWindow(Adw.Window):
             print(f"Dialog error: {e}")
     
     def uninstall_package(self, package_name, is_appimage=False, is_brew=False, is_pwa=False):
+        # Detener carga si está en curso y desactivar búsqueda para evitar ralentización
+        self.stop_loading = True
+        self.search_entry.set_sensitive(False)
+        self.search_spinner.stop()
+
         self.progress_bar.set_fraction(0.0)
         self.progress_bar.set_visible(True)
         self.status_label.set_text(_("Desinstalando {}...").format(package_name))
@@ -454,6 +451,9 @@ class InstalledAppsWindow(Adw.Window):
         return False
 
     def uninstall_complete(self, package_name, success, is_appimage=False, is_brew=False, is_pwa=False, error_message=None):
+        self.search_entry.set_sensitive(True)
+        self.stop_loading = False
+
         if hasattr(self, 'uninst_progress_dialog') and self.uninst_progress_dialog:
             self.uninst_progress_dialog.close()
             self.uninst_progress_dialog = None

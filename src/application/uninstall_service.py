@@ -17,10 +17,12 @@ class UninstallService:
                 f'rm -f /usr/share/pixmaps/{package_name}.*'
             ]
         elif is_pwa:
+            user_desktop = os.path.expanduser(f"~/.local/share/applications/{package_name}.desktop")
             return [
                 'pkexec', 'bash', '-c',
                 f'rm -f /usr/share/applications/{package_name}.desktop && ' +
-                f'rm -f /usr/share/pixmaps/{package_name}.*'
+                f'rm -f /usr/share/pixmaps/{package_name}.* && ' +
+                f'rm -f "{user_desktop}"'
             ]
         elif is_brew:
             return [brew_path, 'uninstall', package_name]
