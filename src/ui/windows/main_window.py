@@ -550,9 +550,19 @@ class PackageInstaller(Adw.ApplicationWindow):
         pkg_name = row.pkg_name
         if row.source == 'brew':
             pkg_name = f"brew:{pkg_name}"
+            
+        # Detener cualquier búsqueda en curso para que no se reactive al cambiar el texto
+        if self.search_timer:
+            GLib.source_remove(self.search_timer)
+            self.search_timer = None
+            
         self.package_name_entry.set_text(pkg_name)
         self.search_results_scrolled.set_visible(False)
+        self.search_spinner.set_visible(False)
         self.install_button.set_sensitive(True)
+        
+        # Lanzar la instalación directamente
+        self.on_install_clicked(None)
 
     def on_about_clicked(self, widget):
         about_dialog = Adw.AboutWindow(
