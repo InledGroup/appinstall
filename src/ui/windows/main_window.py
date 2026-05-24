@@ -55,7 +55,10 @@ class PackageInstaller(Adw.ApplicationWindow):
         menu_button.set_child(Gtk.Image.new_from_icon_name("open-menu-symbolic"))
         
         popover_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        popover_box.set_margin_all(10)
+        popover_box.set_margin_top(10)
+        popover_box.set_margin_bottom(10)
+        popover_box.set_margin_start(10)
+        popover_box.set_margin_end(10)
         for label, callback in [(_("Acerca de App Install"), self.on_about_clicked), 
                                 (_("Reportar un error"), self.on_report_issue),
                                 (_("Buscar actualizaciones"), self.on_check_updates_clicked)]:
@@ -107,7 +110,10 @@ class PackageInstaller(Adw.ApplicationWindow):
         self.main_stack.add_named(scrolled_main, "menu")
         
         self.main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=24)
-        self.main_box.set_margin_all(24)
+        self.main_box.set_margin_top(24)
+        self.main_box.set_margin_bottom(24)
+        self.main_box.set_margin_start(24)
+        self.main_box.set_margin_end(24)
         scrolled_main.set_child(self.main_box)
         
         # File section
@@ -217,7 +223,10 @@ class PackageInstaller(Adw.ApplicationWindow):
         # Search Results View
         results_scrolled = Gtk.ScrolledWindow()
         results_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        results_box.set_margin_all(12)
+        results_box.set_margin_top(12)
+        results_box.set_margin_bottom(12)
+        results_box.set_margin_start(12)
+        results_box.set_margin_end(12)
         results_scrolled.set_child(results_box)
         
         self.search_results_list = Gtk.ListBox()
