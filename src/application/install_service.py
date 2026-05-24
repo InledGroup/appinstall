@@ -42,6 +42,7 @@ Icon={target_icon_path}
 Terminal=false
 Categories={category}
 X-AppInstall={install_type}
+X-SwiftInstall={install_type}
 """
 
     def get_install_command(self, file_path):

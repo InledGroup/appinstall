@@ -177,9 +177,7 @@ class InstalledAppsWindow(Adw.Window):
         try:
             # Obtener paquetes instalados
             packages = []
-            appimages = set()
             brew_packages = []
-            pwas = set()
             
             # Obtener paquetes del sistema
             try:
@@ -203,6 +201,8 @@ class InstalledAppsWindow(Adw.Window):
                     print(f"Error al obtener paquetes de Homebrew: {e}")
 
             # Obtener AppImages y PWAs (en system y user local)
+            pwas = {} # internal_name -> display_name
+            appimages = {} # internal_name -> display_name
             desktop_dirs = ["/usr/share/applications", os.path.expanduser("~/.local/share/applications")]
             
             for desktop_dir in desktop_dirs:
@@ -215,26 +215,38 @@ class InstalledAppsWindow(Adw.Window):
                                     content = f.read()
                                     app_name = filename.replace(".desktop", "")
 
-                                    if "X-AppInstall=PWA" in content:
-                                        pwas.add(app_name)
+                                    import re
+                                    name_match = re.search(r'^Name=(.*)$', content, re.MULTILINE)
+                                    display_name = name_match.group(1).strip() if name_match else app_name
+
+                                    is_pwa = (
+                                        "X-AppInstall=PWA" in content or 
+                                        "X-SwiftInstall=PWA" in content or
+                                        "--app=" in content or
+                                        "--application-mode=" in content
+                                    )
+
+                                    if is_pwa:
+                                        pwas[app_name] = display_name
                                     else:
                                         is_appinstall_app = (
                                             "X-AppInstall=AppImage" in content or 
+                                            "X-SwiftInstall=AppImage" in content or
                                             ("/usr/bin/" in content and "appimage.png" in content) or
                                             (f"Exec=/usr/bin/{app_name}" in content and f"Icon=/usr/share/pixmaps/{app_name}" in content)
                                         )
 
                                         if is_appinstall_app:
-                                            appimages.add(app_name)
+                                            appimages[app_name] = display_name
                             except:
                                 pass
             
             # Preparar la lista completa una sola vez
             all_apps = []
-            for pw in sorted(list(pwas)): all_apps.append((pw, "pwa"))
-            for a in sorted(list(appimages)): all_apps.append((a, "appimage"))
-            for b in sorted(brew_packages): all_apps.append((b, "brew"))
-            for p in sorted(packages): all_apps.append((p, "system"))
+            for a_name in sorted(pwas.keys()): all_apps.append((pwas[a_name], a_name, "pwa"))
+            for a_name in sorted(appimages.keys()): all_apps.append((appimages[a_name], a_name, "appimage"))
+            for b in sorted(brew_packages): all_apps.append((b, b, "brew"))
+            for p in sorted(packages): all_apps.append((p, p, "system"))
 
             # Actualizar la UI en lotes para evitar sobrecargar el bucle principal
             def update_ui_batch(index):
@@ -254,8 +266,8 @@ class InstalledAppsWindow(Adw.Window):
                 end_index = min(index + batch_size, len(all_apps))
                 
                 for i in range(index, end_index):
-                    name, type = all_apps[i]
-                    self.add_app_to_list(name, type == "appimage", type == "brew", type == "pwa")
+                    display_name, internal_name, type = all_apps[i]
+                    self.add_app_to_list(display_name, internal_name, type == "appimage", type == "brew", type == "pwa")
                 
                 if end_index < len(all_apps):
                     GLib.idle_add(lambda: update_ui_batch(end_index))
@@ -272,10 +284,10 @@ class InstalledAppsWindow(Adw.Window):
             print(f"Error al cargar aplicaciones: {e}")
             GLib.idle_add(self.show_error_message)
     
-    def add_app_to_list(self, package_name, is_appimage=False, is_brew=False, is_pwa=False):
+    def add_app_to_list(self, display_name, internal_name, is_appimage=False, is_brew=False, is_pwa=False):
         row = Gtk.ListBoxRow()
         row.add_css_class("list-row")
-        row.package_name = package_name.lower() # Atributo para filtrado ultra rápido
+        row.package_name = display_name.lower() # Atributo para filtrado ultra rápido
         
         hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         hbox.set_margin_top(8)
@@ -313,7 +325,7 @@ class InstalledAppsWindow(Adw.Window):
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         vbox.set_hexpand(True)
         
-        label = Gtk.Label(label=package_name, xalign=0)
+        label = Gtk.Label(label=display_name, xalign=0)
         label.add_css_class("title-label")
         vbox.append(label)
         
@@ -340,7 +352,7 @@ class InstalledAppsWindow(Adw.Window):
         button_icon = Gtk.Image.new_from_icon_name("user-trash-symbolic")
         button.set_child(button_icon)
         
-        button.connect("clicked", self.on_uninstall_clicked, package_name, is_appimage, is_brew, is_pwa)
+        button.connect("clicked", self.on_uninstall_clicked, internal_name, is_appimage, is_brew, is_pwa)
         hbox.append(button)
         
         self.listbox.append(row)
