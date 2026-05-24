@@ -5,7 +5,7 @@ import requests
 from gi.repository import Gtk, GLib, Adw
 from src.infrastructure.services.localization import _
 from src.utils.system import get_safe_window_size, HAS_BREW, BREW_PATH
-from src.ui.windows.progress_window import UninstallationProgressWindow
+from src.ui.windows.progress_window import ProgressWindow
 
 class InstalledAppsWindow(Adw.Window):
     def __init__(self, parent, package_manager, uninstall_service):
@@ -450,8 +450,8 @@ class InstalledAppsWindow(Adw.Window):
         self.progress_bar.set_visible(True)
         self.status_label.set_text(_("Desinstalando {}...").format(package_name))
         
-        self.uninst_progress_dialog = UninstallationProgressWindow(self, _("Desinstalando {}...").format(package_name))
-        self.uninst_progress_dialog.present()
+        self.progress_dialog = ProgressWindow(self, _("Desinstalando {}...").format(package_name))
+        self.progress_dialog.present()
 
         cmd = self.uninstall_service.get_uninstall_command(package_name, is_appimage, is_brew, is_pwa, BREW_PATH)
         self.uninstall_service.run_uninstall(cmd, self.update_uninstall_progress, 
@@ -466,9 +466,9 @@ class InstalledAppsWindow(Adw.Window):
         self.search_entry.set_sensitive(True)
         self.stop_loading = False
 
-        if hasattr(self, 'uninst_progress_dialog') and self.uninst_progress_dialog:
-            self.uninst_progress_dialog.close()
-            self.uninst_progress_dialog = None
+        if hasattr(self, 'progress_dialog') and self.progress_dialog:
+            self.progress_dialog.close()
+            self.progress_dialog = None
 
         self.progress_bar.set_visible(False)
         self.progress_bar.set_fraction(0.0)

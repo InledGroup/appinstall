@@ -13,6 +13,7 @@ from .cleanup_window import SystemCleanupWindow
 from .antivirus_window import AntivirusWindow
 from .pwa_config_window import PWAConfigWindow
 from .appimage_config_window import AppImageConfigWindow
+from .progress_window import ProgressWindow
 
 class PackageInstaller(Adw.ApplicationWindow):
     def __init__(self, app, install_service, update_service, pkg_manager, file_to_open=None):
@@ -290,12 +291,18 @@ class PackageInstaller(Adw.ApplicationWindow):
         self.status_label.set_text(_("Instalando..."))
         self.progress_bar.set_fraction(0.0)
         
+        self.progress_dialog = ProgressWindow(self, _("Instalando..."))
+        self.progress_dialog.present()
+        
         self.install_service.run_installation(cmd, self.file_path, self.update_progress_ui, self.on_installation_complete)
 
     def on_fix_deps_clicked(self, widget):
         self.set_buttons_sensitive(False)
         self.status_label.set_text(_("Corrigiendo errores"))
         self.progress_bar.set_fraction(0.0)
+        
+        self.progress_dialog = ProgressWindow(self, _("Corrigiendo errores"))
+        self.progress_dialog.present()
         
         cmd = self.pkg_manager.fix_broken()
         self.install_service.run_fix_deps(cmd, self.update_progress_ui, self.on_fix_deps_complete)
@@ -327,6 +334,9 @@ class PackageInstaller(Adw.ApplicationWindow):
         self.status_label.set_text(_("Instalando..."))
         self.progress_bar.set_fraction(0.0)
         
+        self.progress_dialog = ProgressWindow(self, _("Instalando {}...").format(display_name))
+        self.progress_dialog.present()
+        
         cmd = self.install_service.get_appimage_install_command(self.file_path, display_name, icon_path)
         self.install_service.run_installation(cmd, self.file_path, self.update_progress_ui, self.on_installation_complete)
 
@@ -334,6 +344,9 @@ class PackageInstaller(Adw.ApplicationWindow):
         self.set_buttons_sensitive(False)
         self.status_label.set_text(_("Creando PWA..."))
         self.progress_bar.set_fraction(0.0)
+        
+        self.progress_dialog = ProgressWindow(self, _("Creando PWA {}...").format(display_name))
+        self.progress_dialog.present()
         
         cmd = self.install_service.get_pwa_install_command(display_name, url, icon_path)
         self.install_service.run_installation(cmd, None, self.update_progress_ui, self.on_installation_complete)
@@ -344,6 +357,10 @@ class PackageInstaller(Adw.ApplicationWindow):
         return False
 
     def on_installation_complete(self, message, is_error=False, stderr_output=""):
+        if hasattr(self, 'progress_dialog') and self.progress_dialog:
+            self.progress_dialog.close()
+            self.progress_dialog = None
+            
         self.progress_bar.set_fraction(1.0)
         self.status_label.set_text(message)
         
@@ -359,6 +376,10 @@ class PackageInstaller(Adw.ApplicationWindow):
         self.set_buttons_sensitive(True)
 
     def on_fix_deps_complete(self, message, is_error=False):
+        if hasattr(self, 'progress_dialog') and self.progress_dialog:
+            self.progress_dialog.close()
+            self.progress_dialog = None
+            
         self.progress_bar.set_fraction(1.0)
         self.status_label.set_text(message)
         if is_error:

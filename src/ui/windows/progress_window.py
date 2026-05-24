@@ -1,6 +1,6 @@
 from gi.repository import Gtk, Adw
 
-class UninstallationProgressWindow(Adw.Window):
+class ProgressWindow(Adw.Window):
     def __init__(self, parent, message):
         super().__init__()
         self.set_transient_for(parent)
@@ -32,3 +32,6 @@ class UninstallationProgressWindow(Adw.Window):
         main_box.append(self.label)
         
         self.set_content(main_box)
+
+    def update_message(self, message):
+        self.label.set_text(message)
