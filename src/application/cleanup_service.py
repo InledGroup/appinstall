@@ -86,6 +86,8 @@ class CleanupService:
                     elif os.path.isdir(expanded_dir):
                         if directory in ["~/.cache", "/tmp", "/var/tmp", "~/.thumbnails"]:
                             for item in os.listdir(expanded_dir):
+                                if directory == "~/.cache" and item == "ibus":
+                                    continue
                                 item_path = os.path.join(expanded_dir, item)
                                 try:
                                     if os.path.isfile(item_path):

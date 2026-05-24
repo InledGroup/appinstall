@@ -83,11 +83,12 @@ class PackageInstaller(Adw.ApplicationWindow):
         back_btn.connect("clicked", self.on_search_back_clicked)
         search_header_content.append(back_btn)
         
-        self.header_search_entry = Gtk.Entry()
-        self.header_search_entry.set_placeholder_text(_("Buscar aplicaciones..."))
+        self.header_search_entry = Gtk.SearchEntry()
+        # SearchEntry ya incluye el icono de búsqueda y un botón para limpiar, 
+        # así que el placeholder y el comportamiento nativo de búsqueda mejorarán el input
         self.header_search_entry.set_hexpand(True)
         self.header_search_entry.add_css_class("search-entry")
-        self.header_search_entry.connect("changed", self.on_package_name_changed)
+        self.header_search_entry.connect("search-changed", self.on_package_name_changed)
         self.header_search_entry.connect("activate", lambda e: self.on_install_clicked(None))
         search_header_content.append(self.header_search_entry)
         
