@@ -31,10 +31,24 @@ jobs:
 
       - name: Sync source files
         run: |
+          # Aplicación
           mkdir -p appinstall/usr/share/appinstall/
+          cp -r src/ appinstall/usr/share/appinstall/
           cp start.py appinstall/usr/share/appinstall/
           cp styles.css appinstall/usr/share/appinstall/
           cp appimage.png appinstall/usr/share/appinstall/
+          
+          # Integración del sistema
+          mkdir -p appinstall/usr/share/applications/
+          cp es.inled.AppInstall.desktop appinstall/usr/share/applications/
+          mkdir -p appinstall/usr/share/metainfo/
+          cp es.inled.AppInstall.metainfo.xml appinstall/usr/share/metainfo/
+          
+          # Iconos
+          mkdir -p appinstall/usr/share/icons/hicolor/512x512/apps/
+          cp es.inled.AppInstall.png appinstall/usr/share/icons/hicolor/512x512/apps/
+          mkdir -p appinstall/usr/share/pixmaps/
+          cp es.inled.AppInstall.png appinstall/usr/share/pixmaps/
 
       - name: Set up permissions
         run: |

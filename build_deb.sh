@@ -14,16 +14,31 @@ DEB_FILE="${PACKAGE_NAME}_${VERSION}_${ARCH}.deb"
 
 echo "Construyendo $DEB_FILE..."
 
+# Compilar traducciones
+if [ -f "compile_locales.py" ]; then
+    echo "Compilando traducciones..."
+    python3 compile_locales.py
+fi
+
 # Sincronizar archivos del código fuente a la estructura del paquete
 echo "Sincronizando archivos..."
 mkdir -p appinstall/usr/share/appinstall/
+cp -r src/ appinstall/usr/share/appinstall/
 cp start.py appinstall/usr/share/appinstall/
 cp styles.css appinstall/usr/share/appinstall/
 cp appimage.png appinstall/usr/share/appinstall/
 
-# Asegurar que los iconos están en hicolor también
+# Sincronizar archivos de integración del sistema
+mkdir -p appinstall/usr/share/applications/
+cp es.inled.AppInstall.desktop appinstall/usr/share/applications/
+
+mkdir -p appinstall/usr/share/metainfo/
+cp es.inled.AppInstall.metainfo.xml appinstall/usr/share/metainfo/
+
+# Asegurar que los iconos están en las rutas correctas
 mkdir -p appinstall/usr/share/icons/hicolor/512x512/apps/
 cp es.inled.AppInstall.png appinstall/usr/share/icons/hicolor/512x512/apps/es.inled.AppInstall.png
+mkdir -p appinstall/usr/share/pixmaps/
 cp es.inled.AppInstall.png appinstall/usr/share/pixmaps/es.inled.AppInstall.png
 
 # Ajustar permisos necesarios para el paquete Debian
