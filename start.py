@@ -1631,6 +1631,39 @@ class AntivirusWindow(Adw.Window):
         GLib.idle_add(self.append_result, f"\n❌ Error: {error_msg}\n")
         return False
 
+class UninstallationProgressWindow(Adw.Window):
+    def __init__(self, parent, message):
+        super().__init__()
+        self.set_transient_for(parent)
+        self.set_modal(True)
+        self.set_resizable(False)
+        self.set_default_size(300, 300)
+        
+        # Contenedor principal
+        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=24)
+        main_box.set_valign(Gtk.Align.CENTER)
+        main_box.set_halign(Gtk.Align.CENTER)
+        main_box.set_margin_top(40)
+        main_box.set_margin_bottom(40)
+        main_box.set_margin_start(40)
+        main_box.set_margin_end(40)
+        
+        # Spinner grande
+        spinner = Gtk.Spinner()
+        spinner.set_size_request(80, 80)
+        spinner.start()
+        main_box.append(spinner)
+        
+        # Texto de estado
+        self.label = Gtk.Label(label=message)
+        self.label.add_css_class("title-label")
+        self.label.set_wrap(True)
+        self.label.set_max_width_chars(25)
+        self.label.set_justify(Gtk.Justification.CENTER)
+        main_box.append(self.label)
+        
+        self.set_content(main_box)
+
 class InstalledAppsWindow(Adw.Window):
     def __init__(self, parent):
         super().__init__()
@@ -1675,13 +1708,25 @@ class InstalledAppsWindow(Adw.Window):
             main_box.set_margin_end(16)
             toolbar_view.set_content(main_box)
 
-        # Barra de búsqueda integrada y a ancho completo
+        # Barra de búsqueda con spinner indicador
+        search_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        search_box.set_margin_start(8)
+        search_box.set_margin_end(8)
+        
         self.search_entry = Gtk.SearchEntry()
         self.search_entry.set_placeholder_text(_("Buscar aplicaciones..."))
         self.search_entry.connect("search-changed", self.on_search_changed)
         self.search_entry.add_css_class("search-entry")
         self.search_entry.set_hexpand(True)
-        main_box.append(self.search_entry)
+        search_box.append(self.search_entry)
+        
+        self.search_spinner = Gtk.Spinner()
+        self.search_spinner.set_size_request(24, 24)
+        search_box.append(self.search_spinner)
+        
+        main_box.append(search_box)
+        
+        self.is_loading = False
 
         # Contenedor para el contenido (Stack para manejar estados)
         content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
@@ -1710,9 +1755,9 @@ class InstalledAppsWindow(Adw.Window):
         spinner.start()
         loading_box.append(spinner)
         
-        loading_label = Gtk.Label(label=_("Cargando aplicaciones..."))
-        loading_label.add_css_class("subtitle-label")
-        loading_box.append(loading_label)
+        self.loading_label = Gtk.Label(label=_("Cargando aplicaciones..."))
+        self.loading_label.add_css_class("subtitle-label")
+        loading_box.append(self.loading_label)
         
         self.stack.add_named(loading_box, "loading")
 
@@ -1767,7 +1812,10 @@ class InstalledAppsWindow(Adw.Window):
             self.listbox.remove(child)
             child = next_child
             
-        # Mostrar estado de carga
+        # Mostrar estado de carga e iniciar spinner de búsqueda
+        self.is_loading = True
+        self.search_spinner.start()
+        self.loading_label.set_text(_("Cargando aplicaciones..."))
         self.stack.set_visible_child_name("loading")
         
         # Iniciar un hilo para cargar las aplicaciones
@@ -1839,36 +1887,45 @@ class InstalledAppsWindow(Adw.Window):
                         except:
                             pass
             
+            # Preparar la lista completa una sola vez
+            all_apps = []
+            for pw in pwas: all_apps.append((pw, "pwa"))
+            for a in appimages: all_apps.append((a, "appimage"))
+            for b in brew_packages: all_apps.append((b, "brew"))
+            for p in packages: all_apps.append((p, "system"))
+
             # Actualizar la UI en lotes para evitar sobrecargar el bucle principal
             def update_ui_batch(index):
-                # Priorizar: PWA -> AppImage -> Homebrew -> Sistema (APT/DNF)
-                all_apps = []
-                for pw in pwas: all_apps.append((pw, "pwa"))
-                for a in appimages: all_apps.append((a, "appimage"))
-                for b in brew_packages: all_apps.append((b, "brew"))
-                for p in packages: all_apps.append((p, "system"))
-
                 if not all_apps:
+                    self.is_loading = False
+                    self.search_spinner.stop()
                     self.stack.set_visible_child_name("empty")
                     return False
 
-                batch_size = 30
+                # Mostrar la lista desde el primer lote para que el usuario vea progreso
+                if index == 0:
+                    self.stack.set_visible_child_name("list")
+
+                batch_size = 50 # Aumentamos un poco el lote para mayor rapidez
                 end_index = min(index + batch_size, len(all_apps))
                 
                 for i in range(index, end_index):
                     name, type = all_apps[i]
                     self.add_app_to_list(name, type == "appimage", type == "brew", type == "pwa")
                 
+                # Si hay texto de búsqueda, invalidar el filtro para que se aplique a los nuevos elementos
+                if self.search_entry.get_text():
+                    self.on_search_changed(self.search_entry)
+
                 if end_index < len(all_apps):
                     # Programar el siguiente lote
                     GLib.idle_add(lambda: update_ui_batch(end_index))
                 else:
-                    # Mostrar la lista cuando todo esté cargado
-                    self.stack.set_visible_child_name("list")
-                    # Forzar el filtrado inicial por si había texto en la búsqueda
+                    # Finalizado
+                    self.is_loading = False
+                    self.search_spinner.stop()
+                    # Forzar el filtrado final y verificar resultados
                     self.on_search_changed(self.search_entry)
-                
-                return False
                 
                 return False
             
@@ -1963,6 +2020,9 @@ class InstalledAppsWindow(Adw.Window):
     
     # Mensaje de que no hay aplicaciones instaladas en el sistema (clara prueba de que está habiendo un error)
     def show_no_apps_message(self):
+        self.is_loading = False
+        self.search_spinner.stop()
+        
         row = Gtk.ListBoxRow()
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         box.set_margin_top(24)
@@ -1972,25 +2032,17 @@ class InstalledAppsWindow(Adw.Window):
         box.append(icon)
         
         label = Gtk.Label(label=_("No he encontrado aplicaciones instaladas en tu sistema"))
-        label.get_style_context().add_class("title-label")
+        label.add_css_class("title-label")
         box.append(label)
         
-        row.add(box)
-        self.listbox.add(row)
+        row.set_child(box)
+        self.listbox.append(row)
+        self.stack.set_visible_child_name("list")
         return False
     
     def show_error_message(self):
-        # Eliminar el spinner si existe
-        child = self.listbox.get_first_child()
-        while child:
-            next_child = child.get_next_sibling()
-            child_widget = child.get_child()
-            if isinstance(child_widget, Gtk.Box):
-                first_grandchild = child_widget.get_first_child()
-                if isinstance(first_grandchild, Gtk.Spinner):
-                    self.listbox.remove(child)
-                    break
-            child = next_child
+        self.is_loading = False
+        self.search_spinner.stop()
         
         row = Gtk.ListBoxRow()
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
@@ -2001,14 +2053,19 @@ class InstalledAppsWindow(Adw.Window):
         box.append(icon)
         
         label = Gtk.Label(label=_("No he podido encontrar aplicaciones instaladas en tu sistema"))
-        label.get_style_context().add_class("title-label")
+        label.add_css_class("title-label")
         box.append(label)
         
-        row.add(box)
-        self.listbox.add(row)
+        row.set_child(box)
+        self.listbox.append(row)
+        self.stack.set_visible_child_name("list")
         return False
     
     def on_search_changed(self, entry):
+        # Si no estamos cargando inicialmente, mostrar el spinner brevemente para indicar búsqueda activa
+        if not self.is_loading:
+            self.search_spinner.start()
+            
         self.listbox.invalidate_filter()
         # Verificar si hay resultados visibles después de invalidar el filtro
         GLib.idle_add(self.check_filter_results)
@@ -2023,9 +2080,16 @@ class InstalledAppsWindow(Adw.Window):
             child = child.get_next_sibling()
         
         if not has_visible:
-            self.stack.set_visible_child_name("empty")
+            if self.is_loading:
+                self.loading_label.set_text(_("Buscando aplicaciones..."))
+                self.stack.set_visible_child_name("loading")
+            else:
+                self.stack.set_visible_child_name("empty")
+                self.search_spinner.stop()
         else:
             self.stack.set_visible_child_name("list")
+            if not self.is_loading:
+                self.search_spinner.stop()
         return False
     
     def filter_func(self, row):
@@ -2085,6 +2149,10 @@ class InstalledAppsWindow(Adw.Window):
         self.progress_bar.set_fraction(0.0)
         self.progress_bar.set_visible(True)
         self.status_label.set_text(_("Desinstalando {}...").format(package_name))
+        
+        # Mostrar popup de progreso
+        self.uninst_progress_dialog = UninstallationProgressWindow(self, _("Desinstalando {}...").format(package_name))
+        self.uninst_progress_dialog.present()
 
         if is_appimage:
             # Eliminar el AppImage, su archivo .desktop y sus posibles iconos
@@ -2141,6 +2209,11 @@ class InstalledAppsWindow(Adw.Window):
 
     # Mensaje después de ejecutar la desinstalación
     def uninstall_complete(self, package_name, success, is_appimage=False, is_brew=False, is_pwa=False, error_message=None):
+        # Cerrar popup si existe
+        if hasattr(self, 'uninst_progress_dialog') and self.uninst_progress_dialog:
+            self.uninst_progress_dialog.close()
+            self.uninst_progress_dialog = None
+
         self.progress_bar.set_visible(False)
         self.progress_bar.set_fraction(0.0)
         
