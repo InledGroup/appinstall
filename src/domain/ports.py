@@ -48,5 +48,9 @@ class PackageManager(ABC):
         pass
 
     @abstractmethod
+    def get_local_file_info(self, file_path: str) -> Dict[str, str]:
+        pass
+
+    @abstractmethod
     def install_clamav(self) -> List[str]:
         pass

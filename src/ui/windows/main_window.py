@@ -14,13 +14,15 @@ from .antivirus_window import AntivirusWindow
 from .pwa_config_window import PWAConfigWindow
 from .appimage_config_window import AppImageConfigWindow
 from .progress_window import ProgressWindow
+from .package_details_window import PackageDetailsWindow
 
 class PackageInstaller(Adw.ApplicationWindow):
-    def __init__(self, app, install_service, update_service, pkg_manager, file_to_open=None):
+    def __init__(self, app, install_service, update_service, pkg_manager, info_service, file_to_open=None):
         super().__init__(application=app)
         self.install_service = install_service
         self.update_service = update_service
         self.pkg_manager = pkg_manager
+        self.info_service = info_service
         self.file_path = file_to_open
         
         self.set_title("App Install")
@@ -240,6 +242,8 @@ class PackageInstaller(Adw.ApplicationWindow):
             self.selected_file_label.set_text(_("Archivo seleccionado: {}").format(os.path.basename(self.file_path)))
             self.install_button.set_sensitive(True)
             self.status_label.set_text(_("Estoy listo para instalar: {}").format(os.path.basename(self.file_path)))
+            # Mostrar detalles automáticamente al cargar archivo inicialmente
+            GLib.idle_add(self.show_package_details)
         return False
 
     def on_file_chooser_clicked(self, button):
@@ -263,7 +267,43 @@ class PackageInstaller(Adw.ApplicationWindow):
                 self.status_label.set_text(_("Estoy listo para instalar: {}").format(os.path.basename(self.file_path)))
                 self.package_name_entry.set_text("")
                 self.search_results_scrolled.set_visible(False)
+                # Mostrar detalles al seleccionar archivo
+                self.show_package_details()
         dialog.destroy()
+
+    def show_package_details(self):
+        if not self.file_path or not os.path.exists(self.file_path):
+            return
+            
+        self.status_label.set_text(_("Obteniendo información de la aplicación..."))
+        self.progress_dialog = ProgressWindow(self, _("Analizando paquete..."))
+        self.progress_dialog.present()
+        
+        def _get_info():
+            try:
+                info = self.info_service.get_info(self.file_path)
+                info['ext'] = os.path.splitext(self.file_path)[1].lstrip('.')
+                GLib.idle_add(self._present_details_window, info)
+            except Exception as e:
+                print(f"Error getting package info: {e}")
+                GLib.idle_add(self._hide_progress_and_error)
+            
+        threading.Thread(target=_get_info, daemon=True).start()
+
+    def _hide_progress_and_error(self):
+        if hasattr(self, 'progress_dialog') and self.progress_dialog:
+            self.progress_dialog.close()
+            self.progress_dialog = None
+        self.status_label.set_text(_("No he podido obtener detalles del paquete"))
+
+    def _present_details_window(self, info):
+        if hasattr(self, 'progress_dialog') and self.progress_dialog:
+            self.progress_dialog.close()
+            self.progress_dialog = None
+            
+        self.status_label.set_text(_("Detalles de la aplicación cargados"))
+        details_win = PackageDetailsWindow(self, info, lambda: self.on_install_clicked(None))
+        details_win.present()
 
     def on_install_clicked(self, widget):
         if not self.file_path:
@@ -274,10 +314,11 @@ class PackageInstaller(Adw.ApplicationWindow):
                 return
         
         # Determine command using InstallService
-        file_extension = os.path.splitext(self.file_path)[1].lower()
-        is_name_only = not file_extension
+        ext_lower = ""
+        if os.path.exists(self.file_path):
+            ext_lower = os.path.splitext(self.file_path)[1].lower()
         
-        if file_extension == '.appimage':
+        if ext_lower == '.appimage':
             config_window = AppImageConfigWindow(self, self.file_path, self.proceed_with_appimage_installation)
             config_window.present()
             return
