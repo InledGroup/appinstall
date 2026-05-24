@@ -155,12 +155,17 @@ class InstalledAppsWindow(Adw.Window):
         return False
 
     def load_installed_apps(self):
+        # Ocultar lista para que el borrado sea instantáneo sin re-layouts
+        self.listbox.set_visible(False)
+        
         # Limpiar la lista actual
         child = self.listbox.get_first_child()
         while child:
             next_child = child.get_next_sibling()
             self.listbox.remove(child)
             child = next_child
+        
+        self.listbox.set_visible(True)
             
         # Mostrar estado de carga e iniciar spinner de búsqueda
         self.is_loading = True
@@ -436,7 +441,8 @@ class InstalledAppsWindow(Adw.Window):
         try:
             response = dialog.choose_finish(result)
             if response == "yes":
-                self.uninstall_package(package_name, is_appimage, is_brew, is_pwa)
+                # Pequeño retardo para dejar que el diálogo de confirmación se cierre suavemente
+                GLib.timeout_add(200, lambda: self.uninstall_package(package_name, is_appimage, is_brew, is_pwa))
         except Exception as e:
             print(f"Dialog error: {e}")
     
@@ -456,6 +462,7 @@ class InstalledAppsWindow(Adw.Window):
         cmd = self.uninstall_service.get_uninstall_command(package_name, is_appimage, is_brew, is_pwa, BREW_PATH)
         self.uninstall_service.run_uninstall(cmd, self.update_uninstall_progress, 
                                            lambda success, error: self.uninstall_complete(package_name, success, is_appimage, is_brew, is_pwa, error))
+        return False
     
     def update_uninstall_progress(self):
         new_value = min(1.0, self.progress_bar.get_fraction() + 0.05)
@@ -466,6 +473,7 @@ class InstalledAppsWindow(Adw.Window):
         self.search_entry.set_sensitive(True)
         self.stop_loading = False
 
+        # Cerrar el diálogo de progreso primero
         if hasattr(self, 'progress_dialog') and self.progress_dialog:
             self.progress_dialog.close()
             self.progress_dialog = None
@@ -473,6 +481,10 @@ class InstalledAppsWindow(Adw.Window):
         self.progress_bar.set_visible(False)
         self.progress_bar.set_fraction(0.0)
         
+        # Esperar un breve momento para que la animación de cierre termine
+        GLib.timeout_add(200, self._show_uninstall_result, package_name, success, is_appimage, is_brew, is_pwa, error_message)
+
+    def _show_uninstall_result(self, package_name, success, is_appimage, is_brew, is_pwa, error_message):
         if success:
             if is_appimage:
                 message = _("{} ha sido desinstalado correctamente. Recuerda borrar los archivos que haya creado la aplicación.").format(package_name)
@@ -490,6 +502,9 @@ class InstalledAppsWindow(Adw.Window):
             dialog.add_response("ok", _("OK"))
             dialog.set_default_response("ok")
             self.status_label.set_text(_("Desinstalación completada"))
+            
+            # Recargar la lista después de que el usuario cierre el aviso
+            dialog.connect("response", lambda d, r: self.load_installed_apps())
         else:
             if is_appimage:
                 message = _("Error al desinstalar AppImage - {}.").format(package_name)
@@ -509,4 +524,4 @@ class InstalledAppsWindow(Adw.Window):
             self.status_label.set_text(_("Uy... ha habido un error cuando estaba desinstalándote la app"))
         
         dialog.present(self)
-        self.load_installed_apps()
+        return False
