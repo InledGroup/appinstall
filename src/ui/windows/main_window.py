@@ -142,22 +142,28 @@ class PackageInstaller(Adw.ApplicationWindow):
         self.selected_file_label.add_css_class("subtitle-label")
         file_section.append(self.selected_file_label)
         
-        # Entry for Search Activation
+        # Fake Search Entry (Actually a button)
         entry_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         entry_box.set_margin_top(8)
         name_label = Gtk.Label(label=_("O escribe el nombre del paquete"), xalign=0)
         name_label.add_css_class("subtitle-label")
         entry_box.append(name_label)
         
-        self.menu_search_entry = Gtk.Entry()
-        self.menu_search_entry.set_placeholder_text(_("ej: vlc, firefox, chrome..."))
+        fake_search_btn = Gtk.Button()
+        fake_search_btn.add_css_class("search-entry") # Reutilizamos estilo si existe
         
-        # Focus listener to trigger Search Mode
-        focus_controller = Gtk.EventControllerFocus()
-        focus_controller.connect("enter", self.on_menu_search_focus)
-        self.menu_search_entry.add_controller(focus_controller)
+        fake_search_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        fake_search_box.set_margin_all(8)
+        fake_search_icon = Gtk.Image.new_from_icon_name("system-search-symbolic")
+        fake_search_box.append(fake_search_icon)
+        fake_search_label = Gtk.Label(label=_("ej: vlc, firefox, chrome..."), xalign=0)
+        fake_search_label.set_opacity(0.6)
+        fake_search_box.append(fake_search_label)
         
-        entry_box.append(self.menu_search_entry)
+        fake_search_btn.set_child(fake_search_box)
+        fake_search_btn.connect("clicked", self.on_fake_search_clicked)
+        
+        entry_box.append(fake_search_btn)
         file_section.append(entry_box)
         self.main_box.append(file_section)
 
@@ -224,13 +230,12 @@ class PackageInstaller(Adw.ApplicationWindow):
         GLib.idle_add(Gtk.Application.get_default().quit)
         return False
 
-    def on_menu_search_focus(self, controller):
+    def on_fake_search_clicked(self, btn):
         # Cambiar a modo búsqueda
         self.header_stack.set_visible_child_name("search")
         self.main_stack.set_visible_child_name("search_results")
         
-        # Transferir texto si hubiera algo y enfocar la entrada real
-        self.header_search_entry.set_text(self.menu_search_entry.get_text())
+        # Enfocar la entrada real del header
         GLib.idle_add(self.header_search_entry.grab_focus)
 
     def on_search_back_clicked(self, btn):
@@ -238,7 +243,6 @@ class PackageInstaller(Adw.ApplicationWindow):
         self.main_stack.set_visible_child_name("menu")
         
         self.header_search_entry.set_text("")
-        self.menu_search_entry.set_text("")
         
         # Limpiar resultados
         child = self.search_results_list.get_first_child()
