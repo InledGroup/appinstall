@@ -1,33 +1,17 @@
 ![Banner AppInstall](/corp/AppInstall%20banner.png)
-# AppInstall
+# AppInstall  
+It's Clean my Mac, but for Linux distros.  
+Compatible with Debian and Fedora based distros.  
 
-Instala y desinstala aplicaciones fuera de la Store en Linux de forma gráfica.
+## Features.  
+- Uninstall visually ANY package of your system  
+- Install Appimages, .deb, .rpm and PWAs  
+- Free disk space.  
+- Scan for viruses  
+- Fix installation errors.  
+- Install ANY package visually, whether from the distro repositories or from any package.  
+-
+> With Appinstall, you won't need technical knowledge to do the most basic things in Linux: managing applications.  
 
-## Instalar
-1. Selecciona el paquete a instalar.
-2. Pulsa en **Instalar**.
-3. *(Opcional)* Si hay un superusuario, introduce la contraseña de superusuario.
-
-Y ya estaría instalada la aplicación.
-
-## Desinstalar
-1. Pulsa en **Eliminar aplicaciones**.
-2. Busca la aplicación.
-3. Pulsa en la **X**.
-4. *(Opcional)* Si hay un superusuario, introduce la contraseña de superusuario.
-
-Y ya estaría desinstalada la aplicación.
-
-## Empezar a usar AppInstall
-1. **Descarga** la aplicación en .deb
-2. Ejecuta `dpkg -i [nombre del paquete.deb]`
-3. [Instala Python en tu dispositivo](https://python-guide-es.readthedocs.io/es/latest/starting/install3/linux.html).
-4. Instala el paquete **GTK y PyGObject** si no los tienes en tu sistema:
-
-   ```sh
-   sudo apt update
-   sudo apt install -y gir1.2-gtk-3.0 python3-gi pkexec
-   ```
-## Vídeos relacionados
-[![Video YT AppImages](https://i.ytimg.com/an_webp/4LWLIn5DmOQ/mqdefault_6s.webp?du=3000&sqp=CPCjtr4G&rs=AOn4CLB_qmrEV9Yk67d9r9e1_PjTnkc66w)](https://www.youtube.com/watch?v=4LWLIn5DmOQ)
-
+## Installation  
+Download the latest version of Appinstall and double-click on the .deb or .rpm file to install it.  (Only if you're using GNOME or KDE, in other cases you'll need to use the terminal).
