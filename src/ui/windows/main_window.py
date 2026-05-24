@@ -183,8 +183,8 @@ class PackageInstaller(Adw.ApplicationWindow):
                 elif label == _("Análisis antivirus"): self.antivirus_button = btn
                 elif label == _("Crear PWA"): self.pwa_button = btn
                 row_box.append(btn)
-            actions_section.append(row_box)
-        self.main_box.append(actions_section)
+            self.actions_section.append(row_box)
+        self.main_box.append(self.actions_section)
         
         # Progress section
         self.progress_section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
