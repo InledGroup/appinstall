@@ -9,16 +9,31 @@ class PackageInfoService:
     def __init__(self, package_manager: PackageManager):
         self.package_manager = package_manager
 
-    def get_info(self, file_path: str) -> Dict[str, str]:
-        if not file_path or not os.path.exists(file_path):
+    def get_info(self, identifier: str, is_local: bool = True) -> Dict[str, str]:
+        if not identifier:
             return {}
 
-        ext = os.path.splitext(file_path)[1].lower()
-        
-        if ext == '.deb' or ext == '.rpm':
-            return self.package_manager.get_local_file_info(file_path)
-        elif ext == '.appimage':
-            return self._get_appimage_info(file_path)
+        if is_local:
+            if not os.path.exists(identifier):
+                return {}
+            ext = os.path.splitext(identifier)[1].lower()
+            if ext == '.deb' or ext == '.rpm':
+                return self.package_manager.get_local_file_info(identifier)
+            elif ext == '.appimage':
+                return self._get_appimage_info(identifier)
+        else:
+            # Repository package
+            if identifier.startswith('brew:'):
+                pkg_name = identifier.replace('brew:', '', 1)
+                return {
+                    'name': pkg_name,
+                    'version': 'N/A',
+                    'description': 'Fórmula de Homebrew',
+                    'size': 'N/A',
+                    'icon': 'system-software-install-symbolic',
+                    'source': 'brew'
+                }
+            return self.package_manager.get_package_info(identifier)
         
         return {}
 

@@ -75,29 +75,33 @@ class PackageInstaller(Adw.ApplicationWindow):
         menu_button.set_popover(popover)
         header_bar.pack_end(menu_button)
         
-        toolbar_view = Adw.ToolbarView()
-        toolbar_view.add_top_bar(header_bar)
-        self.set_content(toolbar_view)
+        self.toolbar_view = Adw.ToolbarView()
+        self.toolbar_view.add_top_bar(header_bar)
+        self.set_content(self.toolbar_view)
+
+        # Contenedor para el buscador móvil (estilo GNOME Software)
+        self.search_header_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        self.toolbar_view.add_top_bar(self.search_header_box)
 
         clamp = Adw.Clamp()
         clamp.set_maximum_size(600)
-        toolbar_view.set_content(clamp)
+        self.toolbar_view.set_content(clamp)
 
         scrolled_main = Gtk.ScrolledWindow()
         scrolled_main.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         scrolled_main.set_propagate_natural_height(True)
         clamp.set_child(scrolled_main)
 
-        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=24)
-        main_box.set_margin_top(24)
-        main_box.set_margin_bottom(24)
-        main_box.set_margin_start(24)
-        main_box.set_margin_end(24)
-        scrolled_main.set_child(main_box)
+        self.main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=24)
+        self.main_box.set_margin_top(24)
+        self.main_box.set_margin_bottom(24)
+        self.main_box.set_margin_start(24)
+        self.main_box.set_margin_end(24)
+        scrolled_main.set_child(self.main_box)
         
         # File section
-        file_section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
-        file_section.add_css_class("card")
+        self.file_section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        self.file_section.add_css_class("card")
         
         title_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         icon = Gtk.Image.new_from_icon_name("package-x-generic-symbolic")
@@ -105,7 +109,7 @@ class PackageInstaller(Adw.ApplicationWindow):
         title_label = Gtk.Label(label=_("¿Qué debo instalar?"))
         title_label.add_css_class("title-label")
         title_box.append(title_label)
-        file_section.append(title_box)
+        self.file_section.append(title_box)
         
         file_chooser_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         file_chooser_box.add_css_class("file-chooser-button")
@@ -118,26 +122,32 @@ class PackageInstaller(Adw.ApplicationWindow):
         file_chooser_button = Gtk.Button()
         file_chooser_button.set_child(file_chooser_box)
         file_chooser_button.connect("clicked", self.on_file_chooser_clicked)
-        file_section.append(file_chooser_button)
+        self.file_section.append(file_chooser_button)
         
         self.selected_file_label = Gtk.Label(label=_("Aún no has seleccionado ningún archivo"))
         self.selected_file_label.add_css_class("subtitle-label")
-        file_section.append(self.selected_file_label)
+        self.file_section.append(self.selected_file_label)
         
-        name_section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        name_section.set_margin_top(8)
-        name_label = Gtk.Label(label=_("O escribe el nombre del paquete"), xalign=0)
-        name_label.add_css_class("subtitle-label")
-        name_section.append(name_label)
+        self.name_section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        self.name_section.set_margin_top(8)
+        self.name_label_widget = Gtk.Label(label=_("O escribe el nombre del paquete"), xalign=0)
+        self.name_label_widget.add_css_class("subtitle-label")
+        self.name_section.append(self.name_label_widget)
         
         self.package_name_entry = Gtk.Entry()
         self.package_name_entry.set_placeholder_text(_("ej: vlc, firefox, chrome..."))
         self.package_name_entry.connect("changed", self.on_package_name_changed)
-        name_section.append(self.package_name_entry)
+        self.package_name_entry.connect("activate", lambda e: self.on_install_clicked(None))
+        # Detectar foco para mover el buscador arriba
+        focus_controller = Gtk.EventControllerFocus()
+        focus_controller.connect("enter", self.on_search_focus_enter)
+        self.package_name_entry.add_controller(focus_controller)
+        
+        self.name_section.append(self.package_name_entry)
 
         self.search_results_scrolled = Gtk.ScrolledWindow()
         self.search_results_scrolled.set_min_content_height(100)
-        self.search_results_scrolled.set_max_content_height(300)
+        self.search_results_scrolled.set_max_content_height(400)
         self.search_results_scrolled.set_propagate_natural_height(True)
         self.search_results_scrolled.set_visible(False)
         
@@ -146,23 +156,23 @@ class PackageInstaller(Adw.ApplicationWindow):
         self.search_results_list.set_selection_mode(Gtk.SelectionMode.SINGLE)
         self.search_results_list.connect("row-activated", self.on_search_result_activated)
         self.search_results_scrolled.set_child(self.search_results_list)
-        name_section.append(self.search_results_scrolled)
+        self.name_section.append(self.search_results_scrolled)
 
         self.search_spinner = Gtk.Spinner()
         self.search_spinner.set_size_request(24, 24)
         self.search_spinner.set_halign(Gtk.Align.CENTER)
         self.search_spinner.set_margin_top(10)
         self.search_spinner.set_visible(False)
-        name_section.append(self.search_spinner)
+        self.name_section.append(self.search_spinner)
 
-        file_section.append(name_section)
-        main_box.append(file_section)
+        self.file_section.append(self.name_section)
+        self.main_box.append(self.file_section)
 
         self.search_timer = None
 
         # Actions section
-        actions_section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
-        actions_section.add_css_class("card")
+        self.actions_section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        self.actions_section.add_css_class("card")
         
         actions_title_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         actions_icon = Gtk.Image.new_from_icon_name("preferences-other-symbolic")
@@ -170,7 +180,7 @@ class PackageInstaller(Adw.ApplicationWindow):
         actions_title_label = Gtk.Label(label=_("Acciones"))
         actions_title_label.add_css_class("title-label")
         actions_title_box.append(actions_title_label)
-        actions_section.append(actions_title_box)
+        self.actions_section.append(actions_title_box)
         
         buttons_box1 = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         buttons_box1.set_homogeneous(True)
@@ -181,7 +191,7 @@ class PackageInstaller(Adw.ApplicationWindow):
         
         self.fix_deps_button = self.create_action_button(_("Corregir errores"), "applications-utilities-symbolic", self.on_fix_deps_clicked, "secondary-button")
         buttons_box1.append(self.fix_deps_button)
-        actions_section.append(buttons_box1)
+        self.actions_section.append(buttons_box1)
         
         buttons_box2 = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         buttons_box2.set_homogeneous(True)
@@ -191,7 +201,7 @@ class PackageInstaller(Adw.ApplicationWindow):
         
         self.clean_button = self.create_action_button(_("Limpiar sistema"), "edit-clear-all-symbolic", self.on_clean_clicked, "secondary-button")
         buttons_box2.append(self.clean_button)
-        actions_section.append(buttons_box2)
+        self.actions_section.append(buttons_box2)
         
         buttons_box3 = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         buttons_box3.set_homogeneous(True)
@@ -201,12 +211,12 @@ class PackageInstaller(Adw.ApplicationWindow):
         
         self.pwa_button = self.create_action_button(_("Crear PWA"), "web-browser-symbolic", self.on_pwa_clicked, "secondary-button")
         buttons_box3.append(self.pwa_button)
-        actions_section.append(buttons_box3)
-        main_box.append(actions_section)
+        self.actions_section.append(buttons_box3)
+        self.main_box.append(self.actions_section)
         
         # Progress section
-        progress_section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
-        progress_section.add_css_class("card")
+        self.progress_section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        self.progress_section.add_css_class("card")
         
         progress_title_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         progress_icon = Gtk.Image.new_from_icon_name("emblem-synchronizing-symbolic")
@@ -214,16 +224,71 @@ class PackageInstaller(Adw.ApplicationWindow):
         progress_title_label = Gtk.Label(label=_("Progreso"))
         progress_title_label.add_css_class("title-label")
         progress_title_box.append(progress_title_label)
-        progress_section.append(progress_title_box)
+        self.progress_section.append(progress_title_box)
         
         self.progress_bar = Gtk.ProgressBar()
         self.progress_bar.add_css_class("progress-bar")
-        progress_section.append(self.progress_bar)
+        self.progress_section.append(self.progress_bar)
         
         self.status_label = Gtk.Label(label=_("Empieza seleccionando un archivo que contenga una app"))
         self.status_label.add_css_class("status-label")
-        progress_section.append(self.status_label)
-        main_box.append(progress_section)
+        self.progress_section.append(self.status_label)
+        self.main_box.append(self.progress_section)
+
+    def on_search_focus_enter(self, controller):
+        # Mover buscador a la cabecera cuando se activa
+        if self.package_name_entry.get_parent() == self.name_section:
+            self.name_section.remove(self.package_name_entry)
+            self.name_section.remove(self.search_results_scrolled)
+            self.name_section.remove(self.search_spinner)
+            
+            # Crear un contenedor con márgenes para la cabecera
+            search_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+            search_box.set_margin_top(12)
+            search_box.set_margin_bottom(12)
+            search_box.set_margin_start(16)
+            search_box.set_margin_end(16)
+            
+            search_box.append(self.package_name_entry)
+            search_box.append(self.search_spinner)
+            self.search_header_box.append(search_box)
+            
+            # Los resultados se quedan en la parte principal pero ocupando más espacio
+            self.main_box.remove(self.actions_section)
+            self.main_box.remove(self.progress_section)
+            self.main_box.remove(self.file_section)
+            
+            self.main_box.append(self.search_results_scrolled)
+            self.search_results_scrolled.set_visible(True)
+            self.search_results_scrolled.set_vexpand(True)
+            
+            # Botón para volver atrás
+            back_btn = Gtk.Button(label=_("Volver"))
+            back_btn.add_css_class("flat")
+            back_btn.connect("clicked", self.on_search_back_clicked)
+            search_box.prepend(back_btn)
+            self.back_btn = back_btn
+
+    def on_search_back_clicked(self, btn):
+        # Restaurar layout original
+        search_box = self.package_name_entry.get_parent()
+        search_box.remove(self.package_name_entry)
+        search_box.remove(self.search_spinner)
+        self.search_header_box.remove(search_box)
+        
+        self.main_box.remove(self.search_results_scrolled)
+        
+        self.name_section.append(self.package_name_entry)
+        self.name_section.append(self.search_results_scrolled)
+        self.name_section.append(self.search_spinner)
+        
+        self.main_box.append(self.file_section)
+        self.main_box.append(self.actions_section)
+        self.main_box.append(self.progress_section)
+        
+        self.search_results_scrolled.set_visible(False)
+        self.search_results_scrolled.set_vexpand(False)
+        self.package_name_entry.set_text("")
 
     def create_action_button(self, label, icon_name, callback, css_class):
         button = Gtk.Button()
@@ -524,12 +589,22 @@ class PackageInstaller(Adw.ApplicationWindow):
     def perform_package_search(self, query):
         self.search_spinner.set_visible(True)
         self.search_spinner.start()
-        self.search_results_scrolled.set_visible(False)
+        # No ocultamos si ya estamos en modo expandido, para no parpadear
+        if self.package_name_entry.get_parent() != self.search_header_box:
+            self.search_results_scrolled.set_visible(False)
         
         def _search():
             results = []
             try:
-                results.extend(self.pkg_manager.search(query)[:15])
+                raw_results = self.pkg_manager.search(query)[:15]
+                theme = Gtk.IconTheme.get_for_display(Gdk.Display.get_default())
+                for res in raw_results:
+                    # Check for icon
+                    if theme.has_icon(res['name']):
+                        res['icon'] = res['name']
+                    elif theme.has_icon(res['name'].split('-')[0]):
+                        res['icon'] = res['name'].split('-')[0]
+                    results.append(res)
             except: pass
             
             if HAS_BREW:
@@ -537,7 +612,10 @@ class PackageInstaller(Adw.ApplicationWindow):
                     brew_output = subprocess.check_output([BREW_PATH, 'search', query], timeout=10, stderr=subprocess.STDOUT).decode('utf-8')
                     for line in brew_output.split('\n')[:15]:
                         if line.strip() and not line.startswith('=='):
-                            results.append({'name': line.strip(), 'desc': _("Fórmula de Homebrew"), 'source': 'brew'})
+                            name = line.strip()
+                            icon = 'system-software-install-symbolic'
+                            if theme.has_icon(name): icon = name
+                            results.append({'name': name, 'desc': _("Fórmula de Homebrew"), 'source': 'brew', 'icon': icon})
                 except: pass
             GLib.idle_add(self.show_search_results, results)
             
@@ -556,17 +634,22 @@ class PackageInstaller(Adw.ApplicationWindow):
             self.search_results_scrolled.set_visible(False)
             return
 
+        theme = Gtk.IconTheme.get_for_display(Gdk.Display.get_default())
+
         for res in results:
             row = Gtk.ListBoxRow()
             box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
-            box.set_margin_top(6)
-            box.set_margin_bottom(6)
+            box.set_margin_top(8)
+            box.set_margin_bottom(8)
             box.set_margin_start(12)
             box.set_margin_end(12)
             
-            icon_name = "package-x-generic-symbolic" if res['source'] == 'apt' else "system-software-install-symbolic"
+            icon_name = res.get('icon')
+            if not icon_name or not theme.has_icon(icon_name):
+                icon_name = "package-x-generic-symbolic" if res['source'] == 'apt' else "system-software-install-symbolic"
+            
             icon = Gtk.Image.new_from_icon_name(icon_name)
-            icon.set_opacity(0.7)
+            icon.set_pixel_size(32)
             box.append(icon)
             
             vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
@@ -598,12 +681,46 @@ class PackageInstaller(Adw.ApplicationWindow):
             self.search_timer = None
             
         self.package_name_entry.set_text(pkg_name)
-        self.search_results_scrolled.set_visible(False)
-        self.search_spinner.set_visible(False)
-        self.install_button.set_sensitive(True)
+        # Mostrar detalles antes de instalar
+        self.show_package_details(is_local=False)
+
+    def show_package_details(self, is_local=True):
+        identifier = self.file_path if is_local else self.package_name_entry.get_text().strip()
+        if not identifier:
+            return
+            
+        self.status_label.set_text(_("Obteniendo información de la aplicación..."))
+        self.progress_dialog = ProgressWindow(self, _("Analizando paquete..."))
+        self.progress_dialog.present()
         
-        # Lanzar la instalación directamente
-        self.on_install_clicked(None)
+        def _get_info():
+            try:
+                info = self.info_service.get_info(identifier, is_local=is_local)
+                if is_local:
+                    info['ext'] = os.path.splitext(identifier)[1].lstrip('.')
+                else:
+                    info['ext'] = 'repo'
+                GLib.idle_add(self._present_details_window, info)
+            except Exception as e:
+                print(f"Error getting package info: {e}")
+                GLib.idle_add(self._hide_progress_and_error)
+            
+        threading.Thread(target=_get_info, daemon=True).start()
+
+    def _hide_progress_and_error(self):
+        if hasattr(self, 'progress_dialog') and self.progress_dialog:
+            self.progress_dialog.close()
+            self.progress_dialog = None
+        self.status_label.set_text(_("No he podido obtener detalles del paquete"))
+
+    def _present_details_window(self, info):
+        if hasattr(self, 'progress_dialog') and self.progress_dialog:
+            self.progress_dialog.close()
+            self.progress_dialog = None
+            
+        self.status_label.set_text(_("Detalles de la aplicación cargados"))
+        details_win = PackageDetailsWindow(self, info, lambda: self.on_install_clicked(None))
+        details_win.present()
 
     def on_about_clicked(self, widget):
         about_dialog = Adw.AboutWindow(

@@ -97,5 +97,35 @@ class AptAdapter(PackageManager):
             pass
         return info
 
+    def get_package_info(self, package_name: str) -> Dict[str, str]:
+        info = {'name': package_name, 'version': '', 'description': '', 'size': '', 'icon': ''}
+        try:
+            output = subprocess.check_output(['apt-cache', 'show', package_name]).decode('utf-8')
+            for line in output.split('\n'):
+                if line.startswith('Version:'): info['version'] = line.replace('Version:', '').strip()
+                elif line.startswith('Description-en:') or line.startswith('Description:'):
+                    # Only take the first line of description for now
+                    info['description'] = line.replace('Description-en:', '').replace('Description:', '').strip()
+                elif line.startswith('Installed-Size:'):
+                    try:
+                        size_kb = int(line.replace('Installed-Size:', '').strip())
+                        info['size'] = f"{size_kb / 1024:.1f} MB"
+                    except: pass
+            
+            # Simple icon heuristic: look for an icon with the package name
+            import shutil
+            if shutil.which('gtk-update-icon-cache'): # Just to check if we are in a GUI env
+                icon_names = [package_name, package_name.split('-')[0]]
+                from gi.repository import Gtk
+                theme = Gtk.IconTheme.get_for_display(Gdk.Display.get_default())
+                for name in icon_names:
+                    if theme.has_icon(name):
+                        # We don't have the path easily, but we can signal that it exists
+                        info['icon'] = name
+                        break
+        except:
+            pass
+        return info
+
     def install_clamav(self) -> List[str]:
         return ['pkexec', 'apt-get', 'install', '-y', 'clamav', 'clamav-daemon', 'clamav-freshclam']

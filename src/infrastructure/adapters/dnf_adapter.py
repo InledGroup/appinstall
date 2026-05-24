@@ -110,5 +110,25 @@ class DnfAdapter(PackageManager):
             pass
         return info
 
+    def get_package_info(self, package_name: str) -> Dict[str, str]:
+        info = {'name': package_name, 'version': '', 'description': '', 'size': '', 'icon': ''}
+        try:
+            output = subprocess.check_output(['dnf', 'info', '--quiet', package_name]).decode('utf-8', errors='ignore')
+            for line in output.split('\n'):
+                if line.startswith('Version'): info['version'] = line.split(':', 1)[1].strip()
+                elif line.startswith('Description') or line.startswith('Summary'):
+                    info['description'] = line.split(':', 1)[1].strip()
+                elif line.startswith('Size'):
+                    info['size'] = line.split(':', 1)[1].strip()
+            
+            # Simple icon heuristic
+            from gi.repository import Gtk, Gdk
+            theme = Gtk.IconTheme.get_for_display(Gdk.Display.get_default())
+            if theme.has_icon(package_name):
+                info['icon'] = package_name
+        except:
+            pass
+        return info
+
     def install_clamav(self) -> List[str]:
         return ['pkexec', 'dnf', 'install', '-y', 'clamav', 'clamav-update', 'clamd']
