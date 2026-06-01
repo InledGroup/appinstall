@@ -15,3 +15,23 @@ fi
 if command -v update-mime-database >/dev/null; then
     update-mime-database /usr/share/mime || true
 fi
+
+# Add Inled APT Repository
+REPO_URL="https://apt.inled.es"
+KEY_URL="$REPO_URL/archive.key"
+REPO_LIST="/etc/apt/sources.list.d/inled.list"
+
+echo "Configurando repositorio de actualizaciones de Inled..."
+
+# Descargar e instalar la llave GPG
+if command -v curl >/dev/null; then
+    curl -fsSL "$KEY_URL" | gpg --dearmor -o /usr/share/keyrings/inled-archive-keyring.gpg --yes
+elif command -v wget >/dev/null; then
+    wget -qO- "$KEY_URL" | gpg --dearmor -o /usr/share/keyrings/inled-archive-keyring.gpg --yes
+fi
+
+# Añadir el repositorio a las fuentes
+echo "deb [signed-by=/usr/share/keyrings/inled-archive-keyring.gpg] $REPO_URL stable main" > "$REPO_LIST"
+
+# Actualizar la caché de apt en segundo plano
+apt-get update -o Dir::Etc::sourcelist="$REPO_LIST" -o Dir::Etc::sourceparts="-" -o APT::Get::List-Cleanup="0" || true
