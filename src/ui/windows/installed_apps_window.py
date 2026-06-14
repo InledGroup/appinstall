@@ -179,115 +179,132 @@ class InstalledAppsWindow(Adw.Window):
         thread.start()
     
     def load_apps_thread(self):
+        """Hilo que carga las aplicaciones de forma incremental para no bloquear la UI."""
         try:
-            # Obtener paquetes instalados
-            packages = []
-            brew_packages = []
-            
-            # Obtener paquetes del sistema
-            try:
-                packages = self.package_manager.list_installed()
-            except Exception as e:
-                print(f"Error al obtener paquetes: {e}")
-            
-            # Obtener paquetes de Homebrew
+            # Pre-descargar logo de Homebrew en el hilo de fondo (solo una vez)
             if HAS_BREW:
-                try:
-                    output = subprocess.check_output([BREW_PATH, 'list', '--formula'], 
-                                                   timeout=15, stderr=subprocess.STDOUT).decode('utf-8')
-                    formulas = [line.strip() for line in output.split('\n') if line.strip()]
-                    brew_packages.extend(formulas)
-                    
-                    output_cask = subprocess.check_output([BREW_PATH, 'list', '--cask'], 
-                                                        timeout=15, stderr=subprocess.STDOUT).decode('utf-8')
-                    casks = [line.strip() for line in output_cask.split('\n') if line.strip()]
-                    brew_packages.extend(casks)
-                except Exception as e:
-                    print(f"Error al obtener paquetes de Homebrew: {e}")
+                self.brew_logo_path = os.path.expanduser("~/.cache/appinstall/homebrew_logo.png")
+                if not os.path.exists(self.brew_logo_path):
+                    try:
+                        os.makedirs(os.path.dirname(self.brew_logo_path), exist_ok=True)
+                        response = requests.get("https://upload.wikimedia.org/wikipedia/commons/3/34/Homebrew_logo.png", timeout=5)
+                        if response.status_code == 200:
+                            with open(self.brew_logo_path, 'wb') as f:
+                                f.write(response.content)
+                    except:
+                        self.brew_logo_path = None
+            else:
+                self.brew_logo_path = None
 
-            # Obtener AppImages y PWAs (en system y user local)
-            pwas = {} # internal_name -> display_name
-            appimages = {} # internal_name -> display_name
+            # Función auxiliar para enviar lotes a la UI
+            def push_to_ui(batch):
+                if not getattr(self, "stop_loading", False):
+                    GLib.idle_add(self._add_batch_to_list, batch)
+
+            # --- FASE 1: AppImages y PWAs (Lo más rápido y relevante) ---
+            desktop_apps = []
             desktop_dirs = ["/usr/share/applications", os.path.expanduser("~/.local/share/applications")]
             
+            import re
+            name_re = re.compile(r'^Name=(.*)$', re.MULTILINE)
+            exec_re = re.compile(r'^Exec=(.*)$', re.MULTILINE)
+            icon_re = re.compile(r'^Icon=(.*)$', re.MULTILINE)
+
             for desktop_dir in desktop_dirs:
                 if os.path.exists(desktop_dir):
-                    for filename in os.listdir(desktop_dir):
-                        if filename.endswith(".desktop"):
-                            desktop_path = os.path.join(desktop_dir, filename)
-                            try:
-                                with open(desktop_path, 'r') as f:
-                                    content = f.read()
-                                    app_name = filename.replace(".desktop", "")
+                    try:
+                        for filename in os.listdir(desktop_dir):
+                            if getattr(self, "stop_loading", False): break
+                            if filename.endswith(".desktop"):
+                                desktop_path = os.path.join(desktop_dir, filename)
+                                try:
+                                    with open(desktop_path, 'r', encoding='utf-8', errors='ignore') as f:
+                                        content = f.read()
+                                        app_id = filename.replace(".desktop", "")
+                                        name_match = name_re.search(content)
+                                        display_name = name_match.group(1).strip() if name_match else app_id
+                                        exec_val = exec_re.search(content).group(1).strip() if exec_re.search(content) else ""
+                                        icon_val = icon_re.search(content).group(1).strip() if icon_re.search(content) else ""
 
-                                    import re
-                                    name_match = re.search(r'^Name=(.*)$', content, re.MULTILINE)
-                                    display_name = name_match.group(1).strip() if name_match else app_name
+                                        is_pwa = "X-AppInstall=PWA" in content or "--app=" in exec_val or "--application-mode=" in exec_val
+                                        is_appimage = "X-AppInstall=AppImage" in content or "appimage.png" in icon_val or (f"/usr/bin/{app_id}" in exec_val and f"/usr/share/pixmaps/{app_id}" in icon_val)
 
-                                    is_pwa = (
-                                        "X-AppInstall=PWA" in content or 
-                                        "X-SwiftInstall=PWA" in content or
-                                        "--app=" in content or
-                                        "--application-mode=" in content
-                                    )
-
-                                    if is_pwa:
-                                        pwas[app_name] = display_name
-                                    else:
-                                        is_appinstall_app = (
-                                            "X-AppInstall=AppImage" in content or 
-                                            "X-SwiftInstall=AppImage" in content or
-                                            ("/usr/bin/" in content and "appimage.png" in content) or
-                                            (f"Exec=/usr/bin/{app_name}" in content and f"Icon=/usr/share/pixmaps/{app_name}" in content)
-                                        )
-
-                                        if is_appinstall_app:
-                                            appimages[app_name] = display_name
-                            except:
-                                pass
+                                        if is_pwa:
+                                            desktop_apps.append((display_name, app_id, False, False, True))
+                                        elif is_appimage:
+                                            desktop_apps.append((display_name, app_id, True, False, False))
+                                except: continue
+                    except: pass
             
-            # Preparar la lista completa una sola vez
-            all_apps = []
-            for a_name in sorted(pwas.keys()): all_apps.append((pwas[a_name], a_name, "pwa"))
-            for a_name in sorted(appimages.keys()): all_apps.append((appimages[a_name], a_name, "appimage"))
-            for b in sorted(brew_packages): all_apps.append((b, b, "brew"))
-            for p in sorted(packages): all_apps.append((p, p, "system"))
+            if desktop_apps:
+                push_to_ui(sorted(desktop_apps))
 
-            # Actualizar la UI en lotes para evitar sobrecargar el bucle principal
-            def update_ui_batch(index):
-                if getattr(self, "stop_loading", False):
-                    return False
+            # --- FASE 2: Homebrew (Suele tardar unos segundos) ---
+            if HAS_BREW and not getattr(self, "stop_loading", False):
+                try:
+                    brew_batch = []
+                    output = subprocess.check_output([BREW_PATH, 'list', '--formula'], timeout=10, stderr=subprocess.DEVNULL).decode('utf-8')
+                    for line in output.split('\n'):
+                        if line.strip(): brew_batch.append((line.strip(), line.strip(), False, True, False))
+                    
+                    output_cask = subprocess.check_output([BREW_PATH, 'list', '--cask'], timeout=10, stderr=subprocess.DEVNULL).decode('utf-8')
+                    for line in output_cask.split('\n'):
+                        if line.strip(): brew_batch.append((line.strip(), line.strip(), False, True, False))
+                    
+                    if brew_batch:
+                        push_to_ui(sorted(brew_batch))
+                except: pass
 
-                if not all_apps:
-                    self.is_loading = False
-                    self.search_spinner.stop()
-                    self.stack.set_visible_child_name("empty")
-                    return False
+            # --- FASE 3: Paquetes del Sistema (Pueden ser miles) ---
+            if not getattr(self, "stop_loading", False):
+                try:
+                    packages = self.package_manager.list_installed()
+                    packages.sort()
+                    
+                    # Dividir miles de paquetes en lotes pequeños para no saturar el main loop
+                    chunk_size = 25
+                    for i in range(0, len(packages), chunk_size):
+                        if getattr(self, "stop_loading", False): break
+                        chunk = packages[i:i + chunk_size]
+                        system_batch = [(p, p, False, False, False) for p in chunk]
+                        push_to_ui(system_batch)
+                        # Dar un pequeño respiro al hilo para que la UI respire
+                        import time
+                        time.sleep(0.01) 
+                except Exception as e:
+                    print(f"Error cargando paquetes sistema: {e}")
 
-                if index == 0:
-                    self.stack.set_visible_child_name("list")
+            # Finalizar carga
+            GLib.idle_add(self._finish_loading)
 
-                batch_size = 50
-                end_index = min(index + batch_size, len(all_apps))
-                
-                for i in range(index, end_index):
-                    display_name, internal_name, type = all_apps[i]
-                    self.add_app_to_list(display_name, internal_name, type == "appimage", type == "brew", type == "pwa")
-                
-                if end_index < len(all_apps):
-                    GLib.idle_add(lambda: update_ui_batch(end_index))
-                else:
-                    self.is_loading = False
-                    self.search_spinner.stop()
-                    self.on_search_changed(self.search_entry)
-                
-                return False
-            
-            GLib.idle_add(lambda: update_ui_batch(0))
-            
         except Exception as e:
-            print(f"Error al cargar aplicaciones: {e}")
+            print(f"Error en load_apps_thread: {e}")
             GLib.idle_add(self.show_error_message)
+
+    def _add_batch_to_list(self, batch):
+        """Añade un lote de aplicaciones a la ListBox. Ejecutado en el hilo principal."""
+        if getattr(self, "stop_loading", False):
+            return False
+
+        if self.stack.get_visible_child_name() == "loading":
+            self.stack.set_visible_child_name("list")
+
+        for display_name, internal_name, is_appimage, is_brew, is_pwa in batch:
+            self.add_app_to_list(display_name, internal_name, is_appimage, is_brew, is_pwa)
+        
+        # Si hay búsqueda activa, necesitamos invalidar el filtro
+        if self.search_entry.get_text():
+            self.listbox.invalidate_filter()
+        
+        return False
+
+    def _finish_loading(self):
+        """Finaliza el estado de carga en la UI."""
+        self.is_loading = False
+        self.search_spinner.stop()
+        if not self.listbox.get_first_child():
+            self.stack.set_visible_child_name("empty")
+        return False
     
     def add_app_to_list(self, display_name, internal_name, is_appimage=False, is_brew=False, is_pwa=False):
         row = Gtk.ListBoxRow()
@@ -306,19 +323,9 @@ class InstalledAppsWindow(Adw.Window):
         elif is_pwa:
             icon = Gtk.Image.new_from_icon_name("web-browser-symbolic")
         elif is_brew:
-            brew_logo_path = os.path.expanduser("~/.cache/appinstall/homebrew_logo.png")
-            if not os.path.exists(brew_logo_path):
-                try:
-                    os.makedirs(os.path.dirname(brew_logo_path), exist_ok=True)
-                    response = requests.get("https://upload.wikimedia.org/wikipedia/commons/3/34/Homebrew_logo.png", timeout=10)
-                    if response.status_code == 200:
-                        with open(brew_logo_path, 'wb') as f:
-                            f.write(response.content)
-                except:
-                    pass
-            
-            if os.path.exists(brew_logo_path):
-                icon = Gtk.Image.new_from_file(brew_logo_path)
+            # Usamos el path pre-calculado en el hilo de fondo
+            if hasattr(self, 'brew_logo_path') and self.brew_logo_path and os.path.exists(self.brew_logo_path):
+                icon = Gtk.Image.new_from_file(self.brew_logo_path)
                 icon.set_pixel_size(24)
             else:
                 icon = Gtk.Image.new_from_icon_name("system-software-install")
