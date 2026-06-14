@@ -19,7 +19,7 @@ sudo cp appinstall/usr/share/pixmaps/appinstall.png /usr/share/pixmaps/
 # Crear script ejecutable
 sudo tee /usr/bin/appinstall > /dev/null << 'EOF'
 #!/bin/bash
-python3 "/usr/share/appinstall/start.py"
+/usr/bin/python3 "/usr/share/appinstall/start.py"
 EOF
 
 # Dar permisos

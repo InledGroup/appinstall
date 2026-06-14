@@ -121,7 +121,7 @@ modules:
       - |
         cat > /app/bin/appinstall << 'EOF'
         #!/bin/bash
-        exec python3 /app/share/appinstall/start.py "$@"
+        exec /usr/bin/python3 /app/share/appinstall/start.py "$@"
         EOF
       - chmod +x /app/bin/appinstall
     sources:

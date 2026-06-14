@@ -1,3 +1,3 @@
 #!/bin/bash
-exec python3 "/usr/share/appinstall/start.py" "$@"
+exec /usr/bin/python3 "/usr/share/appinstall/start.py" "$@"
 
