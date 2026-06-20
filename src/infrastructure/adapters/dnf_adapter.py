@@ -132,3 +132,9 @@ class DnfAdapter(PackageManager):
 
     def install_clamav(self) -> List[str]:
         return ['pkexec', 'dnf', 'install', '-y', 'clamav', 'clamav-update', 'clamd']
+
+    def upgrade_system(self) -> List[str]:
+        # English: Run DNF cache update followed by system upgrade
+        # Español: Ejecutar la actualización de caché de DNF seguida de la actualización del sistema
+        return ['pkexec', 'sh', '-c', 'dnf makecache && dnf upgrade -y']
+

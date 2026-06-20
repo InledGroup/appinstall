@@ -824,6 +824,29 @@ msgstr "Remind me later"
 msgid "Actualizar ahora"
 msgstr "Update now"
 
+msgid "Actualizar sistema"
+msgstr "Upgrade system"
+
+msgid "Actualizando el sistema..."
+msgstr "Upgrading the system..."
+
+msgid "¡Un error al actualizar el sistema!"
+msgstr "An error occurred while upgrading the system!"
+
+msgid "He terminado de actualizar el sistema"
+msgstr "System upgrade completed"
+
+msgid "El sistema se ha actualizado correctamente."
+msgstr "The system was successfully upgraded."
+
+msgid "Instalar directamente"
+msgstr "Install directly"
+
+msgid "Análisis omitido, instalando..."
+msgstr "Analysis skipped, installing..."
+
+
+
 #~ msgid "Paquete instalado"
 #~ msgstr "Installed package"
 

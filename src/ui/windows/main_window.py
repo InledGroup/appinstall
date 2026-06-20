@@ -181,7 +181,8 @@ class PackageInstaller(Adw.ApplicationWindow):
             [(_("Eliminar apps"), "user-trash-symbolic", self.on_apps_clicked, "secondary-button"),
              (_("Limpiar sistema"), "edit-clear-all-symbolic", self.on_clean_clicked, "secondary-button")],
             [(_("Análisis antivirus"), "security-high-symbolic", self.on_antivirus_clicked, "secondary-button"),
-             (_("Crear PWA"), "web-browser-symbolic", self.on_pwa_clicked, "secondary-button")]
+             (_("Crear PWA"), "web-browser-symbolic", self.on_pwa_clicked, "secondary-button")],
+            [(_("Actualizar sistema"), "software-update-available-symbolic", self.on_upgrade_system_clicked, "secondary-button")]
         ]:
             row_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12); row_box.set_homogeneous(True)
             for label, icon, cb, css in btns:
@@ -192,6 +193,7 @@ class PackageInstaller(Adw.ApplicationWindow):
                 elif label == _("Limpiar sistema"): self.clean_button = btn
                 elif label == _("Análisis antivirus"): self.antivirus_button = btn
                 elif label == _("Crear PWA"): self.pwa_button = btn
+                elif label == _("Actualizar sistema"): self.upgrade_system_button = btn
                 row_box.append(btn)
             self.actions_section.append(row_box)
         self.main_box.append(self.actions_section)
@@ -230,9 +232,10 @@ class PackageInstaller(Adw.ApplicationWindow):
         self.connect("close-request", self._on_close_request)
 
     def _on_close_request(self, *args):
-        # Asegurar que el proceso muere
-        GLib.idle_add(Gtk.Application.get_default().quit)
-        return False
+        # English: Ensure the Python process exits completely upon window close
+        # Español: Asegurar que el proceso de Python se cierre por completo al cerrar la ventana
+        import os
+        os._exit(0)
 
     def on_fake_search_clicked(self, btn):
         # Cambiar a modo búsqueda
@@ -304,7 +307,7 @@ class PackageInstaller(Adw.ApplicationWindow):
             return
             
         self.status_label.set_text(_("Obteniendo información de la aplicación..."))
-        self.progress_dialog = ProgressWindow(self, _("Analizando paquete..."))
+        self.progress_dialog = ProgressWindow(self, _("Analizando paquete..."), skip_callback=self.on_skip_analysis_clicked)
         self.progress_dialog.present()
         
         def _get_info():
@@ -335,6 +338,13 @@ class PackageInstaller(Adw.ApplicationWindow):
         self.status_label.set_text(_("Detalles de la aplicación cargados"))
         details_win = PackageDetailsWindow(self, info, lambda: self.on_install_clicked(None))
         details_win.present()
+
+    def on_skip_analysis_clicked(self):
+        # English: Skip package analysis and trigger installation directly
+        # Español: Omitir el análisis del paquete e iniciar la instalación de inmediato
+        self.progress_dialog = None
+        self.status_label.set_text(_("Análisis omitido, instalando..."))
+        GLib.idle_add(lambda: self.on_install_clicked(None))
 
     def on_install_clicked(self, widget):
         if not self.file_path:
@@ -370,14 +380,27 @@ class PackageInstaller(Adw.ApplicationWindow):
 
     def on_fix_deps_clicked(self, widget):
         self.set_buttons_sensitive(False)
-        self.status_label.set_text(_("Corrigiendo errores"))
+        self.status_label.set_text(_("Corregir errores"))
         self.progress_bar.set_fraction(0.0)
         
-        self.progress_dialog = ProgressWindow(self, _("Corrigiendo errores"))
+        self.progress_dialog = ProgressWindow(self, _("Corregir errores"))
         self.progress_dialog.present()
         
         cmd = self.pkg_manager.fix_broken()
         self.install_service.run_fix_deps(cmd, self.update_progress_ui, self.on_fix_deps_complete)
+
+    def on_upgrade_system_clicked(self, widget):
+        # English: Trigger full system update and upgrade
+        # Español: Desencadenar la actualización completa del sistema
+        self.set_buttons_sensitive(False)
+        self.status_label.set_text(_("Actualizando el sistema..."))
+        self.progress_bar.set_fraction(0.0)
+        
+        self.progress_dialog = ProgressWindow(self, _("Actualizando el sistema..."))
+        self.progress_dialog.present()
+        
+        cmd = self.pkg_manager.upgrade_system()
+        self.install_service.run_installation(cmd, "system_upgrade", self.update_progress_ui, self.on_upgrade_system_complete)
 
     def on_apps_clicked(self, widget):
         from src.application.uninstall_service import UninstallService
@@ -463,6 +486,26 @@ class PackageInstaller(Adw.ApplicationWindow):
         dialog.present(self)
         self.set_buttons_sensitive(True)
 
+    def on_upgrade_system_complete(self, message, is_error=False, stderr_output=""):
+        # English: Handle system upgrade completion dialog and state reset
+        # Español: Manejar el diálogo de finalización de actualización del sistema y reinicio de estado
+        if hasattr(self, 'progress_dialog') and self.progress_dialog:
+            self.progress_dialog.close()
+            self.progress_dialog = None
+            
+        self.progress_bar.set_fraction(1.0)
+        self.status_label.set_text(message)
+        
+        if is_error:
+            dialog = Adw.AlertDialog(heading=_("¡Un error al actualizar el sistema!"), body=message)
+        else:
+            dialog = Adw.AlertDialog(heading=_("He terminado de actualizar el sistema"), body=message)
+        
+        dialog.add_response("ok", "OK")
+        dialog.set_default_response("ok")
+        dialog.present(self)
+        self.set_buttons_sensitive(True)
+
     def set_buttons_sensitive(self, sensitive):
         self.install_button.set_sensitive(sensitive)
         self.fix_deps_button.set_sensitive(sensitive)
@@ -470,6 +513,7 @@ class PackageInstaller(Adw.ApplicationWindow):
         self.clean_button.set_sensitive(sensitive)
         self.antivirus_button.set_sensitive(sensitive)
         self.pwa_button.set_sensitive(sensitive)
+        self.upgrade_system_button.set_sensitive(sensitive)
 
     def check_updates_on_startup(self):
         thread = threading.Thread(target=self.check_updates_thread)
@@ -532,6 +576,7 @@ class PackageInstaller(Adw.ApplicationWindow):
         text = entry.get_text().strip()
         if self.search_timer:
             GLib.source_remove(self.search_timer)
+            self.search_timer = None
         
         if len(text) >= 3:
             self.search_timer = GLib.timeout_add(500, self.perform_package_search, text)
@@ -542,13 +587,24 @@ class PackageInstaller(Adw.ApplicationWindow):
                 child = self.search_results_list.get_first_child()
 
     def perform_package_search(self, query):
+        self.search_timer = None
         self.search_spinner.set_visible(True)
         self.search_spinner.start()
+
         
         def _search():
             results = []
             try:
+                # English: Reload package cache before searching (equivalent to apt update)
+                # Español: Recargar la caché de paquetes antes de buscar (equivalente a apt update)
+                try:
+                    update_cmd = self.pkg_manager.update_cache()
+                    subprocess.run(update_cmd, timeout=45, check=False)
+                except Exception as e:
+                    print(f"Error updating package cache: {e}")
+
                 raw_results = self.pkg_manager.search(query)[:15]
+
                 theme = Gtk.IconTheme.get_for_display(Gdk.Display.get_default())
                 for res in raw_results:
                     if theme.has_icon(res['name']):

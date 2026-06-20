@@ -129,3 +129,9 @@ class AptAdapter(PackageManager):
 
     def install_clamav(self) -> List[str]:
         return ['pkexec', 'apt-get', 'install', '-y', 'clamav', 'clamav-daemon', 'clamav-freshclam']
+
+    def upgrade_system(self) -> List[str]:
+        # English: Run package index update followed by system upgrade
+        # Español: Ejecutar la actualización del índice de paquetes seguida de la actualización del sistema
+        return ['pkexec', 'sh', '-c', 'apt-get update && apt-get dist-upgrade -y']
+

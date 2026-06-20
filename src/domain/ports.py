@@ -58,3 +58,10 @@ class PackageManager(ABC):
     @abstractmethod
     def install_clamav(self) -> List[str]:
         pass
+
+    @abstractmethod
+    def upgrade_system(self) -> List[str]:
+        # English: Return the system update and upgrade command
+        # Español: Devolver el comando para actualizar y mejorar el sistema
+        pass
+

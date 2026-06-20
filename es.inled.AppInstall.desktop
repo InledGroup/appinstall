@@ -7,5 +7,6 @@ Terminal=false
 Type=Application
 Categories=Utility;System;
 StartupNotify=false
-Keywords=install;package;deb;rpm;appimage;
-MimeType=application/vnd.debian.binary-package;application/x-debian-package;application/x-appimage;
+Keywords=install;package;deb;rpm;appimage;pacman;arch;
+MimeType=application/vnd.debian.binary-package;application/x-debian-package;application/x-redhat-package-manager;application/x-rpm;application/x-appimage;application/x-zstd;application/x-xz;application/x-tar;
+

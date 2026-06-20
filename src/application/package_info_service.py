@@ -17,7 +17,14 @@ class PackageInfoService:
             if not os.path.exists(identifier):
                 return {}
             ext = os.path.splitext(identifier)[1].lower()
-            if ext == '.deb' or ext == '.rpm':
+            # English: Check for supported system packages (.deb, .rpm, .pkg.tar.zst, .pkg.tar.xz)
+            # Español: Comprobar si son paquetes de sistema compatibles (.deb, .rpm, .pkg.tar.zst, .pkg.tar.xz)
+            is_local_pkg = (
+                ext in ('.deb', '.rpm') or
+                identifier.lower().endswith('.pkg.tar.zst') or
+                identifier.lower().endswith('.pkg.tar.xz')
+            )
+            if is_local_pkg:
                 return self.package_manager.get_local_file_info(identifier)
             elif ext == '.appimage':
                 return self._get_appimage_info(identifier)
