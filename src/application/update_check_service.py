@@ -40,3 +40,10 @@ class UpdateCheckService:
         except Exception as e:
             print(f"Unexpected error checking for updates: {str(e)}")
             return None
+
+    def get_latest_version(self) -> str:
+        """Obtiene la última versión disponible de la aplicación."""
+        res = self.check_for_updates()
+        if res:
+            return res[1]
+        return None

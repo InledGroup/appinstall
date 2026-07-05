@@ -20,8 +20,9 @@ Compatible with Debian, Fedora and Arch Linux based distros.
 Download the latest version of Appinstall and double-click on the .deb or .rpm file to install it.  (Only if you're using GNOME or KDE, in other cases you'll need to use the terminal).
 
 ### Arch Linux
-On Arch Linux I'm still working on the dependencies.
-After installing the package, run
+Las dependencias se resuelven e instalan automáticamente al instalar el paquete `.pkg.tar.zst`. 
+
+Si necesitas instalarlas manualmente, puedes ejecutar:
 ```bash
 sudo pacman -Syu python python-gobject gtk4 libadwaita python-requests python-packaging polkit
 ```

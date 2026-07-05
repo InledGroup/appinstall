@@ -42,6 +42,7 @@ Icon={target_icon_path}
 Terminal=false
 Categories={category}
 X-AppInstall={install_type}
+X-SwiftInstall={install_type}
 """
 
     def get_install_command(self, file_path):
@@ -52,7 +53,15 @@ X-AppInstall={install_type}
         is_brew_file = HAS_BREW and file_extension == '.rb'
         is_name_only = not file_extension
 
-        if file_extension == '.deb' or file_extension == '.rpm':
+        # English: Check if it is a supported local package archive (.deb, .rpm, .pkg.tar.zst, .pkg.tar.xz)
+        # Español: Comprobar si es un archivo de paquete local compatible (.deb, .rpm, .pkg.tar.zst, .pkg.tar.xz)
+        is_local_package = (
+            file_extension in ('.deb', '.rpm') or
+            file_path.lower().endswith('.pkg.tar.zst') or
+            file_path.lower().endswith('.pkg.tar.xz')
+        )
+
+        if is_local_package:
             return self.package_manager.install_local(file_path)
         elif is_brew_file:
             return [BREW_PATH, 'install', '--formula', file_path]
@@ -117,14 +126,18 @@ X-AppInstall={install_type}
                 stdout, stderr = process.communicate()
                 
                 if process.returncode == 0:
-                    # Logic for success message
-                    message = _("He instalado todo bien, ¡disfrútala!")
-                    if file_path and file_path.lower().endswith('.appimage'):
+                    # English: Determine success message based on context
+                    # Español: Determinar el mensaje de éxito según el contexto
+                    if file_path == "system_upgrade":
+                        message = _("El sistema se ha actualizado correctamente.")
+                    elif file_path and file_path.lower().endswith('.appimage'):
                         filename = os.path.basename(file_path)
                         app_name = os.path.splitext(filename)[0]
                         message = _("AppImage instalado como {}. Se ha creado un acceso directo.").format(app_name)
                     elif not file_path:
                         message = _("¡Web App creada correctamente! Ya la tienes disponible en tu menú.")
+                    else:
+                        message = _("He instalado todo bien, ¡disfrútala!")
                     
                     GLib.idle_add(on_complete, message, False, "")
                 else:

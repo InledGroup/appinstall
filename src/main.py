@@ -17,6 +17,7 @@ from src.utils.constants import CURRENT_VERSION
 from src.application.install_service import InstallService
 from src.application.update_check_service import UpdateCheckService
 from src.application.package_info_service import PackageInfoService
+from src.application.search_service import SearchService
 
 # Main Window
 from src.ui.windows.main_window import PackageInstaller
@@ -36,6 +37,7 @@ class AppInstallApp(Adw.Application):
         self.install_service = InstallService(self.pkg_manager)
         self.update_service = UpdateCheckService()
         self.info_service = PackageInfoService(self.pkg_manager)
+        self.search_service = SearchService(self.pkg_manager)
 
     def on_command_line(self, app, command_line):
         args = command_line.get_arguments()
@@ -67,6 +69,7 @@ class AppInstallApp(Adw.Application):
             self.update_service, 
             self.pkg_manager, 
             self.info_service,
+            search_service=self.search_service,
             file_to_open=self.file_to_open
         )
         win.present()

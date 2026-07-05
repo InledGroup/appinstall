@@ -5,7 +5,7 @@ import requests
 from gi.repository import Gtk, GLib, Adw
 from src.infrastructure.services.localization import _
 from src.utils.system import get_safe_window_size, HAS_BREW, BREW_PATH
-from src.ui.windows.progress_window import UninstallationProgressWindow
+from src.ui.windows.progress_window import ProgressWindow
 
 class InstalledAppsWindow(Adw.Window):
     def __init__(self, parent, package_manager, uninstall_service):
@@ -21,6 +21,7 @@ class InstalledAppsWindow(Adw.Window):
         self.set_transient_for(parent)
         self.set_modal(True)
         self.add_css_class("main-window")
+        self.connect("close-request", self._on_close_request)
 
         # Header bar al estilo GNOME
         header_bar = Adw.HeaderBar()
@@ -72,6 +73,7 @@ class InstalledAppsWindow(Adw.Window):
         main_box.append(search_box)
         
         self.is_loading = False
+        self.stop_loading = False
 
         # Contenedor para el contenido (Stack para manejar estados)
         content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
@@ -148,13 +150,22 @@ class InstalledAppsWindow(Adw.Window):
         # Cargar aplicaciones
         self.load_installed_apps()
     
+    def _on_close_request(self, *args):
+        self.stop_loading = True
+        return False
+
     def load_installed_apps(self):
+        # Ocultar lista para que el borrado sea instantáneo sin re-layouts
+        self.listbox.set_visible(False)
+        
         # Limpiar la lista actual
         child = self.listbox.get_first_child()
         while child:
             next_child = child.get_next_sibling()
             self.listbox.remove(child)
             child = next_child
+        
+        self.listbox.set_visible(True)
             
         # Mostrar estado de carga e iniciar spinner de búsqueda
         self.is_loading = True
@@ -168,105 +179,137 @@ class InstalledAppsWindow(Adw.Window):
         thread.start()
     
     def load_apps_thread(self):
+        """Hilo que carga las aplicaciones de forma incremental para no bloquear la UI."""
         try:
-            # Obtener paquetes instalados
-            packages = []
-            appimages = []
-            brew_packages = []
-            
-            # Obtener paquetes del sistema
-            try:
-                packages = self.package_manager.list_installed()
-            except Exception as e:
-                print(f"Error al obtener paquetes: {e}")
-            
-            # Obtener paquetes de Homebrew
+            # Pre-descargar logo de Homebrew en el hilo de fondo (solo una vez)
             if HAS_BREW:
+                self.brew_logo_path = os.path.expanduser("~/.cache/appinstall/homebrew_logo.png")
+                if not os.path.exists(self.brew_logo_path):
+                    try:
+                        os.makedirs(os.path.dirname(self.brew_logo_path), exist_ok=True)
+                        response = requests.get("https://upload.wikimedia.org/wikipedia/commons/3/34/Homebrew_logo.png", timeout=5)
+                        if response.status_code == 200:
+                            with open(self.brew_logo_path, 'wb') as f:
+                                f.write(response.content)
+                    except:
+                        self.brew_logo_path = None
+            else:
+                self.brew_logo_path = None
+
+            # Función auxiliar para enviar lotes a la UI
+            def push_to_ui(batch):
+                if not getattr(self, "stop_loading", False):
+                    GLib.idle_add(self._add_batch_to_list, batch)
+
+            # --- FASE 1: AppImages y PWAs (Lo más rápido y relevante) ---
+            desktop_apps = []
+            desktop_dirs = ["/usr/share/applications", os.path.expanduser("~/.local/share/applications")]
+            
+            import re
+            name_re = re.compile(r'^Name=(.*)$', re.MULTILINE)
+            exec_re = re.compile(r'^Exec=(.*)$', re.MULTILINE)
+            icon_re = re.compile(r'^Icon=(.*)$', re.MULTILINE)
+
+            for desktop_dir in desktop_dirs:
+                if os.path.exists(desktop_dir):
+                    try:
+                        for filename in os.listdir(desktop_dir):
+                            if getattr(self, "stop_loading", False): break
+                            if filename.endswith(".desktop"):
+                                desktop_path = os.path.join(desktop_dir, filename)
+                                try:
+                                    with open(desktop_path, 'r', encoding='utf-8', errors='ignore') as f:
+                                        content = f.read()
+                                        app_id = filename.replace(".desktop", "")
+                                        name_match = name_re.search(content)
+                                        display_name = name_match.group(1).strip() if name_match else app_id
+                                        exec_val = exec_re.search(content).group(1).strip() if exec_re.search(content) else ""
+                                        icon_val = icon_re.search(content).group(1).strip() if icon_re.search(content) else ""
+
+                                        is_pwa = "X-AppInstall=PWA" in content or "--app=" in exec_val or "--application-mode=" in exec_val
+                                        is_appimage = "X-AppInstall=AppImage" in content or "appimage.png" in icon_val or (f"/usr/bin/{app_id}" in exec_val and f"/usr/share/pixmaps/{app_id}" in icon_val)
+
+                                        if is_pwa:
+                                            desktop_apps.append((display_name, app_id, False, False, True))
+                                        elif is_appimage:
+                                            desktop_apps.append((display_name, app_id, True, False, False))
+                                except: continue
+                    except: pass
+            
+            if desktop_apps:
+                push_to_ui(sorted(desktop_apps))
+
+            # --- FASE 2: Homebrew (Suele tardar unos segundos) ---
+            if HAS_BREW and not getattr(self, "stop_loading", False):
                 try:
-                    output = subprocess.check_output([BREW_PATH, 'list', '--formula'], 
-                                                   timeout=15, stderr=subprocess.STDOUT).decode('utf-8')
-                    formulas = [line.strip() for line in output.split('\n') if line.strip()]
-                    brew_packages.extend(formulas)
+                    brew_batch = []
+                    output = subprocess.check_output([BREW_PATH, 'list', '--formula'], timeout=10, stderr=subprocess.DEVNULL).decode('utf-8')
+                    for line in output.split('\n'):
+                        if line.strip(): brew_batch.append((line.strip(), line.strip(), False, True, False))
                     
-                    output_cask = subprocess.check_output([BREW_PATH, 'list', '--cask'], 
-                                                        timeout=15, stderr=subprocess.STDOUT).decode('utf-8')
-                    casks = [line.strip() for line in output_cask.split('\n') if line.strip()]
-                    brew_packages.extend(casks)
+                    output_cask = subprocess.check_output([BREW_PATH, 'list', '--cask'], timeout=10, stderr=subprocess.DEVNULL).decode('utf-8')
+                    for line in output_cask.split('\n'):
+                        if line.strip(): brew_batch.append((line.strip(), line.strip(), False, True, False))
+                    
+                    if brew_batch:
+                        push_to_ui(sorted(brew_batch))
+                except: pass
+
+            # --- FASE 3: Paquetes del Sistema (Pueden ser miles) ---
+            if not getattr(self, "stop_loading", False):
+                try:
+                    packages = self.package_manager.list_installed()
+                    packages.sort()
+                    
+                    # Dividir miles de paquetes en lotes pequeños para no saturar el main loop
+                    chunk_size = 25
+                    for i in range(0, len(packages), chunk_size):
+                        if getattr(self, "stop_loading", False): break
+                        chunk = packages[i:i + chunk_size]
+                        system_batch = [(p, p, False, False, False) for p in chunk]
+                        push_to_ui(system_batch)
+                        # Dar un pequeño respiro al hilo para que la UI respire
+                        import time
+                        time.sleep(0.01) 
                 except Exception as e:
-                    print(f"Error al obtener paquetes de Homebrew: {e}")
+                    print(f"Error cargando paquetes sistema: {e}")
 
-            # Obtener AppImages y PWAs
-            pwas = []
-            desktop_dir = "/usr/share/applications"
-            if os.path.exists(desktop_dir):
-                for filename in os.listdir(desktop_dir):
-                    if filename.endswith(".desktop"):
-                        desktop_path = os.path.join(desktop_dir, filename)
-                        try:
-                            with open(desktop_path, 'r') as f:
-                                content = f.read()
-                                app_name = filename.replace(".desktop", "")
+            # Finalizar carga
+            GLib.idle_add(self._finish_loading)
 
-                                if "X-AppInstall=PWA" in content:
-                                    pwas.append(app_name)
-                                else:
-                                    is_appinstall_app = (
-                                        "X-AppInstall=AppImage" in content or 
-                                        ("/usr/bin/" in content and "appimage.png" in content) or
-                                        (f"Exec=/usr/bin/{app_name}" in content and f"Icon=/usr/share/pixmaps/{app_name}" in content)
-                                    )
-
-                                    if is_appinstall_app:
-                                        appimages.append(app_name)
-                        except:
-                            pass
-            
-            # Preparar la lista completa una sola vez
-            all_apps = []
-            for pw in pwas: all_apps.append((pw, "pwa"))
-            for a in appimages: all_apps.append((a, "appimage"))
-            for b in brew_packages: all_apps.append((b, "brew"))
-            for p in packages: all_apps.append((p, "system"))
-
-            # Actualizar la UI en lotes para evitar sobrecargar el bucle principal
-            def update_ui_batch(index):
-                if not all_apps:
-                    self.is_loading = False
-                    self.search_spinner.stop()
-                    self.stack.set_visible_child_name("empty")
-                    return False
-
-                if index == 0:
-                    self.stack.set_visible_child_name("list")
-
-                batch_size = 50
-                end_index = min(index + batch_size, len(all_apps))
-                
-                for i in range(index, end_index):
-                    name, type = all_apps[i]
-                    self.add_app_to_list(name, type == "appimage", type == "brew", type == "pwa")
-                
-                if self.search_entry.get_text():
-                    self.on_search_changed(self.search_entry)
-
-                if end_index < len(all_apps):
-                    GLib.idle_add(lambda: update_ui_batch(end_index))
-                else:
-                    self.is_loading = False
-                    self.search_spinner.stop()
-                    self.on_search_changed(self.search_entry)
-                
-                return False
-            
-            GLib.idle_add(lambda: update_ui_batch(0))
-            
         except Exception as e:
-            print(f"Error al cargar aplicaciones: {e}")
+            print(f"Error en load_apps_thread: {e}")
             GLib.idle_add(self.show_error_message)
+
+    def _add_batch_to_list(self, batch):
+        """Añade un lote de aplicaciones a la ListBox. Ejecutado en el hilo principal."""
+        if getattr(self, "stop_loading", False):
+            return False
+
+        if self.stack.get_visible_child_name() == "loading":
+            self.stack.set_visible_child_name("list")
+
+        for display_name, internal_name, is_appimage, is_brew, is_pwa in batch:
+            self.add_app_to_list(display_name, internal_name, is_appimage, is_brew, is_pwa)
+        
+        # Si hay búsqueda activa, necesitamos invalidar el filtro
+        if self.search_entry.get_text():
+            self.listbox.invalidate_filter()
+        
+        return False
+
+    def _finish_loading(self):
+        """Finaliza el estado de carga en la UI."""
+        self.is_loading = False
+        self.search_spinner.stop()
+        if not self.listbox.get_first_child():
+            self.stack.set_visible_child_name("empty")
+        return False
     
-    def add_app_to_list(self, package_name, is_appimage=False, is_brew=False, is_pwa=False):
+    def add_app_to_list(self, display_name, internal_name, is_appimage=False, is_brew=False, is_pwa=False):
         row = Gtk.ListBoxRow()
         row.add_css_class("list-row")
+        row.package_name = display_name.lower() # Atributo para filtrado ultra rápido
         
         hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         hbox.set_margin_top(8)
@@ -280,19 +323,9 @@ class InstalledAppsWindow(Adw.Window):
         elif is_pwa:
             icon = Gtk.Image.new_from_icon_name("web-browser-symbolic")
         elif is_brew:
-            brew_logo_path = os.path.expanduser("~/.cache/appinstall/homebrew_logo.png")
-            if not os.path.exists(brew_logo_path):
-                try:
-                    os.makedirs(os.path.dirname(brew_logo_path), exist_ok=True)
-                    response = requests.get("https://upload.wikimedia.org/wikipedia/commons/3/34/Homebrew_logo.png", timeout=10)
-                    if response.status_code == 200:
-                        with open(brew_logo_path, 'wb') as f:
-                            f.write(response.content)
-                except:
-                    pass
-            
-            if os.path.exists(brew_logo_path):
-                icon = Gtk.Image.new_from_file(brew_logo_path)
+            # Usamos el path pre-calculado en el hilo de fondo
+            if hasattr(self, 'brew_logo_path') and self.brew_logo_path and os.path.exists(self.brew_logo_path):
+                icon = Gtk.Image.new_from_file(self.brew_logo_path)
                 icon.set_pixel_size(24)
             else:
                 icon = Gtk.Image.new_from_icon_name("system-software-install")
@@ -304,7 +337,7 @@ class InstalledAppsWindow(Adw.Window):
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         vbox.set_hexpand(True)
         
-        label = Gtk.Label(label=package_name, xalign=0)
+        label = Gtk.Label(label=display_name, xalign=0)
         label.add_css_class("title-label")
         vbox.append(label)
         
@@ -331,7 +364,7 @@ class InstalledAppsWindow(Adw.Window):
         button_icon = Gtk.Image.new_from_icon_name("user-trash-symbolic")
         button.set_child(button_icon)
         
-        button.connect("clicked", self.on_uninstall_clicked, package_name, is_appimage, is_brew, is_pwa)
+        button.connect("clicked", self.on_uninstall_clicked, internal_name, is_appimage, is_brew, is_pwa)
         hbox.append(button)
         
         self.listbox.append(row)
@@ -358,9 +391,10 @@ class InstalledAppsWindow(Adw.Window):
         return False
     
     def on_search_changed(self, entry):
-        if not self.is_loading:
-            self.search_spinner.start()
+        if self.is_loading:
+            return
             
+        self.search_spinner.start()
         self.listbox.invalidate_filter()
         GLib.idle_add(self.check_filter_results)
 
@@ -374,36 +408,18 @@ class InstalledAppsWindow(Adw.Window):
             child = child.get_next_sibling()
         
         if not has_visible:
-            if self.is_loading:
-                self.loading_label.set_text(_("Buscando aplicaciones..."))
-                self.stack.set_visible_child_name("loading")
-            else:
-                self.stack.set_visible_child_name("empty")
-                self.search_spinner.stop()
+            self.stack.set_visible_child_name("empty")
+            self.search_spinner.stop()
         else:
             self.stack.set_visible_child_name("list")
-            if not self.is_loading:
-                self.search_spinner.stop()
+            self.search_spinner.stop()
         return False
     
     def filter_func(self, row):
         text = self.search_entry.get_text().lower()
         if not text:
             return True
-        
-        box = row.get_child()
-        if box and isinstance(box, Gtk.Box):
-            child = box.get_first_child()
-            while child:
-                if isinstance(child, Gtk.Box) and child.get_orientation() == Gtk.Orientation.VERTICAL:
-                    label_child = child.get_first_child()
-                    while label_child:
-                        if isinstance(label_child, Gtk.Label) and hasattr(label_child, 'get_text'):
-                            if text in label_child.get_text().lower():
-                                return True
-                        label_child = label_child.get_next_sibling()
-                child = child.get_next_sibling()
-        return False
+        return text in getattr(row, "package_name", "")
     
     def on_uninstall_clicked(self, button, package_name, is_appimage=False, is_brew=False, is_pwa=False):
         if is_appimage:
@@ -432,21 +448,28 @@ class InstalledAppsWindow(Adw.Window):
         try:
             response = dialog.choose_finish(result)
             if response == "yes":
-                self.uninstall_package(package_name, is_appimage, is_brew, is_pwa)
+                # Pequeño retardo para dejar que el diálogo de confirmación se cierre suavemente
+                GLib.timeout_add(200, lambda: self.uninstall_package(package_name, is_appimage, is_brew, is_pwa))
         except Exception as e:
             print(f"Dialog error: {e}")
     
     def uninstall_package(self, package_name, is_appimage=False, is_brew=False, is_pwa=False):
+        # Detener carga si está en curso y desactivar búsqueda para evitar ralentización
+        self.stop_loading = True
+        self.search_entry.set_sensitive(False)
+        self.search_spinner.stop()
+
         self.progress_bar.set_fraction(0.0)
         self.progress_bar.set_visible(True)
         self.status_label.set_text(_("Desinstalando {}...").format(package_name))
         
-        self.uninst_progress_dialog = UninstallationProgressWindow(self, _("Desinstalando {}...").format(package_name))
-        self.uninst_progress_dialog.present()
+        self.progress_dialog = ProgressWindow(self, _("Desinstalando {}...").format(package_name))
+        self.progress_dialog.present()
 
         cmd = self.uninstall_service.get_uninstall_command(package_name, is_appimage, is_brew, is_pwa, BREW_PATH)
         self.uninstall_service.run_uninstall(cmd, self.update_uninstall_progress, 
                                            lambda success, error: self.uninstall_complete(package_name, success, is_appimage, is_brew, is_pwa, error))
+        return False
     
     def update_uninstall_progress(self):
         new_value = min(1.0, self.progress_bar.get_fraction() + 0.05)
@@ -454,13 +477,21 @@ class InstalledAppsWindow(Adw.Window):
         return False
 
     def uninstall_complete(self, package_name, success, is_appimage=False, is_brew=False, is_pwa=False, error_message=None):
-        if hasattr(self, 'uninst_progress_dialog') and self.uninst_progress_dialog:
-            self.uninst_progress_dialog.close()
-            self.uninst_progress_dialog = None
+        self.search_entry.set_sensitive(True)
+        self.stop_loading = False
+
+        # Cerrar el diálogo de progreso primero
+        if hasattr(self, 'progress_dialog') and self.progress_dialog:
+            self.progress_dialog.close()
+            self.progress_dialog = None
 
         self.progress_bar.set_visible(False)
         self.progress_bar.set_fraction(0.0)
         
+        # Esperar un breve momento para que la animación de cierre termine
+        GLib.timeout_add(200, self._show_uninstall_result, package_name, success, is_appimage, is_brew, is_pwa, error_message)
+
+    def _show_uninstall_result(self, package_name, success, is_appimage, is_brew, is_pwa, error_message):
         if success:
             if is_appimage:
                 message = _("{} ha sido desinstalado correctamente. Recuerda borrar los archivos que haya creado la aplicación.").format(package_name)
@@ -478,6 +509,9 @@ class InstalledAppsWindow(Adw.Window):
             dialog.add_response("ok", _("OK"))
             dialog.set_default_response("ok")
             self.status_label.set_text(_("Desinstalación completada"))
+            
+            # Recargar la lista después de que el usuario cierre el aviso
+            dialog.connect("response", lambda d, r: self.load_installed_apps())
         else:
             if is_appimage:
                 message = _("Error al desinstalar AppImage - {}.").format(package_name)
@@ -497,4 +531,4 @@ class InstalledAppsWindow(Adw.Window):
             self.status_label.set_text(_("Uy... ha habido un error cuando estaba desinstalándote la app"))
         
         dialog.present(self)
-        self.load_installed_apps()
+        return False

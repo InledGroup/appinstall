@@ -38,4 +38,6 @@ Thumbs.db
 archive/
 *.deb
 *.rpm
+*.pkg.tar.zst
+archpkg/
 !appinstall/

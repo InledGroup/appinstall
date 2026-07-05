@@ -2,7 +2,7 @@
 <component type="desktop-application">
   <id>es.inled.AppInstall</id>
   <metadata_license>CC0-1.0</metadata_license>
-  <project_license>GPL-3.0-or-later</project_license>
+  <project_license>MIT</project_license>
   <name>App Install</name>
   <summary>Un gestor de paquetes visual con utilidades de limpieza y análisis antivirus</summary>
   <description>
@@ -32,6 +32,18 @@
     <binary>appinstall</binary>
   </provides>
   <releases>
+    <release version="10.0" date="2026-05-08">
+      <description>
+        <p>Gran actualización a la versión 10:</p>
+        <ul>
+          <li>Instalación personalizada de AppImages con nombre e icono a elegir</li>
+          <li>Soporte para creación de PWAs (Web Apps) con descarga automática de favicons</li>
+          <li>Nueva licencia MIT-INLED</li>
+          <li>Mejoras en la detección y desinstalación de aplicaciones</li>
+          <li>Correcciones de errores y mejoras de estabilidad</li>
+        </ul>
+      </description>
+    </release>
     <release version="8.0" date="2025-08-17">
       <description>
         <p>Muchas funciones nuevas:</p>

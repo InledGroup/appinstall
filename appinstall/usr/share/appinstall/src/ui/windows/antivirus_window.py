@@ -4,6 +4,8 @@ from gi.repository import Gtk, GLib, Adw
 from src.infrastructure.services.localization import _
 from src.utils.system import get_safe_window_size
 
+from .progress_window import ProgressWindow
+
 class AntivirusWindow(Adw.Window):
     def __init__(self, parent, antivirus_service):
         super().__init__()
@@ -303,6 +305,10 @@ class AntivirusWindow(Adw.Window):
                 self.progress_bar.set_visible(True)
                 self.progress_bar.set_fraction(0.0)
                 self.status_label.set_text(_("Instalando ClamAV..."))
+                
+                self.progress_dialog = ProgressWindow(self, _("Instalando ClamAV..."))
+                self.progress_dialog.present()
+                
                 self.antivirus_service.install_clamav(self.update_install_progress, self.update_status_label, self.install_clam_complete)
         except Exception as e:
             print(f"Dialog error: {e}")
@@ -316,6 +322,10 @@ class AntivirusWindow(Adw.Window):
         return False
 
     def install_clam_complete(self, success, error_msg):
+        if hasattr(self, 'progress_dialog') and self.progress_dialog:
+            self.progress_dialog.close()
+            self.progress_dialog = None
+            
         self.progress_bar.set_visible(False)
         self.install_clam_button.set_sensitive(True)
         if success:
@@ -331,6 +341,10 @@ class AntivirusWindow(Adw.Window):
         self.progress_bar.set_visible(True)
         self.progress_bar.set_fraction(0.0)
         self.status_label.set_text(_("Actualizando definiciones de virus..."))
+        
+        self.progress_dialog = ProgressWindow(self, _("Actualizando definiciones..."))
+        self.progress_dialog.present()
+        
         self.antivirus_service.update_definitions(self.update_defs_progress, self.update_definitions_complete)
 
     def update_defs_progress(self):
@@ -338,6 +352,10 @@ class AntivirusWindow(Adw.Window):
         return False
 
     def update_definitions_complete(self, success, error_msg):
+        if hasattr(self, 'progress_dialog') and self.progress_dialog:
+            self.progress_dialog.close()
+            self.progress_dialog = None
+            
         self.progress_bar.set_visible(False)
         self.update_button.set_sensitive(True)
         self.scan_button.set_sensitive(True)
@@ -368,6 +386,9 @@ class AntivirusWindow(Adw.Window):
         self.status_label.set_text(_("Iniciando análisis antivirus..."))
         self.results_text.get_buffer().set_text("")
         
+        self.progress_dialog = ProgressWindow(self, _("Analizando virus..."))
+        self.progress_dialog.present()
+        
         if self.quick_scan_radio.get_active():
             scan_paths = [os.path.expanduser("~"), "/tmp", "/var/tmp"]
         elif self.full_scan_radio.get_active():
@@ -389,6 +410,10 @@ class AntivirusWindow(Adw.Window):
         return False
 
     def scan_complete(self, success, infected_count, scanned_count, stderr):
+        if hasattr(self, 'progress_dialog') and self.progress_dialog:
+            self.progress_dialog.close()
+            self.progress_dialog = None
+            
         self.progress_bar.set_fraction(1.0)
         self.scan_button.set_sensitive(True)
         self.update_button.set_sensitive(True)

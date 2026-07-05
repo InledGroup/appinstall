@@ -98,19 +98,20 @@ class AptAdapter(PackageManager):
         return info
 
     def get_package_info(self, package_name: str) -> Dict[str, str]:
-        info = {'name': package_name, 'version': '', 'description': '', 'size': '', 'icon': ''}
+        info = {'name': package_name, 'version': '', 'description': '', 'size': '', 'icon': '', 'dependencies': []}
         try:
             output = subprocess.check_output(['apt-cache', 'show', package_name]).decode('utf-8')
             for line in output.split('\n'):
                 if line.startswith('Version:'): info['version'] = line.replace('Version:', '').strip()
                 elif line.startswith('Description-en:') or line.startswith('Description:'):
-                    # Only take the first line of description for now
                     info['description'] = line.replace('Description-en:', '').replace('Description:', '').strip()
                 elif line.startswith('Installed-Size:'):
                     try:
                         size_kb = int(line.replace('Installed-Size:', '').strip())
                         info['size'] = f"{size_kb / 1024:.1f} MB"
                     except: pass
+                elif line.startswith('Depends:'):
+                    info['dependencies'] = [dep.split('(')[0].strip() for dep in line.replace('Depends:', '').split(',')]
             
             # Simple icon heuristic: look for an icon with the package name
             import shutil

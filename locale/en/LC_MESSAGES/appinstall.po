@@ -845,16 +845,83 @@ msgstr "Install directly"
 msgid "Análisis omitido, instalando..."
 msgstr "Analysis skipped, installing..."
 
+msgid "Buscar / Tienda"
+msgstr "Search / Store"
 
+msgid "Mis Aplicaciones"
+msgstr "My Applications"
 
-#~ msgid "Paquete instalado"
-#~ msgstr "Installed package"
+msgid "Actualizaciones"
+msgstr "Updates"
 
-#~ msgid "No he encontrado aplicaciones instaladas en tu sistema"
-#~ msgstr "I haven't found any installed applications on your system"
+msgid "Limpiar Sistema"
+msgstr "Clean System"
 
-#~ msgid "Error al desinstalar Appinstall Enhance AppImage - {}."
-#~ msgstr "Error uninstalling Appinstall Enhance AppImage - {}."
+msgid "Análisis de Virus"
+msgstr "Virus Analysis"
 
-#~ msgid "Cargar información de la web"
-#~ msgstr "Load website info"
+msgid "Encuentra y descarga aplicaciones"
+msgstr "Find and download applications"
+
+msgid "Escribe el nombre de la app (ej: firefox, vlc, steam...)"
+msgstr "Type the name of the app (e.g. firefox, vlc, steam...)"
+
+msgid "¿Tienes un archivo de paquete local?"
+msgstr "Do you have a local package file?"
+
+msgid "Instala archivos .deb, .rpm, .pkg.tar.zst o PWAs directamente en tu sistema."
+msgstr "Install .deb, .rpm, .pkg.tar.zst or PWAs directly in your system."
+
+msgid "Seleccionar archivo..."
+msgstr "Select file..."
+
+msgid "Crear PWA..."
+msgstr "Create PWA..."
+
+msgid "Destacados de Flathub"
+msgstr "Flathub Featured"
+
+msgid "Aplicaciones populares"
+msgstr "Popular Applications"
+
+msgid "Comprobando actualizaciones..."
+msgstr "Checking for updates..."
+
+msgid "Comprobar ahora"
+msgstr "Check now"
+
+msgid "Actualizar todo"
+msgstr "Upgrade all"
+
+msgid "El sistema está actualizado"
+msgstr "The system is up to date"
+
+msgid "Tienes {} actualizaciones disponibles"
+msgstr "You have {} updates available"
+
+msgid "Nueva versión disponible: {} (actual: {})"
+msgstr "New version available: {} (current: {})"
+
+msgid "Actualización disponible de los repositorios del sistema"
+msgstr "Update available from system repositories"
+
+msgid "Y {} actualizaciones más..."
+msgstr "And {} more updates..."
+
+msgid "Error al comprobar actualizaciones"
+msgstr "Error checking for updates"
+
+msgid "Prioridad de búsqueda..."
+msgstr "Search priority..."
+
+msgid "Autor verificado"
+msgstr "Verified developer"
+
+msgid "Tamaño instalado"
+msgstr "Installed size"
+
+msgid "Dependencias"
+msgstr "Dependencies"
+
+msgid "Ninguna"
+msgstr "None"

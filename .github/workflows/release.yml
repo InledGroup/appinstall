@@ -106,8 +106,11 @@ jobs:
             "license = GPL3" \
             "depend = python" \
             "depend = python-gobject" \
+            "depend = gtk4" \
             "depend = libadwaita" \
-            "depend = gtk4" > archpkg/.PKGINFO
+            "depend = python-requests" \
+            "depend = python-packaging" \
+            "depend = polkit" > archpkg/.PKGINFO
           
           # English: Build the .pkg.tar.zst archive with maximum compression level
           # Español: Construir el archivo .pkg.tar.zst con el nivel de compresión máximo

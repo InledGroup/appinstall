@@ -111,7 +111,7 @@ class DnfAdapter(PackageManager):
         return info
 
     def get_package_info(self, package_name: str) -> Dict[str, str]:
-        info = {'name': package_name, 'version': '', 'description': '', 'size': '', 'icon': ''}
+        info = {'name': package_name, 'version': '', 'description': '', 'size': '', 'icon': '', 'dependencies': []}
         try:
             output = subprocess.check_output(['dnf', 'info', '--quiet', package_name]).decode('utf-8', errors='ignore')
             for line in output.split('\n'):
@@ -121,6 +121,12 @@ class DnfAdapter(PackageManager):
                 elif line.startswith('Size'):
                     info['size'] = line.split(':', 1)[1].strip()
             
+            try:
+                deps_output = subprocess.check_output(['dnf', 'repoquery', '--depends', '--quiet', package_name], timeout=5).decode('utf-8', errors='ignore')
+                info['dependencies'] = [line.strip() for line in deps_output.split('\n') if line.strip() and not line.startswith('last metadata expiration')]
+            except:
+                pass
+
             # Simple icon heuristic
             from gi.repository import Gtk, Gdk
             theme = Gtk.IconTheme.get_for_display(Gdk.Display.get_default())

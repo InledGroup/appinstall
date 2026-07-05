@@ -6,6 +6,9 @@ from src.infrastructure.services.localization import _
 class ProgressWindow(Adw.Window):
     def __init__(self, parent, message, skip_callback=None):
         super().__init__()
+        # Resolve root window if a widget is passed instead of a window
+        if not isinstance(parent, Gtk.Window):
+            parent = parent.get_root()
         self.set_transient_for(parent)
         self.set_modal(True)
         self.set_resizable(False)

@@ -100,3 +100,77 @@
         padding: 8px;
         border-radius: 16px;
     }
+    
+    .verified-icon {
+        color: #3584e4;
+    }
+    
+    .badge {
+        padding: 4px 8px;
+        border-radius: 10px;
+        font-size: 10px;
+        font-weight: bold;
+    }
+    
+    .badge-system {
+        background-color: rgba(53, 132, 228, 0.15);
+        color: #3584e4;
+    }
+    
+    .badge-flatpak {
+        background-color: rgba(143, 80, 157, 0.15);
+        color: #8f509d;
+    }
+    
+    .badge-snap {
+        background-color: rgba(224, 27, 36, 0.15);
+        color: #e01b24;
+    }
+    
+    .badge-aur {
+        background-color: rgba(18, 140, 204, 0.15);
+        color: #128ccc;
+    }
+    
+    .badge-brew {
+        background-color: rgba(246, 178, 107, 0.15);
+        color: #f6b26b;
+    }
+    
+    .badge-generic {
+        background-color: rgba(120, 120, 120, 0.15);
+        color: #787878;
+    }
+    
+    .sidebar-container {
+        background-color: @theme_bg_color;
+        border-right: 1px solid @theme_shade_color;
+    }
+    
+    .sidebar-row {
+        border-radius: 8px;
+        margin-bottom: 4px;
+        transition: background-color 0.2s;
+    }
+    
+    .sidebar-row:selected {
+        background-color: @accent_bg_color;
+        color: @accent_fg_color;
+        font-weight: bold;
+    }
+    
+    .installed-apps-list {
+        background-color: transparent;
+        border: none;
+        box-shadow: none;
+    }
+    
+    .installed-apps-list row {
+        background-color: transparent;
+        border: none;
+        border-bottom: 1px solid @theme_shade_color;
+    }
+    
+    .installed-apps-list row:hover {
+        background-color: rgba(255, 255, 255, 0.03);
+    }

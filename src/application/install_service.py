@@ -5,12 +5,18 @@ import shutil
 import re
 from gi.repository import GLib
 from src.utils.system import HAS_BREW, BREW_PATH
+from src.infrastructure.adapters.flatpak_adapter import FlatpakAdapter
+from src.infrastructure.adapters.snap_adapter import SnapAdapter
+from src.infrastructure.adapters.aur_adapter import AurAdapter
 
 from src.infrastructure.services.localization import _
 
 class InstallService:
     def __init__(self, package_manager):
         self.package_manager = package_manager
+        self.flatpak_adapter = FlatpakAdapter()
+        self.snap_adapter = SnapAdapter()
+        self.aur_adapter = AurAdapter()
 
     def get_pwa_command(self, url):
         """Busca el mejor navegador para ejecutar una PWA."""
@@ -48,6 +54,17 @@ X-SwiftInstall={install_type}
     def get_install_command(self, file_path):
         if not file_path:
             return None
+
+        # Check prefixes
+        if file_path.startswith('flatpak:'):
+            pkg_name = file_path.replace('flatpak:', '', 1)
+            return self.flatpak_adapter.install(pkg_name)
+        elif file_path.startswith('snap:'):
+            pkg_name = file_path.replace('snap:', '', 1)
+            return self.snap_adapter.install(pkg_name)
+        elif file_path.startswith('aur:'):
+            pkg_name = file_path.replace('aur:', '', 1)
+            return self.aur_adapter.install(pkg_name)
 
         file_extension = os.path.splitext(file_path)[1].lower()
         is_brew_file = HAS_BREW and file_extension == '.rb'

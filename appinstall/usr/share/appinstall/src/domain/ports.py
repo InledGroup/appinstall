@@ -48,5 +48,20 @@ class PackageManager(ABC):
         pass
 
     @abstractmethod
+    def get_local_file_info(self, file_path: str) -> Dict[str, str]:
+        pass
+
+    @abstractmethod
+    def get_package_info(self, package_name: str) -> Dict[str, str]:
+        pass
+
+    @abstractmethod
     def install_clamav(self) -> List[str]:
         pass
+
+    @abstractmethod
+    def upgrade_system(self) -> List[str]:
+        # English: Return the system update and upgrade command
+        # Español: Devolver el comando para actualizar y mejorar el sistema
+        pass
+

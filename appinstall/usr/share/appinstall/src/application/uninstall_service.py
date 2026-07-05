@@ -17,10 +17,12 @@ class UninstallService:
                 f'rm -f /usr/share/pixmaps/{package_name}.*'
             ]
         elif is_pwa:
+            user_desktop = os.path.expanduser(f"~/.local/share/applications/{package_name}.desktop")
             return [
                 'pkexec', 'bash', '-c',
                 f'rm -f /usr/share/applications/{package_name}.desktop && ' +
-                f'rm -f /usr/share/pixmaps/{package_name}.*'
+                f'rm -f /usr/share/pixmaps/{package_name}.* && ' +
+                f'rm -f "{user_desktop}"'
             ]
         elif is_brew:
             return [brew_path, 'uninstall', package_name]
@@ -32,12 +34,19 @@ class UninstallService:
             try:
                 process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
                 
+                import time
+                last_update = 0
+                
                 while True:
                     output = process.stdout.readline()
                     if output == '' and process.poll() is not None:
                         break
                     if output:
-                        GLib.idle_add(on_progress)
+                        current_time = time.time()
+                        # Solo actualizar la UI cada 100ms para no saturar el hilo principal
+                        if current_time - last_update > 0.1:
+                            GLib.idle_add(on_progress)
+                            last_update = current_time
                 
                 _, stderr = process.communicate()
                 

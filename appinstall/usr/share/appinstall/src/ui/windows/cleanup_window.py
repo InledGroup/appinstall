@@ -3,6 +3,8 @@ from gi.repository import Gtk, GLib, Adw
 from src.infrastructure.services.localization import _
 from src.utils.system import get_safe_window_size
 
+from .progress_window import ProgressWindow
+
 class SystemCleanupWindow(Adw.Window):
     def __init__(self, parent, cleanup_service):
         super().__init__()
@@ -245,11 +247,18 @@ class SystemCleanupWindow(Adw.Window):
         self.progress_bar.set_fraction(0.0)
         self.status_label.set_text(_("Limpiando archivos..."))
         
+        self.progress_dialog = ProgressWindow(self, _("Limpiando archivos..."))
+        self.progress_dialog.present()
+        
         selected_dirs = [d for d, check in self.directory_checks.items() if check.get_active()]
         self.cleanup_service.run_cleanup(selected_dirs, self.orphan_check.get_active(), self.apt_check.get_active(),
                                        self.update_progress, self.cleanup_complete)
 
     def cleanup_complete(self, success, cleaned_size, error_msg):
+        if hasattr(self, 'progress_dialog') and self.progress_dialog:
+            self.progress_dialog.close()
+            self.progress_dialog = None
+            
         self.progress_bar.set_visible(False)
         self.analyze_button.set_sensitive(True)
         

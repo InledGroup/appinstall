@@ -1,5 +1,5 @@
 Package: appinstall
-Version: 15
+Version: 16
 Section: utils
 Priority: optional
 Architecture: all
