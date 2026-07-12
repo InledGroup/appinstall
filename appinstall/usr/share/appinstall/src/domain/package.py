@@ -8,6 +8,9 @@ class PackageSource(Enum):
     APPIMAGE = "appimage"
     PWA = "pwa"
     SYSTEM = "system"
+    AUR = "aur"
+    FLATPAK = "flatpak"
+    SNAP = "snap"
 
 @dataclass
 class Package:

@@ -925,3 +925,63 @@ msgstr "Dependencies"
 
 msgid "Ninguna"
 msgstr "None"
+
+msgid "Apps imprescindibles"
+msgstr "Essential Apps"
+
+msgid "Lo mejor de la semana"
+msgstr "Weekly Best"
+
+msgid "Top apps gratis"
+msgstr "Top Free Apps"
+
+msgid "Buscar..."
+msgstr "Search..."
+
+msgid "Capturas de pantalla"
+msgstr "Screenshots"
+
+msgid "Valoraciones y reseñas"
+msgstr "Ratings & Reviews"
+
+msgid "valoraciones"
+msgstr "ratings"
+
+msgid "formato"
+msgstr "format"
+
+msgid "tamaño"
+msgstr "size"
+
+msgid "desarrollador"
+msgstr "developer"
+
+msgid "verificado"
+msgstr "verified"
+
+msgid "idioma"
+msgstr "language"
+
+msgid "{} valoraciones"
+msgstr "{} ratings"
+
+msgid "SÍ"
+msgstr "YES"
+
+msgid "NO"
+msgstr "NO"
+
+msgid "Tipo de paquete"
+msgstr "Package Type"
+
+msgid "Espacio en disco"
+msgstr "Disk Space"
+
+msgid "Autor de la app"
+msgstr "App Author"
+
+msgid "Y multilingüe"
+msgstr "And multilingual"
+
+
+

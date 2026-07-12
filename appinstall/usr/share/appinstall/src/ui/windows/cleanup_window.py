@@ -5,50 +5,38 @@ from src.utils.system import get_safe_window_size
 
 from .progress_window import ProgressWindow
 
-class SystemCleanupWindow(Adw.Window):
+class SystemCleanupWidget(Gtk.Box):
     def __init__(self, parent, cleanup_service):
-        super().__init__()
+        super().__init__(orientation=Gtk.Orientation.VERTICAL)
         self.cleanup_service = cleanup_service
-        self.set_title(_("Limpiar sistema"))
-        
-        # Obtener tamaño seguro de ventana
-        width, height = get_safe_window_size(600, 500, 0.8)
-        self.set_default_size(width, height)
-            
-        self.set_transient_for(parent)
-        self.set_modal(True)
         self.add_css_class("main-window")
 
         # Header bar al estilo GNOME
         header_bar = Adw.HeaderBar()
+        header_bar.set_show_end_title_buttons(False)
+        header_bar.set_show_start_title_buttons(False)
         header_bar.set_title_widget(Adw.WindowTitle(title=_("Limpiar sistema")))
         header_bar.add_css_class("header-bar")
 
         # Contenido principal en un ToolbarView
         toolbar_view = Adw.ToolbarView()
+        toolbar_view.set_hexpand(True)
+        toolbar_view.set_vexpand(True)
         toolbar_view.add_top_bar(header_bar)
-        self.set_content(toolbar_view)
+        self.append(toolbar_view)
 
         # Contenido desplazable
-        if height > 450:
-            scrolled_main = Gtk.ScrolledWindow()
-            scrolled_main.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-            scrolled_main.set_propagate_natural_height(True)
-            toolbar_view.set_content(scrolled_main)
+        scrolled_main = Gtk.ScrolledWindow()
+        scrolled_main.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scrolled_main.set_propagate_natural_height(True)
+        toolbar_view.set_content(scrolled_main)
 
-            main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
-            main_box.set_margin_top(16)
-            main_box.set_margin_bottom(16)
-            main_box.set_margin_start(16)
-            main_box.set_margin_end(16)
-            scrolled_main.set_child(main_box)
-        else:
-            main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
-            main_box.set_margin_top(16)
-            main_box.set_margin_bottom(16)
-            main_box.set_margin_start(16)
-            main_box.set_margin_end(16)
-            toolbar_view.set_content(main_box)
+        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        main_box.set_margin_top(16)
+        main_box.set_margin_bottom(16)
+        main_box.set_margin_start(16)
+        main_box.set_margin_end(16)
+        scrolled_main.set_child(main_box)
 
         # Título y descripción
         title_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
@@ -273,7 +261,7 @@ class SystemCleanupWindow(Adw.Window):
             )
             dialog.add_response("ok", _("OK"))
             dialog.set_default_response("ok")
-            dialog.present(self)
+            dialog.present(self.get_root())
         else:
             self.clean_button.set_sensitive(True)
             self.status_label.set_text(_("Error en la limpieza: {}").format(error_msg))
@@ -284,5 +272,5 @@ class SystemCleanupWindow(Adw.Window):
             )
             dialog.add_response("ok", _("OK"))
             dialog.set_default_response("ok")
-            dialog.present(self)
+            dialog.present(self.get_root())
         return False

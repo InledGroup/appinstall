@@ -8,5 +8,5 @@ Type=Application
 Categories=Utility;System;
 StartupNotify=false
 Keywords=install;package;deb;rpm;appimage;pacman;arch;
-MimeType=application/vnd.debian.binary-package;application/x-debian-package;application/x-redhat-package-manager;application/x-rpm;application/x-appimage;application/x-zstd;application/x-xz;application/x-tar;
+MimeType=application/vnd.debian.binary-package;application/x-debian-package;application/x-redhat-package-manager;application/x-rpm;application/x-appimage;application/x-zstd;application/x-xz;application/x-tar;x-scheme-handler/appstream;x-scheme-handler/snap;x-scheme-handler/flatpak;x-scheme-handler/flatpak+https;
 

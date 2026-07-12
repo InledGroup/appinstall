@@ -180,7 +180,7 @@ class PacmanAdapter(PackageManager):
     def _parse_pacman_info(self, output: str) -> Dict[str, str]:
         # English: Helper function to parse pacman info outputs (both -Qip and -Si)
         # Español: Función auxiliar para parsear las salidas de información de pacman (tanto -Qip como -Si)
-        info = {'name': '', 'version': '', 'description': '', 'size': '', 'icon': ''}
+        info = {'name': '', 'version': '', 'description': '', 'size': '', 'icon': '', 'dependencies': []}
         for line in output.split('\n'):
             if ':' not in line:
                 continue
@@ -196,4 +196,6 @@ class PacmanAdapter(PackageManager):
                 info['description'] = value
             elif key == 'Installed Size':
                 info['size'] = value
+            elif key == 'Depends On':
+                info['dependencies'] = [v.strip() for v in value.split() if v.strip() and v.strip() != 'None']
         return info

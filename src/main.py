@@ -20,6 +20,51 @@ from src.application.package_info_service import PackageInfoService
 from src.application.search_service import SearchService
 
 # Main Window
+def parse_scheme_url(url: str) -> str:
+    url_lower = url.lower()
+    
+    # 1. appstream://pkg or appstream:pkg
+    if url_lower.startswith("appstream:"):
+        pkg = url[10:]
+        if pkg.startswith("//"):
+            pkg = pkg[2:]
+        pkg = pkg.split("?")[0].split("/")[0]
+        return f"flatpak:{pkg}"
+        
+    # 2. snap://pkg or snap:pkg
+    elif url_lower.startswith("snap:"):
+        pkg = url[5:]
+        if pkg.startswith("//"):
+            pkg = pkg[2:]
+        pkg = pkg.split("?")[0].split("/")[0]
+        return f"snap:{pkg}"
+        
+    # 3. flatpak://pkg or flatpak:pkg or flatpak+https://...
+    elif url_lower.startswith("flatpak:"):
+        pkg = url[8:]
+        if pkg.startswith("//"):
+            pkg = pkg[2:]
+        pkg = pkg.split("?")[0].split("/")[0]
+        return f"flatpak:{pkg}"
+    elif url_lower.startswith("flatpak+https:"):
+        return url
+        
+    # 4. https://flathub.org/apps/details/org.gimp.GIMP or similar
+    elif url_lower.startswith("https://flathub.org/apps/") or url_lower.startswith("http://flathub.org/apps/"):
+        parts = url.split("?")[0].split("/")
+        try:
+            apps_idx = parts.index("apps")
+            if apps_idx + 1 < len(parts):
+                next_part = parts[apps_idx + 1]
+                if next_part == "details" and apps_idx + 2 < len(parts):
+                    return f"flatpak:{parts[apps_idx + 2]}"
+                else:
+                    return f"flatpak:{next_part}"
+        except ValueError:
+            pass
+            
+    return url
+
 from src.ui.windows.main_window import PackageInstaller
 
 class AppInstallApp(Adw.Application):
@@ -43,10 +88,14 @@ class AppInstallApp(Adw.Application):
         args = command_line.get_arguments()
         if len(args) > 1:
             file_path = args[1]
-            if not os.path.isabs(file_path):
-                cwd = command_line.get_cwd()
-                file_path = os.path.join(cwd, file_path)
-            self.file_to_open = file_path
+            is_scheme = any(file_path.lower().startswith(prefix) for prefix in ["appstream:", "snap:", "flatpak:", "flatpak+https:", "http://", "https://"])
+            if is_scheme:
+                self.file_to_open = parse_scheme_url(file_path)
+            else:
+                if not os.path.isabs(file_path):
+                    cwd = command_line.get_cwd()
+                    file_path = os.path.join(cwd, file_path)
+                self.file_to_open = file_path
 
         app.activate()
         return 0

@@ -68,6 +68,16 @@ class PackageInstaller(Adw.ApplicationWindow):
         
         sidebar_box.append(branding_box)
         
+        # Search Entry in Sidebar (App Store style)
+        self.sidebar_search_entry = Gtk.SearchEntry()
+        self.sidebar_search_entry.set_placeholder_text(_("Buscar..."))
+        self.sidebar_search_entry.add_css_class("sidebar-search")
+        self.sidebar_search_entry.set_margin_start(12)
+        self.sidebar_search_entry.set_margin_end(12)
+        self.sidebar_search_entry.connect("search-changed", self.on_sidebar_search_changed)
+        self.sidebar_search_entry.connect("activate", self.on_sidebar_search_activated)
+        sidebar_box.append(self.sidebar_search_entry)
+        
         # Navigation ListBox
         self.sidebar_list = Gtk.ListBox()
         self.sidebar_list.add_css_class("navigation-sidebar")
@@ -146,13 +156,10 @@ class PackageInstaller(Adw.ApplicationWindow):
         back_btn.connect("clicked", self.on_search_back_clicked)
         search_header_content.append(back_btn)
         
-        self.header_search_entry = Gtk.SearchEntry()
-        self.header_search_entry.set_hexpand(True)
-        self.header_search_entry.add_css_class("search-entry")
-        self.header_search_entry.set_key_capture_widget(None)
-        self.header_search_entry.connect("search-changed", self.on_package_name_changed)
-        self.header_search_entry.connect("activate", self.on_search_entry_activated)
-        search_header_content.append(self.header_search_entry)
+        # Just a Title Label instead of a search entry
+        search_title_label = Gtk.Label(label=_("Resultados de búsqueda"))
+        search_title_label.add_css_class("title-label")
+        search_header_content.append(search_title_label)
         
         self.search_header_bar.set_title_widget(search_header_content)
         self.header_stack.add_named(self.search_header_bar, "search")
@@ -232,7 +239,8 @@ class PackageInstaller(Adw.ApplicationWindow):
         if target != "store":
             self.header_stack.set_visible_child_name("main")
             self.main_stack.set_visible_child_name("menu")
-            self.header_search_entry.set_text("")
+            if hasattr(self, 'sidebar_search_entry'):
+                self.sidebar_search_entry.set_text("")
             child = self.search_results_list.get_first_child()
             while child:
                 self.search_results_list.remove(child)
@@ -251,7 +259,8 @@ class PackageInstaller(Adw.ApplicationWindow):
         scrolled_main.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         self.main_stack.add_named(scrolled_main, "menu")
         
-        clamp = Adw.Clamp(); clamp.set_maximum_size(800)
+        # Expand size to 1000 for standard grid display
+        clamp = Adw.Clamp(); clamp.set_maximum_size(1000)
         scrolled_main.set_child(clamp)
         
         self.main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=24)
@@ -259,24 +268,72 @@ class PackageInstaller(Adw.ApplicationWindow):
         self.main_box.set_margin_start(24); self.main_box.set_margin_end(24)
         clamp.set_child(self.main_box)
         
-        # 1. Prominent Search Bar
-        search_section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        search_title = Gtk.Label(label=_("Encuentra y descarga aplicaciones"), xalign=0)
-        search_title.add_css_class("title-1")
-        search_title.set_margin_bottom(4)
-        search_section.append(search_title)
+        # 1. Apps imprescindibles Section (from Flathub)
+        self.popular_section_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        popular_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        popular_title = Gtk.Label(label=_("Apps imprescindibles"), xalign=0)
+        popular_title.add_css_class("store-section-title")
+        popular_header.append(popular_title)
+        self.popular_section_box.append(popular_header)
         
-        self.homepage_search_entry = Gtk.SearchEntry()
-        self.homepage_search_entry.set_placeholder_text(_("Escribe el nombre de la app (ej: firefox, vlc, steam...)"))
-        self.homepage_search_entry.add_css_class("search-entry")
-        self.homepage_search_entry.set_key_capture_widget(None)
-        self.homepage_search_entry.connect("search-changed", self.on_homepage_search_changed)
-        self.homepage_search_entry.connect("activate", self.on_homepage_search_activated)
-        search_section.append(self.homepage_search_entry)
+        self.popular_grid = Gtk.Grid()
+        self.popular_grid.set_column_spacing(24)
+        self.popular_grid.set_row_spacing(16)
+        self.popular_grid.set_column_homogeneous(True)
+        self.popular_section_box.append(self.popular_grid)
+        self.main_box.append(self.popular_section_box)
         
-        self.main_box.append(search_section)
+        self.popular_spinner = Gtk.Spinner()
+        self.popular_spinner.set_size_request(24, 24)
+        self.popular_spinner.set_halign(Gtk.Align.CENTER)
+        self.popular_spinner.start()
+        self.popular_section_box.append(self.popular_spinner)
         
-        # 2. Local File Installation Banner
+        # 2. Lo mejor de la semana Section (from Flathub)
+        self.trending_section_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        trending_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        trending_title = Gtk.Label(label=_("Lo mejor de la semana"), xalign=0)
+        trending_title.add_css_class("store-section-title")
+        trending_header.append(trending_title)
+        self.trending_section_box.append(trending_header)
+        
+        self.trending_grid = Gtk.Grid()
+        self.trending_grid.set_column_spacing(24)
+        self.trending_grid.set_row_spacing(16)
+        self.trending_grid.set_column_homogeneous(True)
+        self.trending_section_box.append(self.trending_grid)
+        self.main_box.append(self.trending_section_box)
+        
+        self.trending_spinner = Gtk.Spinner()
+        self.trending_spinner.set_size_request(24, 24)
+        self.trending_spinner.set_halign(Gtk.Align.CENTER)
+        self.trending_spinner.start()
+        self.trending_section_box.append(self.trending_spinner)
+        
+        # 3. Top apps gratis Section (from Flathub)
+        self.top_free_section_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        top_free_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        top_free_title = Gtk.Label(label=_("Top apps gratis"), xalign=0)
+        top_free_title.add_css_class("store-section-title")
+        top_free_header.append(top_free_title)
+        self.top_free_section_box.append(top_free_header)
+        
+        scrolled_top_free = Gtk.ScrolledWindow()
+        scrolled_top_free.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.NEVER)
+        self.top_free_horizontal_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16)
+        self.top_free_horizontal_box.set_margin_top(8)
+        self.top_free_horizontal_box.set_margin_bottom(8)
+        scrolled_top_free.set_child(self.top_free_horizontal_box)
+        self.top_free_section_box.append(scrolled_top_free)
+        self.main_box.append(self.top_free_section_box)
+        
+        self.top_free_spinner = Gtk.Spinner()
+        self.top_free_spinner.set_size_request(24, 24)
+        self.top_free_spinner.set_halign(Gtk.Align.CENTER)
+        self.top_free_spinner.start()
+        self.top_free_section_box.append(self.top_free_spinner)
+        
+        # 4. Local File Installation Banner (Moved to bottom)
         local_install_card = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16)
         local_install_card.add_css_class("card")
         local_install_card.set_margin_bottom(8)
@@ -311,7 +368,7 @@ class PackageInstaller(Adw.ApplicationWindow):
         
         local_install_card.append(buttons_vbox)
         self.main_box.append(local_install_card)
-
+        
         # Selected File Indicator (hidden/shown dynamically)
         self.selected_file_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         self.selected_file_box.add_css_class("card")
@@ -334,7 +391,7 @@ class PackageInstaller(Adw.ApplicationWindow):
         
         self.selected_file_box.append(file_actions_box)
         self.main_box.append(self.selected_file_box)
-
+        
         # Progress / Status section (for when installing local file)
         self.progress_section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         self.progress_section.add_css_class("card")
@@ -346,7 +403,6 @@ class PackageInstaller(Adw.ApplicationWindow):
         self.progress_section.append(self.status_label)
         self.main_box.append(self.progress_section)
         
-
         # --- Search Results View ---
         results_scrolled = Gtk.ScrolledWindow()
         results_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
@@ -366,28 +422,9 @@ class PackageInstaller(Adw.ApplicationWindow):
         
         self.main_stack.add_named(results_scrolled, "search_results")
         self.search_timer = None
-
-    def on_homepage_search_changed(self, entry):
-        text = entry.get_text()
-        if text:
-            self.header_stack.set_visible_child_name("search")
-            self.main_stack.set_visible_child_name("search_results")
-            self.header_search_entry.set_text(text)
-            self.header_search_entry.set_position(-1)
-            entry.set_text("")
-            GLib.timeout_add(100, self.header_search_entry.grab_focus)
-
-    def on_homepage_search_activated(self, entry):
-        text = entry.get_text().strip()
-        if text:
-            self.header_stack.set_visible_child_name("search")
-            self.main_stack.set_visible_child_name("search_results")
-            self.header_search_entry.set_text(text)
-            self.header_search_entry.set_position(-1)
-            entry.set_text("")
-            GLib.timeout_add(100, self.header_search_entry.grab_focus)
-            if len(text) >= 3:
-                self.perform_package_search(text)
+        
+        # Fetch Recommendations in the background
+        self.load_store_recommendations()
 
     def on_search_entry_activated(self, entry):
         text = entry.get_text().strip()
@@ -396,6 +433,191 @@ class PackageInstaller(Adw.ApplicationWindow):
             self.search_timer = None
         if len(text) >= 3:
             self.perform_package_search(text)
+
+    def on_sidebar_search_changed(self, entry):
+        text = entry.get_text()
+        if text:
+            # Switch to "store" tab if not already there
+            store_row = self.sidebar_list.get_row_at_index(0)
+            if self.sidebar_list.get_selected_row() != store_row:
+                self.sidebar_list.select_row(store_row)
+                
+            self.header_stack.set_visible_child_name("search")
+            self.main_stack.set_visible_child_name("search_results")
+            
+            stripped_text = text.strip()
+            if len(stripped_text) >= 3:
+                if self.search_timer:
+                    GLib.source_remove(self.search_timer)
+                self.search_timer = GLib.timeout_add(30, self.perform_package_search, stripped_text)
+        else:
+            # If search text is empty, switch back to home menu of the store
+            self.header_stack.set_visible_child_name("main")
+            self.main_stack.set_visible_child_name("menu")
+            # Clear search results list
+            child = self.search_results_list.get_first_child()
+            while child:
+                self.search_results_list.remove(child)
+                child = self.search_results_list.get_first_child()
+
+    def on_sidebar_search_activated(self, entry):
+        text = entry.get_text().strip()
+        if text:
+            store_row = self.sidebar_list.get_row_at_index(0)
+            if self.sidebar_list.get_selected_row() != store_row:
+                self.sidebar_list.select_row(store_row)
+            self.header_stack.set_visible_child_name("search")
+            self.main_stack.set_visible_child_name("search_results")
+            if len(text) >= 3:
+                self.perform_package_search(text)
+
+    def load_store_recommendations(self):
+        def _fetch():
+            if not self.search_service:
+                return
+            
+            # Fetch popular apps (17 total, to use 12 for popular, 5 for top free)
+            popular_all = self.search_service.get_popular_apps(limit=17)
+            popular = popular_all[:12]
+            top_free = popular_all[12:17] if len(popular_all) > 12 else popular_all[:5]
+            
+            # Fetch trending apps (12)
+            trending = self.search_service.get_trending_apps(limit=12)
+            
+            GLib.idle_add(self.populate_recommendations, popular, trending, top_free)
+            
+        threading.Thread(target=_fetch, daemon=True).start()
+
+    def populate_recommendations(self, popular, trending, top_free):
+        # Stop and remove spinners if they exist
+        if hasattr(self, 'popular_spinner') and self.popular_spinner:
+            try:
+                self.popular_spinner.stop()
+                self.popular_section_box.remove(self.popular_spinner)
+            except: pass
+            
+        if hasattr(self, 'trending_spinner') and self.trending_spinner:
+            try:
+                self.trending_spinner.stop()
+                self.trending_section_box.remove(self.trending_spinner)
+            except: pass
+            
+        if hasattr(self, 'top_free_spinner') and self.top_free_spinner:
+            try:
+                self.top_free_spinner.stop()
+                self.top_free_section_box.remove(self.top_free_spinner)
+            except: pass
+            
+        # Populate popular (4 rows, 3 columns)
+        for idx, app in enumerate(popular[:12]):
+            row = idx % 4
+            col = idx // 4
+            item_widget = self.create_app_grid_item(app)
+            self.popular_grid.attach(item_widget, col, row, 1, 1)
+            
+        # Populate trending (4 rows, 3 columns)
+        for idx, app in enumerate(trending[:12]):
+            row = idx % 4
+            col = idx // 4
+            item_widget = self.create_app_grid_item(app)
+            self.trending_grid.attach(item_widget, col, row, 1, 1)
+            
+        # Populate top free (5 items side by side)
+        for idx, app in enumerate(top_free[:5]):
+            card = self.create_top_free_card(idx + 1, app)
+            self.top_free_horizontal_box.append(card)
+
+    def create_app_grid_item(self, app_data):
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        box.add_css_class("store-app-card")
+        box.set_hexpand(True)
+        box.set_valign(Gtk.Align.CENTER)
+        
+        # Rounded App Icon
+        icon_path = app_data.get('icon', '')
+        if icon_path and os.path.exists(icon_path):
+            icon = Gtk.Image.new_from_file(icon_path)
+        else:
+            icon = Gtk.Image.new_from_icon_name("system-software-install-symbolic")
+        icon.set_pixel_size(48)
+        icon.add_css_class("app-card-icon")
+        box.append(icon)
+        
+        # Text labels
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        vbox.set_hexpand(True)
+        vbox.set_valign(Gtk.Align.CENTER)
+        
+        name_label = Gtk.Label(label=app_data.get('display_name', ''), xalign=0)
+        name_label.add_css_class("app-card-title")
+        name_label.set_ellipsize(Pango.EllipsizeMode.END)
+        vbox.append(name_label)
+        
+        desc_label = Gtk.Label(label=app_data.get('desc', ''), xalign=0)
+        desc_label.add_css_class("app-card-subtitle")
+        desc_label.set_ellipsize(Pango.EllipsizeMode.END)
+        vbox.append(desc_label)
+        
+        box.append(vbox)
+        
+        # Ver Button
+        ver_btn = Gtk.Button(label=_("Ver"))
+        ver_btn.add_css_class("app-card-button")
+        ver_btn.set_valign(Gtk.Align.CENTER)
+        ver_btn.connect("clicked", lambda b: self.on_recommendation_clicked(app_data))
+        box.append(ver_btn)
+        
+        return box
+
+    def create_top_free_card(self, rank, app_data):
+        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        card.add_css_class("top-free-card")
+        card.set_size_request(140, 200)
+        card.set_hexpand(True)
+        
+        # Rank Number
+        rank_label = Gtk.Label(label=str(rank), xalign=0)
+        rank_label.add_css_class("top-free-rank")
+        card.append(rank_label)
+        
+        # Centered rounded app icon
+        icon_path = app_data.get('icon', '')
+        if icon_path and os.path.exists(icon_path):
+            icon = Gtk.Image.new_from_file(icon_path)
+        else:
+            icon = Gtk.Image.new_from_icon_name("system-software-install-symbolic")
+        icon.set_pixel_size(64)
+        icon.set_halign(Gtk.Align.CENTER)
+        icon.add_css_class("app-card-icon")
+        card.append(icon)
+        
+        # Centered app name
+        name_label = Gtk.Label(label=app_data.get('display_name', ''))
+        name_label.add_css_class("top-free-title")
+        name_label.set_ellipsize(Pango.EllipsizeMode.END)
+        name_label.set_halign(Gtk.Align.CENTER)
+        card.append(name_label)
+        
+        # Spacer
+        spacer = Gtk.Box()
+        spacer.set_vexpand(True)
+        card.append(spacer)
+        
+        # Ver Button (centered)
+        ver_btn = Gtk.Button(label=_("Ver"))
+        ver_btn.add_css_class("app-card-button")
+        ver_btn.set_halign(Gtk.Align.CENTER)
+        ver_btn.connect("clicked", lambda b: self.on_recommendation_clicked(app_data))
+        card.append(ver_btn)
+        
+        return card
+
+    def on_recommendation_clicked(self, app_data):
+        pkg_name = app_data['name']
+        if app_data.get('source') == 'flatpak':
+            pkg_name = f"flatpak:{pkg_name}"
+        self.file_path = pkg_name
+        self.show_package_details(identifier=pkg_name, is_local=False)
 
     def setup_updates_widget(self):
         updates_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
@@ -608,20 +830,13 @@ class PackageInstaller(Adw.ApplicationWindow):
         self.header_stack.set_visible_child_name("search")
         self.main_stack.set_visible_child_name("search_results")
         
-        # Enfocar la entrada real del header
-        GLib.timeout_add(100, self.header_search_entry.grab_focus)
+        # Enfocar la entrada real de la barra lateral
+        if hasattr(self, 'sidebar_search_entry'):
+            GLib.timeout_add(100, self.sidebar_search_entry.grab_focus)
 
     def on_search_back_clicked(self, btn):
-        self.header_stack.set_visible_child_name("main")
-        self.main_stack.set_visible_child_name("menu")
-        
-        self.header_search_entry.set_text("")
-        
-        # Limpiar resultados
-        child = self.search_results_list.get_first_child()
-        while child:
-            self.search_results_list.remove(child)
-            child = self.search_results_list.get_first_child()
+        if hasattr(self, 'sidebar_search_entry'):
+            self.sidebar_search_entry.set_text("")
 
     def create_action_button(self, label, icon_name, callback, css_class):
         button = Gtk.Button()
@@ -636,12 +851,18 @@ class PackageInstaller(Adw.ApplicationWindow):
         return button
 
     def load_initial_file(self):
-        if self.file_path and os.path.exists(self.file_path):
-            self.selected_file_label.set_text(_("Archivo seleccionado: {}").format(os.path.basename(self.file_path)))
-            self.install_button.set_sensitive(True)
-            self.status_label.set_text(_("Estoy listo para instalar: {}").format(os.path.basename(self.file_path)))
-            # Mostrar detalles automáticamente al cargar archivo inicialmente
-            GLib.idle_add(self.show_package_details)
+        if self.file_path:
+            is_scheme = any(self.file_path.startswith(prefix) for prefix in ["flatpak:", "snap:", "aur:", "brew:", "appstream:", "flatpak+https:"])
+            if is_scheme or os.path.exists(self.file_path):
+                if not is_scheme:
+                    self.selected_file_label.set_text(_("Archivo seleccionado: {}").format(os.path.basename(self.file_path)))
+                    self.install_button.set_sensitive(True)
+                    self.status_label.set_text(_("Estoy listo para instalar: {}").format(os.path.basename(self.file_path)))
+                    GLib.idle_add(self.show_package_details, is_local=True)
+                else:
+                    store_row = self.sidebar_list.get_row_at_index(0)
+                    self.sidebar_list.select_row(store_row)
+                    GLib.idle_add(self.show_package_details, identifier=self.file_path, is_local=False)
         return False
 
     def on_file_chooser_clicked(self, button):
@@ -669,7 +890,7 @@ class PackageInstaller(Adw.ApplicationWindow):
 
     def show_package_details(self, identifier=None, is_local=True):
         if not identifier:
-            identifier = self.file_path if is_local else self.header_search_entry.get_text().strip()
+            identifier = self.file_path if is_local else self.sidebar_search_entry.get_text().strip()
         if not identifier:
             return
             
@@ -760,11 +981,13 @@ class PackageInstaller(Adw.ApplicationWindow):
         )
         self.main_stack.add_named(self.details_widget_instance, "details")
         self.main_stack.set_visible_child_name("details")
+        self.header_stack.set_visible(False)
 
     def on_details_back_clicked(self):
+        self.header_stack.set_visible(True)
         self.main_stack.set_visible_child_name(self.details_prev_view)
         if self.details_prev_view == "search_results":
-            GLib.timeout_add(100, self.header_search_entry.grab_focus)
+            GLib.timeout_add(100, self.sidebar_search_entry.grab_focus)
 
     def uninstall_package_from_details(self, name, source):
         is_flatpak = (source == 'flatpak')
@@ -793,7 +1016,7 @@ class PackageInstaller(Adw.ApplicationWindow):
 
     def on_install_clicked(self, widget):
         if not self.file_path:
-            package_name = self.header_search_entry.get_text().strip()
+            package_name = self.sidebar_search_entry.get_text().strip()
             if package_name:
                 self.file_path = package_name
             else:
@@ -1009,6 +1232,10 @@ class PackageInstaller(Adw.ApplicationWindow):
         text = entry.get_text()
         stripped_text = text.strip()
 
+        # Sync back to sidebar entry
+        if hasattr(self, 'sidebar_search_entry') and self.sidebar_search_entry.get_text() != text:
+            self.sidebar_search_entry.set_text(text)
+
         if self.search_timer:
             GLib.source_remove(self.search_timer)
             self.search_timer = None
@@ -1155,6 +1382,14 @@ class PackageInstaller(Adw.ApplicationWindow):
             badge.add_css_class(badge_class)
             badge.set_valign(Gtk.Align.CENTER)
             box.append(badge)
+            
+            # App Store style "Ver" button on the right
+            ver_btn = Gtk.Button(label=_("Ver"))
+            ver_btn.add_css_class("app-card-button")
+            ver_btn.set_valign(Gtk.Align.CENTER)
+            ver_btn.set_margin_start(8)
+            ver_btn.connect("clicked", lambda b, r=row: self.on_search_result_activated(self.search_results_list, r))
+            box.append(ver_btn)
             
             row.set_child(box)
             row.pkg_name = res['name']

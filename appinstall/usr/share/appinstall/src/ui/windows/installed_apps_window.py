@@ -2,65 +2,48 @@ import os
 import threading
 import subprocess
 import requests
-from gi.repository import Gtk, GLib, Adw
+from gi.repository import Gtk, GLib, Adw, Gdk
 from src.infrastructure.services.localization import _
 from src.utils.system import get_safe_window_size, HAS_BREW, BREW_PATH
 from src.ui.windows.progress_window import ProgressWindow
 
-class InstalledAppsWindow(Adw.Window):
-    def __init__(self, parent, package_manager, uninstall_service):
-        super().__init__()
+class InstalledAppsWidget(Gtk.Box):
+    def __init__(self, parent_window, package_manager, uninstall_service):
+        super().__init__(orientation=Gtk.Orientation.VERTICAL)
+        self.parent_window = parent_window
         self.package_manager = package_manager
         self.uninstall_service = uninstall_service
-        self.set_title(_("Aplicaciones instaladas"))
-        
-        # Obtener tamaño seguro de ventana
-        width, height = get_safe_window_size(500, 400, 0.7)
-        self.set_default_size(width, height)
-            
-        self.set_transient_for(parent)
-        self.set_modal(True)
         self.add_css_class("main-window")
-        self.connect("close-request", self._on_close_request)
+        self.connect("unmap", lambda w: setattr(self, "stop_loading", True))
 
         # Header bar al estilo GNOME
         header_bar = Adw.HeaderBar()
+        header_bar.set_show_end_title_buttons(False)
+        header_bar.set_show_start_title_buttons(False)
         header_bar.set_title_widget(Adw.WindowTitle(title=_("Aplicaciones instaladas")))
         header_bar.add_css_class("header-bar")
 
         # Contenido principal en un ToolbarView
         toolbar_view = Adw.ToolbarView()
+        toolbar_view.set_hexpand(True)
+        toolbar_view.set_vexpand(True)
         toolbar_view.add_top_bar(header_bar)
-        self.set_content(toolbar_view)
+        self.append(toolbar_view)
 
-        # Contenido desplazable para pantallas pequeñas
-        if height > 380:
-            scrolled_main = Gtk.ScrolledWindow()
-            scrolled_main.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-            scrolled_main.set_propagate_natural_height(True)
-            toolbar_view.set_content(scrolled_main)
-
-            main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-            main_box.set_margin_top(16)
-            main_box.set_margin_bottom(16)
-            main_box.set_margin_start(16)
-            main_box.set_margin_end(16)
-            scrolled_main.set_child(main_box)
-        else:
-            main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-            main_box.set_margin_top(16)
-            main_box.set_margin_bottom(16)
-            main_box.set_margin_start(16)
-            main_box.set_margin_end(16)
-            toolbar_view.set_content(main_box)
+        # Contenedor principal de contenido
+        content_container = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        toolbar_view.set_content(content_container)
 
         # Barra de búsqueda con spinner indicador
         search_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        search_box.set_margin_start(8)
-        search_box.set_margin_end(8)
+        search_box.set_margin_top(16)
+        search_box.set_margin_bottom(8)
+        search_box.set_margin_start(16)
+        search_box.set_margin_end(16)
         
         self.search_entry = Gtk.SearchEntry()
         self.search_entry.set_placeholder_text(_("Buscar aplicaciones..."))
+        self.search_entry.set_key_capture_widget(None)
         self.search_entry.connect("search-changed", self.on_search_changed)
         self.search_entry.add_css_class("search-entry")
         self.search_entry.set_hexpand(True)
@@ -70,24 +53,20 @@ class InstalledAppsWindow(Adw.Window):
         self.search_spinner.set_size_request(24, 24)
         search_box.append(self.search_spinner)
         
-        main_box.append(search_box)
+        content_container.append(search_box)
         
         self.is_loading = False
         self.stop_loading = False
 
-        # Contenedor para el contenido (Stack para manejar estados)
-        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-        main_box.append(content_box)
-
         # Separador sutil
         separator = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
-        separator.set_margin_top(8)
-        separator.set_margin_bottom(8)
-        content_box.append(separator)
+        content_container.append(separator)
 
         self.stack = Gtk.Stack()
         self.stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
-        content_box.append(self.stack)
+        self.stack.set_hexpand(True)
+        self.stack.set_vexpand(True)
+        content_container.append(self.stack)
 
         # 1. Estado de Carga (Spinner)
         loading_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
@@ -110,11 +89,13 @@ class InstalledAppsWindow(Adw.Window):
         # 2. Estado de Lista (ScrolledWindow + ListBox)
         scrolled_window = Gtk.ScrolledWindow()
         scrolled_window.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        scrolled_window.set_min_content_height(300)
+        scrolled_window.set_hexpand(True)
+        scrolled_window.set_vexpand(True)
         
         self.listbox = Gtk.ListBox()
         self.listbox.set_selection_mode(Gtk.SelectionMode.NONE)
         self.listbox.set_filter_func(self.filter_func)
+        self.listbox.add_css_class("installed-apps-list")
         scrolled_window.set_child(self.listbox)
         
         self.stack.add_named(scrolled_window, "list")
@@ -140,21 +121,18 @@ class InstalledAppsWindow(Adw.Window):
         self.progress_bar = Gtk.ProgressBar()
         self.progress_bar.add_css_class("progress-bar")
         self.progress_bar.set_visible(False)
-        main_box.append(self.progress_bar)
+        content_container.append(self.progress_bar)
 
         # Mensaje de estado
         self.status_label = Gtk.Label(label="")
         self.status_label.add_css_class("status-label")
-        main_box.append(self.status_label)
+        content_container.append(self.status_label)
         
         # Cargar aplicaciones
         self.load_installed_apps()
     
-    def _on_close_request(self, *args):
-        self.stop_loading = True
-        return False
-
     def load_installed_apps(self):
+        self.stop_loading = False
         # Ocultar lista para que el borrado sea instantáneo sin re-layouts
         self.listbox.set_visible(False)
         
@@ -230,14 +208,42 @@ class InstalledAppsWindow(Adw.Window):
                                         is_appimage = "X-AppInstall=AppImage" in content or "appimage.png" in icon_val or (f"/usr/bin/{app_id}" in exec_val and f"/usr/share/pixmaps/{app_id}" in icon_val)
 
                                         if is_pwa:
-                                            desktop_apps.append((display_name, app_id, False, False, True))
+                                            desktop_apps.append((display_name, app_id, False, False, True, False, False, False))
                                         elif is_appimage:
-                                            desktop_apps.append((display_name, app_id, True, False, False))
+                                            desktop_apps.append((display_name, app_id, True, False, False, False, False, False))
                                 except: continue
                     except: pass
             
             if desktop_apps:
                 push_to_ui(sorted(desktop_apps))
+
+            # --- FASE 1.5: Flatpak ---
+            if not getattr(self, "stop_loading", False):
+                try:
+                    from src.infrastructure.adapters.flatpak_adapter import FlatpakAdapter
+                    fp = FlatpakAdapter()
+                    if fp.is_available():
+                        flatpak_batch = []
+                        for app_id in fp.list_installed():
+                            flatpak_batch.append((app_id, app_id, False, False, False, True, False, False))
+                        if flatpak_batch:
+                            push_to_ui(sorted(flatpak_batch))
+                except Exception as e:
+                    print(f"Error loading Flatpaks: {e}")
+
+            # --- FASE 1.6: Snap ---
+            if not getattr(self, "stop_loading", False):
+                try:
+                    from src.infrastructure.adapters.snap_adapter import SnapAdapter
+                    sn = SnapAdapter()
+                    if sn.is_available():
+                        snap_batch = []
+                        for snap_name in sn.list_installed():
+                            snap_batch.append((snap_name, snap_name, False, False, False, False, True, False))
+                        if snap_batch:
+                            push_to_ui(sorted(snap_batch))
+                except Exception as e:
+                    print(f"Error loading Snaps: {e}")
 
             # --- FASE 2: Homebrew (Suele tardar unos segundos) ---
             if HAS_BREW and not getattr(self, "stop_loading", False):
@@ -245,19 +251,28 @@ class InstalledAppsWindow(Adw.Window):
                     brew_batch = []
                     output = subprocess.check_output([BREW_PATH, 'list', '--formula'], timeout=10, stderr=subprocess.DEVNULL).decode('utf-8')
                     for line in output.split('\n'):
-                        if line.strip(): brew_batch.append((line.strip(), line.strip(), False, True, False))
+                        if line.strip(): brew_batch.append((line.strip(), line.strip(), False, True, False, False, False, False))
                     
                     output_cask = subprocess.check_output([BREW_PATH, 'list', '--cask'], timeout=10, stderr=subprocess.DEVNULL).decode('utf-8')
                     for line in output_cask.split('\n'):
-                        if line.strip(): brew_batch.append((line.strip(), line.strip(), False, True, False))
+                        if line.strip(): brew_batch.append((line.strip(), line.strip(), False, True, False, False, False, False))
                     
                     if brew_batch:
                         push_to_ui(sorted(brew_batch))
                 except: pass
 
-            # --- FASE 3: Paquetes del Sistema (Pueden ser miles) ---
+            # --- FASE 3: Paquetes del Sistema & AUR (Pueden ser miles) ---
             if not getattr(self, "stop_loading", False):
                 try:
+                    import shutil
+                    is_pacman = shutil.which('pacman') is not None
+                    foreign = set()
+                    if is_pacman:
+                        try:
+                            from src.infrastructure.adapters.aur_adapter import AurAdapter
+                            foreign = set(AurAdapter().list_installed())
+                        except: pass
+
                     packages = self.package_manager.list_installed()
                     packages.sort()
                     
@@ -266,7 +281,10 @@ class InstalledAppsWindow(Adw.Window):
                     for i in range(0, len(packages), chunk_size):
                         if getattr(self, "stop_loading", False): break
                         chunk = packages[i:i + chunk_size]
-                        system_batch = [(p, p, False, False, False) for p in chunk]
+                        system_batch = []
+                        for p in chunk:
+                            is_pkg_aur = is_pacman and p in foreign
+                            system_batch.append((p, p, False, False, False, False, False, is_pkg_aur))
                         push_to_ui(system_batch)
                         # Dar un pequeño respiro al hilo para que la UI respire
                         import time
@@ -289,8 +307,8 @@ class InstalledAppsWindow(Adw.Window):
         if self.stack.get_visible_child_name() == "loading":
             self.stack.set_visible_child_name("list")
 
-        for display_name, internal_name, is_appimage, is_brew, is_pwa in batch:
-            self.add_app_to_list(display_name, internal_name, is_appimage, is_brew, is_pwa)
+        for display_name, internal_name, is_appimage, is_brew, is_pwa, is_flatpak, is_snap, is_aur in batch:
+            self.add_app_to_list(display_name, internal_name, is_appimage, is_brew, is_pwa, is_flatpak, is_snap, is_aur)
         
         # Si hay búsqueda activa, necesitamos invalidar el filtro
         if self.search_entry.get_text():
@@ -306,7 +324,7 @@ class InstalledAppsWindow(Adw.Window):
             self.stack.set_visible_child_name("empty")
         return False
     
-    def add_app_to_list(self, display_name, internal_name, is_appimage=False, is_brew=False, is_pwa=False):
+    def add_app_to_list(self, display_name, internal_name, is_appimage=False, is_brew=False, is_pwa=False, is_flatpak=False, is_snap=False, is_aur=False):
         row = Gtk.ListBoxRow()
         row.add_css_class("list-row")
         row.package_name = display_name.lower() # Atributo para filtrado ultra rápido
@@ -318,10 +336,21 @@ class InstalledAppsWindow(Adw.Window):
         hbox.set_margin_end(8)
         row.set_child(hbox)
         
+        theme = Gtk.IconTheme.get_for_display(Gdk.Display.get_default())
+        
         if is_appimage:
             icon = Gtk.Image.new_from_icon_name("application-x-executable")
         elif is_pwa:
             icon = Gtk.Image.new_from_icon_name("web-browser-symbolic")
+        elif is_flatpak:
+            icon_name = "flatpak-symbolic" if theme.has_icon("flatpak-symbolic") else "system-software-install"
+            icon = Gtk.Image.new_from_icon_name(icon_name)
+        elif is_snap:
+            icon_name = "snap-symbolic" if theme.has_icon("snap-symbolic") else "system-software-install"
+            icon = Gtk.Image.new_from_icon_name(icon_name)
+        elif is_aur:
+            icon_name = "archlinux-logo" if theme.has_icon("archlinux-logo") else "package-x-generic"
+            icon = Gtk.Image.new_from_icon_name(icon_name)
         elif is_brew:
             # Usamos el path pre-calculado en el hilo de fondo
             if hasattr(self, 'brew_logo_path') and self.brew_logo_path and os.path.exists(self.brew_logo_path):
@@ -347,6 +376,12 @@ class InstalledAppsWindow(Adw.Window):
             type_text = _("PWA (Web App)")
         elif is_brew:
             type_text = _("Paquete Homebrew")
+        elif is_flatpak:
+            type_text = _("Flatpak (Flathub)")
+        elif is_snap:
+            type_text = _("Paquete Snap")
+        elif is_aur:
+            type_text = _("Paquete AUR")
         else:
             type_text = _("Paquete del sistema")
             
@@ -364,7 +399,7 @@ class InstalledAppsWindow(Adw.Window):
         button_icon = Gtk.Image.new_from_icon_name("user-trash-symbolic")
         button.set_child(button_icon)
         
-        button.connect("clicked", self.on_uninstall_clicked, internal_name, is_appimage, is_brew, is_pwa)
+        button.connect("clicked", self.on_uninstall_clicked, internal_name, is_appimage, is_brew, is_pwa, is_flatpak, is_snap, is_aur)
         hbox.append(button)
         
         self.listbox.append(row)
@@ -421,13 +456,19 @@ class InstalledAppsWindow(Adw.Window):
             return True
         return text in getattr(row, "package_name", "")
     
-    def on_uninstall_clicked(self, button, package_name, is_appimage=False, is_brew=False, is_pwa=False):
+    def on_uninstall_clicked(self, button, package_name, is_appimage=False, is_brew=False, is_pwa=False, is_flatpak=False, is_snap=False, is_aur=False):
         if is_appimage:
             message = _("¿Deseas desinstalar {}? (AppImage)").format(package_name)
         elif is_pwa:
             message = _("¿Deseas desinstalar {}? (Web App)").format(package_name)
         elif is_brew:
             message = _("¿Deseas desinstalar {}? (Homebrew)").format(package_name)
+        elif is_flatpak:
+            message = _("¿Deseas desinstalar {}? (Flatpak)").format(package_name)
+        elif is_snap:
+            message = _("¿Deseas desinstalar {}? (Snap)").format(package_name)
+        elif is_aur:
+            message = _("¿Deseas desinstalar {}? (AUR)").format(package_name)
         else:
             message = _("¿Deseas desinstalar {}?").format(package_name)
             
@@ -441,19 +482,19 @@ class InstalledAppsWindow(Adw.Window):
         dialog.set_default_response("no")
         dialog.set_close_response("no")
         
-        dialog.choose(self, None, self._on_uninstall_dialog_response, (package_name, is_appimage, is_brew, is_pwa))
+        dialog.choose(self.get_root(), None, self._on_uninstall_dialog_response, (package_name, is_appimage, is_brew, is_pwa, is_flatpak, is_snap, is_aur))
     
     def _on_uninstall_dialog_response(self, dialog, result, data):
-        package_name, is_appimage, is_brew, is_pwa = data
+        package_name, is_appimage, is_brew, is_pwa, is_flatpak, is_snap, is_aur = data
         try:
             response = dialog.choose_finish(result)
             if response == "yes":
                 # Pequeño retardo para dejar que el diálogo de confirmación se cierre suavemente
-                GLib.timeout_add(200, lambda: self.uninstall_package(package_name, is_appimage, is_brew, is_pwa))
+                GLib.timeout_add(200, lambda: self.uninstall_package(package_name, is_appimage, is_brew, is_pwa, is_flatpak, is_snap, is_aur))
         except Exception as e:
             print(f"Dialog error: {e}")
     
-    def uninstall_package(self, package_name, is_appimage=False, is_brew=False, is_pwa=False):
+    def uninstall_package(self, package_name, is_appimage=False, is_brew=False, is_pwa=False, is_flatpak=False, is_snap=False, is_aur=False):
         # Detener carga si está en curso y desactivar búsqueda para evitar ralentización
         self.stop_loading = True
         self.search_entry.set_sensitive(False)
@@ -466,9 +507,12 @@ class InstalledAppsWindow(Adw.Window):
         self.progress_dialog = ProgressWindow(self, _("Desinstalando {}...").format(package_name))
         self.progress_dialog.present()
 
-        cmd = self.uninstall_service.get_uninstall_command(package_name, is_appimage, is_brew, is_pwa, BREW_PATH)
+        cmd = self.uninstall_service.get_uninstall_command(
+            package_name, is_appimage, is_brew, is_pwa, BREW_PATH,
+            is_flatpak=is_flatpak, is_snap=is_snap, is_aur=is_aur
+        )
         self.uninstall_service.run_uninstall(cmd, self.update_uninstall_progress, 
-                                           lambda success, error: self.uninstall_complete(package_name, success, is_appimage, is_brew, is_pwa, error))
+                                           lambda success, error: self.uninstall_complete(package_name, success, is_appimage, is_brew, is_pwa, is_flatpak, is_snap, is_aur, error))
         return False
     
     def update_uninstall_progress(self):
@@ -476,7 +520,7 @@ class InstalledAppsWindow(Adw.Window):
         self.progress_bar.set_fraction(new_value)
         return False
 
-    def uninstall_complete(self, package_name, success, is_appimage=False, is_brew=False, is_pwa=False, error_message=None):
+    def uninstall_complete(self, package_name, success, is_appimage=False, is_brew=False, is_pwa=False, is_flatpak=False, is_snap=False, is_aur=False, error_message=None):
         self.search_entry.set_sensitive(True)
         self.stop_loading = False
 
@@ -489,9 +533,9 @@ class InstalledAppsWindow(Adw.Window):
         self.progress_bar.set_fraction(0.0)
         
         # Esperar un breve momento para que la animación de cierre termine
-        GLib.timeout_add(200, self._show_uninstall_result, package_name, success, is_appimage, is_brew, is_pwa, error_message)
+        GLib.timeout_add(200, self._show_uninstall_result, package_name, success, is_appimage, is_brew, is_pwa, is_flatpak, is_snap, is_aur, error_message)
 
-    def _show_uninstall_result(self, package_name, success, is_appimage, is_brew, is_pwa, error_message):
+    def _show_uninstall_result(self, package_name, success, is_appimage, is_brew, is_pwa, is_flatpak, is_snap, is_aur, error_message):
         if success:
             if is_appimage:
                 message = _("{} ha sido desinstalado correctamente. Recuerda borrar los archivos que haya creado la aplicación.").format(package_name)
@@ -499,6 +543,12 @@ class InstalledAppsWindow(Adw.Window):
                 message = _("La Web App {} ha sido eliminada correctamente.").format(package_name)
             elif is_brew:
                 message = _("{} ha sido desinstalado de Homebrew correctamente.").format(package_name)
+            elif is_flatpak:
+                message = _("{} ha sido desinstalado de Flatpak correctamente.").format(package_name)
+            elif is_snap:
+                message = _("{} ha sido desinstalado de Snap correctamente.").format(package_name)
+            elif is_aur:
+                message = _("{} ha sido desinstalado de AUR correctamente.").format(package_name)
             else:
                 message = _("{} ha sido desinstalado correctamente.").format(package_name)
                 
@@ -519,6 +569,12 @@ class InstalledAppsWindow(Adw.Window):
                 message = _("Error al eliminar la Web App {}.").format(package_name)
             elif is_brew:
                 message = _("Error al desinstalar {} de Homebrew.").format(package_name)
+            elif is_flatpak:
+                message = _("Error al desinstalar {} de Flatpak.").format(package_name)
+            elif is_snap:
+                message = _("Error al desinstalar {} de Snap.").format(package_name)
+            elif is_aur:
+                message = _("Error al desinstalar {} de AUR.").format(package_name)
             else:
                 message = _("Error al desinstalar {}.").format(package_name)
                 
@@ -530,5 +586,5 @@ class InstalledAppsWindow(Adw.Window):
             dialog.set_default_response("ok")
             self.status_label.set_text(_("Uy... ha habido un error cuando estaba desinstalándote la app"))
         
-        dialog.present(self)
+        dialog.present(self.get_root())
         return False

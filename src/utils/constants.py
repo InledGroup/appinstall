@@ -1,2 +1,2 @@
-CURRENT_VERSION = "16"
+CURRENT_VERSION = "17"
 GITHUB_REPO = "InledGroup/appinstall"

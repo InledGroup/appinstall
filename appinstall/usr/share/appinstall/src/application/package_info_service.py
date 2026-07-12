@@ -4,10 +4,16 @@ import tempfile
 import re
 from typing import Dict
 from src.domain.ports import PackageManager
+from src.infrastructure.adapters.flatpak_adapter import FlatpakAdapter
+from src.infrastructure.adapters.snap_adapter import SnapAdapter
+from src.infrastructure.adapters.aur_adapter import AurAdapter
 
 class PackageInfoService:
     def __init__(self, package_manager: PackageManager):
         self.package_manager = package_manager
+        self.flatpak_adapter = FlatpakAdapter()
+        self.snap_adapter = SnapAdapter()
+        self.aur_adapter = AurAdapter()
 
     def get_info(self, identifier: str, is_local: bool = True) -> Dict[str, str]:
         if not identifier:
@@ -30,7 +36,16 @@ class PackageInfoService:
                 return self._get_appimage_info(identifier)
         else:
             # Repository package
-            if identifier.startswith('brew:'):
+            if identifier.startswith('flatpak:'):
+                pkg_name = identifier.replace('flatpak:', '', 1)
+                return self.flatpak_adapter.get_package_info(pkg_name)
+            elif identifier.startswith('snap:'):
+                pkg_name = identifier.replace('snap:', '', 1)
+                return self.snap_adapter.get_package_info(pkg_name)
+            elif identifier.startswith('aur:'):
+                pkg_name = identifier.replace('aur:', '', 1)
+                return self.aur_adapter.get_package_info(pkg_name)
+            elif identifier.startswith('brew:'):
                 pkg_name = identifier.replace('brew:', '', 1)
                 return {
                     'name': pkg_name,

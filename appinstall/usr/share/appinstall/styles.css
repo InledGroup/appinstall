@@ -100,3 +100,179 @@
         padding: 8px;
         border-radius: 16px;
     }
+    
+    .verified-icon {
+        color: #3584e4;
+    }
+    
+    .badge {
+        padding: 4px 8px;
+        border-radius: 10px;
+        font-size: 10px;
+        font-weight: bold;
+    }
+    
+    .badge-system {
+        background-color: rgba(53, 132, 228, 0.15);
+        color: #3584e4;
+    }
+    
+    .badge-flatpak {
+        background-color: rgba(143, 80, 157, 0.15);
+        color: #8f509d;
+    }
+    
+    .badge-snap {
+        background-color: rgba(224, 27, 36, 0.15);
+        color: #e01b24;
+    }
+    
+    .badge-aur {
+        background-color: rgba(18, 140, 204, 0.15);
+        color: #128ccc;
+    }
+    
+    .badge-brew {
+        background-color: rgba(246, 178, 107, 0.15);
+        color: #f6b26b;
+    }
+    
+    .badge-generic {
+        background-color: rgba(120, 120, 120, 0.15);
+        color: #787878;
+    }
+    
+    .sidebar-container {
+        background-color: @theme_bg_color;
+        border-right: 1px solid @theme_shade_color;
+    }
+    
+    .sidebar-row {
+        border-radius: 8px;
+        margin-bottom: 4px;
+        transition: background-color 0.2s;
+    }
+    
+    .sidebar-row:selected {
+        background-color: @accent_bg_color;
+        color: @accent_fg_color;
+        font-weight: bold;
+    }
+    
+    .installed-apps-list {
+        background-color: transparent;
+        border: none;
+        box-shadow: none;
+    }
+    
+    .installed-apps-list row {
+        background-color: transparent;
+        border: none;
+        border-bottom: 1px solid @theme_shade_color;
+    }
+    
+    .installed-apps-list row:hover {
+        background-color: rgba(255, 255, 255, 0.03);
+    }
+
+    /* Custom App Store CSS styles */
+    .store-section-title {
+        font-size: 1.4em;
+        font-weight: bold;
+        margin-top: 16px;
+        margin-bottom: 8px;
+    }
+    
+    .store-app-card {
+        padding: 10px 14px;
+        border-radius: 12px;
+        transition: background-color 0.2s;
+    }
+    
+    .store-app-card:hover {
+        background-color: rgba(255, 255, 255, 0.05);
+    }
+    
+    .app-card-icon {
+        border-radius: 12px;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+    }
+    
+    .app-card-title {
+        font-weight: 600;
+        font-size: 1.05em;
+    }
+    
+    .app-card-subtitle {
+        font-size: 0.85em;
+        color: @insensitive_fg_color;
+    }
+    
+    .app-card-button {
+        background-color: rgba(53, 132, 228, 0.15);
+        color: #3584e4;
+        font-weight: bold;
+        border-radius: 20px;
+        padding: 4px 16px;
+        border: none;
+        box-shadow: none;
+        transition: all 0.2s;
+    }
+    
+    .app-card-button:hover {
+        background-color: #3584e4;
+        color: #ffffff;
+    }
+    
+    .top-free-card {
+        background-color: @card_bg_color;
+        border-radius: 16px;
+        padding: 16px;
+        margin: 6px;
+        min-width: 140px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+        border: 1px solid rgba(0,0,0,0.05);
+    }
+    
+    .top-free-rank {
+        font-size: 1.8em;
+        font-weight: 800;
+        color: rgba(53, 132, 228, 0.6);
+        margin-bottom: 4px;
+    }
+    
+    .top-free-title {
+        font-weight: bold;
+        font-size: 0.95em;
+        margin-top: 8px;
+        margin-bottom: 8px;
+    }
+    
+    /* Make sidebar icons blue like in the App Store design */
+    .navigation-sidebar row image {
+        color: #3584e4;
+    }
+    
+    .sidebar-search {
+        border-radius: 12px;
+        margin-bottom: 8px;
+    }
+    
+    .screenshot-image {
+        border-radius: 8px;
+    }
+    
+    .screenshot-container {
+        border-radius: 8px;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        background-color: rgba(0, 0, 0, 0.05);
+    }
+    
+    .meta-col-card {
+        min-width: 110px;
+        min-height: 70px;
+        margin-left: 4px;
+        margin-right: 4px;
+        padding: 8px 12px;
+    }

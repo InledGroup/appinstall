@@ -6,50 +6,38 @@ from src.utils.system import get_safe_window_size
 
 from .progress_window import ProgressWindow
 
-class AntivirusWindow(Adw.Window):
+class AntivirusWidget(Gtk.Box):
     def __init__(self, parent, antivirus_service):
-        super().__init__()
+        super().__init__(orientation=Gtk.Orientation.VERTICAL)
         self.antivirus_service = antivirus_service
-        self.set_title(_("Análisis antivirus"))
-        
-        # Obtener tamaño seguro de ventana
-        width, height = get_safe_window_size(650, 600, 0.85)
-        self.set_default_size(width, height)
-            
-        self.set_transient_for(parent)
-        self.set_modal(True)
         self.add_css_class("main-window")
 
         # Header bar al estilo GNOME
         header_bar = Adw.HeaderBar()
+        header_bar.set_show_end_title_buttons(False)
+        header_bar.set_show_start_title_buttons(False)
         header_bar.set_title_widget(Adw.WindowTitle(title=_("Análisis de virus")))
         header_bar.add_css_class("header-bar")
 
         # Contenido principal en un ToolbarView
         toolbar_view = Adw.ToolbarView()
+        toolbar_view.set_hexpand(True)
+        toolbar_view.set_vexpand(True)
         toolbar_view.add_top_bar(header_bar)
-        self.set_content(toolbar_view)
+        self.append(toolbar_view)
 
         # Crear scrolled window para el contenido principal
-        if height > 500:
-            scrolled_main = Gtk.ScrolledWindow()
-            scrolled_main.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-            scrolled_main.set_propagate_natural_height(True)
-            toolbar_view.set_content(scrolled_main)
+        scrolled_main = Gtk.ScrolledWindow()
+        scrolled_main.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scrolled_main.set_propagate_natural_height(True)
+        toolbar_view.set_content(scrolled_main)
 
-            main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
-            main_box.set_margin_top(16)
-            main_box.set_margin_bottom(16)
-            main_box.set_margin_start(16)
-            main_box.set_margin_end(16)
-            scrolled_main.set_child(main_box)
-        else:
-            main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
-            main_box.set_margin_top(16)
-            main_box.set_margin_bottom(16)
-            main_box.set_margin_start(16)
-            main_box.set_margin_end(16)
-            toolbar_view.set_content(main_box)
+        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        main_box.set_margin_top(16)
+        main_box.set_margin_bottom(16)
+        main_box.set_margin_start(16)
+        main_box.set_margin_end(16)
+        scrolled_main.set_child(main_box)
 
         # Título y descripción
         title_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
@@ -442,4 +430,4 @@ class AntivirusWindow(Adw.Window):
         dialog.add_response("delete", _("Eliminar amenazas"))
         dialog.set_response_appearance("delete", Adw.ResponseAppearance.DESTRUCTIVE)
         dialog.set_default_response("quarantine")
-        dialog.choose(self, None, None, None)
+        dialog.choose(self.get_root(), None, None, None)
