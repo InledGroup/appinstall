@@ -139,7 +139,11 @@ X-SwiftInstall={install_type}
     def run_installation(self, cmd, file_path, on_progress, on_complete):
         def _run():
             try:
-                process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+                # Copy current environment and configure privilege escalation to use pkexec (graphical sudo)
+                env = os.environ.copy()
+                env["SUDO"] = "pkexec"
+                env["PACMAN"] = "pkexec pacman"
+                process = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
                 stdout, stderr = process.communicate()
                 
                 if process.returncode == 0:
@@ -169,7 +173,11 @@ X-SwiftInstall={install_type}
     def run_fix_deps(self, cmd, on_progress, on_complete):
         def _run():
             try:
-                process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+                # Copy current environment and configure privilege escalation to use pkexec (graphical sudo)
+                env = os.environ.copy()
+                env["SUDO"] = "pkexec"
+                env["PACMAN"] = "pkexec pacman"
+                process = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
                 stdout, stderr = process.communicate()
                 
                 if process.returncode == 0:

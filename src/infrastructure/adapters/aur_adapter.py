@@ -67,9 +67,9 @@ class AurAdapter(PackageManager):
     def install(self, package: str) -> List[str]:
         # Buscar ayudante de AUR preferido
         if shutil.which('yay'):
-            return ['yay', '-S', '--noconfirm', package]
+            return ['yay', '--sudobin', 'pkexec', '-S', '--noconfirm', '--needed', '--answerclean', 'All', '--answerdiff', 'None', '--answeredit', 'None', package]
         elif shutil.which('paru'):
-            return ['paru', '-S', '--noconfirm', package]
+            return ['paru', '--sudobin', 'pkexec', '-S', '--noconfirm', '--needed', '--answerclean', 'All', '--answerdiff', 'None', '--answeredit', 'None', package]
         else:
             # Fallback nativo: clonar y compilar usando makepkg en el directorio temporal
             # Usamos pkexec para instalar dependencias si makepkg lo pide, pero makepkg debe correr como usuario normal.
@@ -80,15 +80,15 @@ class AurAdapter(PackageManager):
                 f'rm -rf "{temp_dir}" && ' +
                 f'git clone https://aur.archlinux.org/{package}.git "{temp_dir}" && ' +
                 f'cd "{temp_dir}" && ' +
-                f'makepkg -si --noconfirm && ' +
+                f'makepkg -si --noconfirm --needed && ' +
                 f'rm -rf "{temp_dir}"'
             ]
-
+ 
     def install_multiple(self, packages: List[str]) -> List[str]:
         if shutil.which('yay'):
-            return ['yay', '-S', '--noconfirm'] + packages
+            return ['yay', '--sudobin', 'pkexec', '-S', '--noconfirm', '--needed', '--answerclean', 'All', '--answerdiff', 'None', '--answeredit', 'None'] + packages
         elif shutil.which('paru'):
-            return ['paru', '-S', '--noconfirm'] + packages
+            return ['paru', '--sudobin', 'pkexec', '-S', '--noconfirm', '--needed', '--answerclean', 'All', '--answerdiff', 'None', '--answeredit', 'None'] + packages
         else:
             # Si no hay ayudante de AUR, instalar uno a uno usando el método nativo
             commands = []
@@ -184,7 +184,7 @@ class AurAdapter(PackageManager):
         
     def upgrade_system(self) -> List[str]:
         if shutil.which('yay'):
-            return ['yay', '-Syu', '--noconfirm']
+            return ['yay', '--sudobin', 'pkexec', '-Syu', '--noconfirm', '--needed', '--answerclean', 'All', '--answerdiff', 'None', '--answeredit', 'None']
         elif shutil.which('paru'):
-            return ['paru', '-Syu', '--noconfirm']
+            return ['paru', '--sudobin', 'pkexec', '-Syu', '--noconfirm', '--needed', '--answerclean', 'All', '--answerdiff', 'None', '--answeredit', 'None']
         return ['pkexec', 'pacman', '-Syu', '--noconfirm']

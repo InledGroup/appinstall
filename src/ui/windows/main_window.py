@@ -17,6 +17,86 @@ from .appimage_config_window import AppImageConfigWindow
 from .progress_window import ProgressWindow
 from .package_details_window import PackageDetailsWidget
 
+class ScrollingTextContainer(Gtk.ScrolledWindow):
+    def __init__(self, text, label_class):
+        super().__init__()
+        self.set_policy(Gtk.PolicyType.EXTERNAL, Gtk.PolicyType.NEVER)
+        self.set_hexpand(True)
+        self.add_css_class("scrolling-text-container")
+        
+        self.text = text
+        self.label_class = label_class
+        
+        # We use a single Gtk.Box as child at all times to prevent C-object garbage collection segfaults!
+        self.hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=32)
+        
+        self.lbl1 = Gtk.Label(label=text, xalign=0)
+        self.lbl1.add_css_class(label_class)
+        self.lbl1.set_ellipsize(Pango.EllipsizeMode.END)
+        self.lbl1.set_wrap(False)
+        self.hbox.append(self.lbl1)
+        
+        self.lbl2 = Gtk.Label(label=text, xalign=0)
+        self.lbl2.add_css_class(label_class)
+        self.lbl2.set_ellipsize(Pango.EllipsizeMode.NONE)
+        self.lbl2.set_wrap(False)
+        self.lbl2.set_visible(False) # Hidden by default
+        self.hbox.append(self.lbl2)
+        
+        self.set_child(self.hbox)
+        
+        self.scroll_timer_id = 0
+        self.current_offset = 0
+        
+    def start_scrolling(self):
+        # Disable ellipsize on lbl1 to measure its full width and allow scrolling
+        self.lbl1.set_ellipsize(Pango.EllipsizeMode.NONE)
+        
+        def init_scroll():
+            hadj = self.get_hadjustment()
+            w = self.lbl1.get_width()
+            spacing = 32
+            period = w + spacing
+            
+            viewport_width = self.get_width()
+            if w <= viewport_width:
+                # Text fits inside, no marquee scrolling needed!
+                self.lbl1.set_ellipsize(Pango.EllipsizeMode.END)
+                return False
+                
+            # Make the wrap-around label visible
+            self.lbl2.set_visible(True)
+            self.current_offset = 0
+            
+            def scroll_step():
+                nonlocal period
+                if period <= 32:
+                    period = self.lbl1.get_width() + 32
+                    if period <= 32:
+                        return True
+                        
+                self.current_offset += 1.0
+                if self.current_offset >= period:
+                    self.current_offset = 0
+                    
+                hadj.set_value(self.current_offset)
+                return True
+                
+            self.scroll_timer_id = GLib.timeout_add(30, scroll_step)
+            return False
+            
+        GLib.timeout_add(100, init_scroll)
+        
+    def stop_scrolling(self):
+        if self.scroll_timer_id > 0:
+            GLib.source_remove(self.scroll_timer_id)
+            self.scroll_timer_id = 0
+        self.lbl2.set_visible(False)
+        self.lbl1.set_ellipsize(Pango.EllipsizeMode.END)
+        hadj = self.get_hadjustment()
+        hadj.set_value(0)
+        self.current_offset = 0
+
 class PackageInstaller(Adw.ApplicationWindow):
     def __init__(self, app, install_service, update_service, pkg_manager, info_service, search_service=None, file_to_open=None):
         super().__init__(application=app)
@@ -548,15 +628,12 @@ class PackageInstaller(Adw.ApplicationWindow):
         vbox.set_hexpand(True)
         vbox.set_valign(Gtk.Align.CENTER)
         
-        name_label = Gtk.Label(label=app_data.get('display_name', ''), xalign=0)
-        name_label.add_css_class("app-card-title")
-        name_label.set_ellipsize(Pango.EllipsizeMode.END)
-        vbox.append(name_label)
+        # Use ScrollingTextContainer for marquee text effect
+        name_scroll = ScrollingTextContainer(app_data.get('display_name', ''), "app-card-title")
+        vbox.append(name_scroll)
         
-        desc_label = Gtk.Label(label=app_data.get('desc', ''), xalign=0)
-        desc_label.add_css_class("app-card-subtitle")
-        desc_label.set_ellipsize(Pango.EllipsizeMode.END)
-        vbox.append(desc_label)
+        desc_scroll = ScrollingTextContainer(app_data.get('desc', ''), "app-card-subtitle")
+        vbox.append(desc_scroll)
         
         box.append(vbox)
         
@@ -566,6 +643,26 @@ class PackageInstaller(Adw.ApplicationWindow):
         ver_btn.set_valign(Gtk.Align.CENTER)
         ver_btn.connect("clicked", lambda b: self.on_recommendation_clicked(app_data))
         box.append(ver_btn)
+        
+        # Connect click gesture to the box to open install page from anywhere on the card
+        click_gesture = Gtk.GestureClick()
+        click_gesture.connect("released", lambda g, n, x, y: self.on_recommendation_clicked(app_data))
+        box.add_controller(click_gesture)
+        
+        # Add hover controller to trigger text marquee scrolling
+        hover_controller = Gtk.EventControllerMotion()
+        
+        def on_hover_enter(controller, x, y):
+            name_scroll.start_scrolling()
+            desc_scroll.start_scrolling()
+            
+        def on_hover_leave(controller):
+            name_scroll.stop_scrolling()
+            desc_scroll.stop_scrolling()
+            
+        hover_controller.connect("enter", on_hover_enter)
+        hover_controller.connect("leave", on_hover_leave)
+        box.add_controller(hover_controller)
         
         return box
 
@@ -609,6 +706,11 @@ class PackageInstaller(Adw.ApplicationWindow):
         ver_btn.set_halign(Gtk.Align.CENTER)
         ver_btn.connect("clicked", lambda b: self.on_recommendation_clicked(app_data))
         card.append(ver_btn)
+        
+        # Make the entire top-free card clickable
+        click_gesture = Gtk.GestureClick()
+        click_gesture.connect("released", lambda g, n, x, y: self.on_recommendation_clicked(app_data))
+        card.add_controller(click_gesture)
         
         return card
 
@@ -854,14 +956,17 @@ class PackageInstaller(Adw.ApplicationWindow):
         if self.file_path:
             is_scheme = any(self.file_path.startswith(prefix) for prefix in ["flatpak:", "snap:", "aur:", "brew:", "appstream:", "flatpak+https:"])
             if is_scheme or os.path.exists(self.file_path):
+                # Ensure store tab is active and visible
+                store_row = self.sidebar_list.get_row_at_index(0)
+                self.sidebar_list.select_row(store_row)
+                self.content_stack.set_visible_child_name("store")
+                
                 if not is_scheme:
                     self.selected_file_label.set_text(_("Archivo seleccionado: {}").format(os.path.basename(self.file_path)))
                     self.install_button.set_sensitive(True)
                     self.status_label.set_text(_("Estoy listo para instalar: {}").format(os.path.basename(self.file_path)))
                     GLib.idle_add(self.show_package_details, is_local=True)
                 else:
-                    store_row = self.sidebar_list.get_row_at_index(0)
-                    self.sidebar_list.select_row(store_row)
                     GLib.idle_add(self.show_package_details, identifier=self.file_path, is_local=False)
         return False
 
@@ -889,6 +994,11 @@ class PackageInstaller(Adw.ApplicationWindow):
         dialog.destroy()
 
     def show_package_details(self, identifier=None, is_local=True):
+        # Ensure store view stack is shown and active
+        self.content_stack.set_visible_child_name("store")
+        store_row = self.sidebar_list.get_row_at_index(0)
+        self.sidebar_list.select_row(store_row)
+        
         if not identifier:
             identifier = self.file_path if is_local else self.sidebar_search_entry.get_text().strip()
         if not identifier:

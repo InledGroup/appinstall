@@ -61,6 +61,7 @@ class PackageDetailsWidget(Gtk.Box):
         self.on_install_callback = on_install_callback
         self.on_uninstall_callback = on_uninstall_callback
         self.back_callback = back_callback
+        self.cached_screenshots = info.get('cached_screenshots', [])
         self.add_css_class("main-window")
         
         # Scrolled window directly as content
@@ -160,75 +161,81 @@ class PackageDetailsWidget(Gtk.Box):
         # Hashing and Rating calculations
         rating, ratings_count, reviews_list = get_deterministic_reviews(info.get('app_id', info.get('name', '')), info.get('name', ''))
 
-        # 1.5 Metadata Row Card (Container horizontal scrollable to prevent window from expanding)
-        scrolled_meta = Gtk.ScrolledWindow()
-        scrolled_meta.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.NEVER)
-        scrolled_meta.set_min_content_height(90)
+        # 1.5 Metadata Row Container (homogeneous layout spanning full width with no scroll)
+        meta_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        meta_row.add_css_class("meta-row-container")
+        meta_row.set_hexpand(True)
+        meta_row.set_homogeneous(True)
+        meta_row.set_halign(Gtk.Align.FILL)
         
-        meta_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
-        scrolled_meta.set_child(meta_row)
-        
-        def add_meta_col(box, title, value, subtitle=None):
-            col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-            col.add_css_class("card") # Individual card!
-            col.add_css_class("meta-col-card") # Set custom minimum sizes in CSS
-            col.set_valign(Gtk.Align.FILL)
+        def add_meta_col(pill_content, label_text):
+            col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+            col.add_css_class("meta-column")
+            col.set_valign(Gtk.Align.START)
             col.set_halign(Gtk.Align.CENTER)
             
-            # Content vbox centered inside the card
-            vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
-            vbox.set_valign(Gtk.Align.CENTER)
-            vbox.set_halign(Gtk.Align.CENTER)
-            col.append(vbox)
+            # Pill content box
+            pill_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+            pill_box.set_halign(Gtk.Align.CENTER)
+            pill_box.set_valign(Gtk.Align.CENTER)
             
-            t_label = Gtk.Label(label=title.upper())
-            t_label.add_css_class("meta-col-title")
-            vbox.append(t_label)
+            if isinstance(pill_content, Gtk.Widget):
+                pill_box.append(pill_content)
+            elif isinstance(pill_content, str):
+                lbl = Gtk.Label(label=pill_content)
+                lbl.add_css_class("meta-pill-text")
+                pill_box.append(lbl)
+                
+            # Use Gtk.Frame as the meta-pill to guarantee background rendering
+            pill = Gtk.Frame()
+            pill.add_css_class("meta-pill")
+            pill.set_child(pill_box)
+            pill.set_halign(Gtk.Align.CENTER)
+            pill.set_valign(Gtk.Align.CENTER)
             
-            v_label = Gtk.Label(label=value)
-            v_label.add_css_class("meta-col-value")
-            vbox.append(v_label)
+            col.append(pill)
             
-            if subtitle:
-                s_label = Gtk.Label(label=subtitle)
-                s_label.add_css_class("meta-col-subtitle")
-                vbox.append(s_label)
-            box.append(col)
+            label_sub = Gtk.Label(label=label_text)
+            label_sub.add_css_class("meta-column-label")
+            label_sub.set_wrap(True)
+            label_sub.set_justify(Gtk.Justification.CENTER)
+            col.append(label_sub)
+            
+            meta_row.append(col)
             
         source = info.get('source', '')
-        
-        # 1. Valoraciones (Flatpak only)
-        if source == 'flatpak':
-            stars_str = "★" * int(round(rating)) + "☆" * (5 - int(round(rating)))
-            add_meta_col(meta_row, _("valoraciones"), f"{rating:.1f}", stars_str)
+        size_val = info.get('size', '')
         
         # 2. Formato (Siempre visible)
-        source_format = source.upper() if source else "NATIVO"
-        add_meta_col(meta_row, _("formato"), source_format, _("Tipo de paquete"))
+        source_format = source.upper() if source else _("NATIVO")
+        img_format = Gtk.Image.new_from_icon_name("package-x-generic-symbolic")
+        img_format.set_pixel_size(20)
+        img_format.set_halign(Gtk.Align.CENTER)
+        img_format.set_valign(Gtk.Align.CENTER)
+        add_meta_col(img_format, source_format)
         
         # 3. Tamaño (Solo si está disponible y no es N/A)
-        size_val = info.get('size', '')
         if size_val and size_val != 'N/A':
-            add_meta_col(meta_row, _("tamaño"), size_val, _("Espacio en disco"))
+            add_meta_col(size_val, _("Descarga"))
             
         # 4. Desarrollador (Solo si está disponible y no es N/A)
         dev_name = info.get('developer', '')
         if dev_name and dev_name != 'N/A':
             if len(dev_name) > 15:
                 dev_name = dev_name[:15] + "..."
-            add_meta_col(meta_row, _("desarrollador"), dev_name, _("Autor de la app"))
+            add_meta_col(dev_name, _("Desarrollador"))
             
         # 5. Verificado (Solo si es verdadero)
         if info.get('verified'):
-            add_meta_col(meta_row, _("verificado"), _("SÍ"), _("Autor verificado"))
+            img_ver = Gtk.Image.new_from_icon_name("emblem-ok-symbolic")
+            img_ver.set_pixel_size(20)
+            img_ver.set_halign(Gtk.Align.CENTER)
+            img_ver.set_valign(Gtk.Align.CENTER)
+            add_meta_col(img_ver, _("Verificado"))
             
-        # 6. Idioma (Flatpak only)
-        if source == 'flatpak':
-            add_meta_col(meta_row, _("idioma"), "ES", _("Y multilingüe"))
-            
-        # Añadir el contenedor scrollable si contiene elementos
+        # Añadir el contenedor directamente a main_box
         if meta_row.get_first_child():
-            main_box.append(scrolled_meta)
+            main_box.append(meta_row)
 
         # 2. Screenshots Section (Now placed directly under the header and metadata row)
         cached_screenshots = info.get('cached_screenshots', [])
@@ -353,77 +360,7 @@ class PackageDetailsWidget(Gtk.Box):
         permissions_card.append(perm_hbox)
         main_box.append(permissions_card)
 
-        # 6. Reviews Section (Valoraciones y reseñas) at the very end
-        if source == 'flatpak':
-            reviews_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-            reviews_card.add_css_class("card")
-            
-            reviews_title = Gtk.Label(label=_("Valoraciones y reseñas"), xalign=0)
-            reviews_title.add_css_class("title-label")
-            reviews_card.append(reviews_title)
-            
-            # Summary row (Big number on Left, stats on Right)
-            summary_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=20)
-            summary_box.set_margin_bottom(12)
-            
-            big_rating = Gtk.Label(label=f"{rating:.1f}")
-            big_rating.add_css_class("big-rating-number")
-            summary_box.append(big_rating)
-            
-            rating_vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
-            rating_vbox.set_valign(Gtk.Align.CENTER)
-            
-            stars_label = Gtk.Label(label="★" * int(round(rating)) + "☆" * (5 - int(round(rating))), xalign=0)
-            stars_label.add_css_class("big-rating-stars")
-            rating_vbox.append(stars_label)
-            
-            count_label = Gtk.Label(label=_("{} valoraciones").format(f"{ratings_count:,}"), xalign=0)
-            count_label.add_css_class("subtitle-label")
-            rating_vbox.append(count_label)
-            
-            summary_box.append(rating_vbox)
-            reviews_card.append(summary_box)
-            
-            # Grid of reviews
-            reviews_grid = Gtk.Grid()
-            reviews_grid.set_column_spacing(16)
-            reviews_grid.set_row_spacing(12)
-            reviews_grid.set_column_homogeneous(True)
-            
-            for idx, rev in enumerate(reviews_list):
-                rev_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-                rev_box.add_css_class("card")
-                rev_box.add_css_class("review-bubble")
-                
-                # Author & stars header
-                hdr_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-                
-                auth_label = Gtk.Label(label=rev['author'], xalign=0)
-                auth_label.add_css_class("review-author")
-                hdr_box.append(auth_label)
-                
-                spacer = Gtk.Box()
-                spacer.set_hexpand(True)
-                hdr_box.append(spacer)
-                
-                rev_stars = Gtk.Label(label="★" * rev['rating'] + "☆" * (5 - rev['rating']))
-                rev_stars.add_css_class("review-stars")
-                hdr_box.append(rev_stars)
-                
-                rev_box.append(hdr_box)
-                
-                # Review text
-                txt_label = Gtk.Label(label=rev['text'], xalign=0)
-                txt_label.set_wrap(True)
-                txt_label.set_max_width_chars(35)
-                txt_label.add_css_class("review-text")
-                rev_box.append(txt_label)
-                
-                # Add to grid: 1 row, multiple columns
-                reviews_grid.attach(rev_box, idx, 0, 1, 1)
-                
-            reviews_card.append(reviews_grid)
-            main_box.append(reviews_card)
+
 
     def on_install_clicked(self, button):
         self.on_install_callback()
@@ -432,28 +369,66 @@ class PackageDetailsWidget(Gtk.Box):
         self.on_uninstall_callback()
 
     def on_screenshot_clicked(self, path):
-        # Open a beautiful transient dialog/window showing the image in full size
+        if not self.cached_screenshots:
+            return
+            
+        try:
+            current_index = self.cached_screenshots.index(path)
+        except ValueError:
+            current_index = 0
+            
         dialog = Gtk.Window(transient_for=self.get_root(), modal=True)
         dialog.set_title(_("Captura de pantalla"))
         dialog.set_default_size(960, 540)
+        dialog.add_css_class("screenshot-viewer-window")
         
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        box.set_margin_top(10)
-        box.set_margin_bottom(10)
-        box.set_margin_start(10)
-        box.set_margin_end(10)
+        # We will use an overlay
+        overlay = Gtk.Overlay()
+        overlay.set_hexpand(True)
+        overlay.set_vexpand(True)
         
-        img = Gtk.Picture.new_for_filename(path)
+        # Image widget
+        img = Gtk.Picture()
         img.set_content_fit(Gtk.ContentFit.CONTAIN)
         img.set_hexpand(True)
         img.set_vexpand(True)
-        box.append(img)
+        overlay.set_child(img)
         
-        close_btn = Gtk.Button(label=_("Cerrar"))
-        close_btn.add_css_class("suggested-action")
-        close_btn.set_halign(Gtk.Align.CENTER)
-        close_btn.connect("clicked", lambda b: dialog.close())
-        box.append(close_btn)
+        def update_image(index):
+            nonlocal current_index
+            current_index = index
+            # Check bounds
+            if current_index < 0:
+                current_index = len(self.cached_screenshots) - 1
+            elif current_index >= len(self.cached_screenshots):
+                current_index = 0
+                
+            img.set_filename(self.cached_screenshots[current_index])
+            
+        update_image(current_index)
         
-        dialog.set_child(box)
+        # Navigation buttons overlay
+        # Left button
+        prev_btn = Gtk.Button()
+        prev_btn.set_icon_name("go-previous-symbolic")
+        prev_btn.add_css_class("screenshot-nav-btn")
+        prev_btn.add_css_class("screenshot-nav-left")
+        prev_btn.set_size_request(48, 48)
+        prev_btn.set_halign(Gtk.Align.START)
+        prev_btn.set_valign(Gtk.Align.CENTER)
+        prev_btn.connect("clicked", lambda b: update_image(current_index - 1))
+        overlay.add_overlay(prev_btn)
+        
+        # Right button
+        next_btn = Gtk.Button()
+        next_btn.set_icon_name("go-next-symbolic")
+        next_btn.add_css_class("screenshot-nav-btn")
+        next_btn.add_css_class("screenshot-nav-right")
+        next_btn.set_size_request(48, 48)
+        next_btn.set_halign(Gtk.Align.END)
+        next_btn.set_valign(Gtk.Align.CENTER)
+        next_btn.connect("clicked", lambda b: update_image(current_index + 1))
+        overlay.add_overlay(next_btn)
+        
+        dialog.set_child(overlay)
         dialog.present()

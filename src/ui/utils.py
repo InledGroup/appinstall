@@ -173,16 +173,72 @@ def load_css():
     .screenshot-container {
         border-radius: 8px;
         border: 1px solid rgba(0, 0, 0, 0.1);
-        overflow: hidden;
         background-color: rgba(0, 0, 0, 0.05);
     }
     
-    .meta-col-card {
-        min-width: 110px;
-        min-height: 70px;
-        margin-left: 4px;
-        margin-right: 4px;
-        padding: 8px 12px;
+    .meta-column {
+        margin-left: 2px;
+        margin-right: 2px;
+    }
+
+    .meta-pill {
+        background-color: @accent_bg_color !important;
+        border-radius: 9999px;
+        padding: 4px 12px;
+        min-height: 28px;
+        min-width: 60px;
+        margin: 0 auto;
+        color: @accent_fg_color !important;
+        border: none !important;
+    }
+
+    .meta-pill image {
+        color: @accent_fg_color !important;
+    }
+
+    .meta-pill-text {
+        font-weight: bold;
+        font-size: 13px;
+        text-align: center;
+        color: @accent_fg_color !important;
+    }
+
+    .meta-column-label {
+        font-size: 12px;
+        color: @theme_fg_color;
+        opacity: 0.7;
+        margin-top: 6px;
+        text-align: center;
+    }
+
+    .store-app-card:hover {
+        background-color: @theme_hover_bg_color !important;
+        border: 1px solid @theme_shade_color !important;
+    }
+
+    .scrolling-text-container {
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+    }
+
+    .screenshot-nav-btn {
+        background-color: rgba(0, 0, 0, 0.6);
+        color: white;
+        border-radius: 9999px;
+        margin: 24px;
+        border: none;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        transition: background-color 0.2s, transform 0.2s;
+    }
+
+    .screenshot-nav-btn:hover {
+        background-color: rgba(0, 0, 0, 0.85);
+        transform: scale(1.1);
+    }
+
+    .screenshot-nav-btn image {
+        color: white;
     }
     """
     
