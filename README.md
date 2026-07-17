@@ -12,7 +12,7 @@ Compatible with Debian, Fedora and Arch Linux based distros.
 - Fix installation errors.  
 - Install ANY package visually, whether from the distro repositories or from any package.
 > [!NOTE]
-> Support for AUR, Flathub and Snap will be added soon
+> Now supports AUR, Flathub and Snap
 
 > With Appinstall, you won't need technical knowledge to do the most basic things in Linux: managing applications.  
 
