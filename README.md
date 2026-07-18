@@ -26,3 +26,5 @@ Si necesitas instalarlas manualmente, puedes ejecutar:
 ```bash
 sudo pacman -Syu python python-gobject gtk4 libadwaita python-requests python-packaging polkit
 ```
+---
+v18
