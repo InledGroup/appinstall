@@ -9,8 +9,8 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from src.config import CLI_NAME
 from src.cli_core import (
-    COMMANDS, cmd_search, cmd_list, cmd_install,
-    cmd_remove, cmd_update, cmd_info, _c
+    COMMANDS, cmd_search, cmd_list, cmd_search_installed, cmd_install,
+    cmd_remove, cmd_update, cmd_fix, cmd_info, _c
 )
 
 
@@ -24,10 +24,11 @@ def _show_help():
 
 {_c('bold', ' COMMANDS')}
     {_c('cyan', 'search')}  {_c('dim', '<query>')}       Search for packages
-    {_c('cyan', 'list')}                   List installed packages
+    {_c('cyan', 'list')}    {_c('dim', '[query]')}       List installed packages (optional filter)
     {_c('cyan', 'install')} {_c('dim', '<package>')}    Install a package
     {_c('cyan', 'remove')}  {_c('dim', '<package>')}    Remove a package
     {_c('cyan', 'update')}                 Update system packages
+    {_c('cyan', 'fix')}                    Fix broken dependencies
     {_c('cyan', 'info')}    {_c('dim', '<package>')}    Show package details
 
 {_c('bold', ' ALIASES')}
@@ -36,6 +37,7 @@ def _show_help():
     {_c('dim', 'install')}   get, add
     {_c('dim', 'remove')}    uninstall, delete, purge
     {_c('dim', 'update')}    upgrade
+    {_c('dim', 'fix')}       repair
     {_c('dim', 'info')}      details, show
 
 {_c('bold', ' SMART SEARCH')}
@@ -53,12 +55,14 @@ def _show_help():
 {_c('bold', ' EXAMPLES')}
     {_c('green', f'{CLI_NAME} search firefox')}            {_c('dim', '# search in all sources')}
     {_c('green', f'{CLI_NAME} search wl clipboard')}      {_c('dim', '# smart search with variations')}
+    {_c('green', f'{CLI_NAME} list')}                      {_c('dim', '# list all installed')}
+    {_c('green', f'{CLI_NAME} list firefox')}              {_c('dim', '# search within installed packages')}
     {_c('green', f'{CLI_NAME} install firefox')}           {_c('dim', '# install from system repos')}
     {_c('green', f'{CLI_NAME} install flatpak:gimp')}     {_c('dim', '# install from Flathub')}
     {_c('green', f'{CLI_NAME} remove firefox')}            {_c('dim', '# remove a package')}
-    {_c('green', f'{CLI_NAME} info firefox')}              {_c('dim', '# show package details')}
-    {_c('green', f'{CLI_NAME} list')}                      {_c('dim', '# list all installed')}
     {_c('green', f'{CLI_NAME} update')}                    {_c('dim', '# update everything')}
+    {_c('green', f'{CLI_NAME} fix')}                       {_c('dim', '# fix broken dependencies')}
+    {_c('green', f'{CLI_NAME} info firefox')}              {_c('dim', '# show package details')}
 """)
 
 
@@ -242,14 +246,17 @@ def handle_cli_args(argv: list) -> bool:
 
     func = COMMANDS[command]
 
-    if command in ('list', 'installed', 'apps'):
-        return not func(args[0] if args else None)
-    elif command in ('search', 'find', 'look'):
+    if command in ('search', 'find', 'look'):
         query = ' '.join(args) if args else ''
         if not query:
             print(f"  Usage: {_c('bold', f'{CLI_NAME} {command} <query>')}", file=sys.stderr)
             return True
         return not func(query)
+    elif command in ('list', 'installed', 'apps'):
+        if args:
+            query = ' '.join(args)
+            return not cmd_search_installed(query)
+        return not func()
     elif command in ('install', 'get', 'add',
                      'remove', 'uninstall', 'delete', 'purge',
                      'info', 'details', 'show'):

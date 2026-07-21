@@ -2,6 +2,8 @@ import sys
 import subprocess
 import shutil
 import os
+import threading
+import time
 from typing import Optional, List, Dict
 
 
@@ -25,6 +27,43 @@ def _c(color: str, text: str) -> str:
     if not sys.stdout.isatty():
         return text
     return f"{_COLORS.get(color, '')}{text}{_COLORS['reset']}"
+
+
+# ── Spinner ─────────────────────────────────────────────────────────────────
+
+_SPINNER_CHARS = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+
+class Spinner:
+    def __init__(self, message: str):
+        self.message = message
+        self._stop = threading.Event()
+        self._thread = None
+        self._is_tty = sys.stdout.isatty()
+
+    def __enter__(self):
+        if self._is_tty:
+            self._thread = threading.Thread(target=self._run, daemon=True)
+            self._thread.start()
+        else:
+            print(f"  {self.message}...")
+        return self
+
+    def __exit__(self, *args):
+        if self._is_tty:
+            self._stop.set()
+            if self._thread:
+                self._thread.join()
+            sys.stdout.write('\r\033[K')
+            sys.stdout.flush()
+
+    def _run(self):
+        i = 0
+        while not self._stop.is_set():
+            char = _SPINNER_CHARS[i % len(_SPINNER_CHARS)]
+            sys.stdout.write(f"\r  {_c('cyan', char)} {self.message}...")
+            sys.stdout.flush()
+            self._stop.wait(0.08)
+            i += 1
 
 
 # ── Adapters ────────────────────────────────────────────────────────────────
@@ -99,6 +138,22 @@ def _run_cmd(cmd, timeout=120):
         return False
 
 
+def _search_adapter_silent(adapter, query: str) -> List[Dict]:
+    """Search an adapter, suppressing all output for intermediate variations."""
+    import io
+    old_stdout = sys.stdout
+    old_stderr = sys.stderr
+    sys.stdout = io.StringIO()
+    sys.stderr = io.StringIO()
+    try:
+        return adapter.search(query)
+    except Exception:
+        return []
+    finally:
+        sys.stdout = old_stdout
+        sys.stderr = old_stderr
+
+
 # ── Format helpers ──────────────────────────────────────────────────────────
 
 def _print_search_results(results_by_source: Dict[str, list], query: str):
@@ -122,17 +177,19 @@ def _print_search_results(results_by_source: Dict[str, list], query: str):
             desc = r.get('desc', '')
             print(f"    {_c('white', name)}")
             if desc:
-                # Truncate long descriptions
                 if len(desc) > 70:
                     desc = desc[:67] + '...'
                 print(f"    {_c('dim', desc)}")
         print()
 
 
-def _print_installed_list(packages_by_source: Dict[str, list]):
+def _print_installed_list(packages_by_source: Dict[str, list], query: str = None):
     """Print installed packages grouped by source."""
     total = sum(len(p) for p in packages_by_source.values())
-    print(_c('bold', '  Installed packages'))
+    title = f"Installed packages"
+    if query:
+        title += f" matching '{query}'"
+    print(_c('bold', f"  {title}"))
     print(_c('dim', '  ─' * 25))
     print()
 
@@ -187,20 +244,18 @@ def cmd_search(query: str):
     variations = _generate_search_variations(query)
     results_by_source = {}
 
-    for source, adapter in adapters.items():
-        try:
+    with Spinner(f"Searching for '{query}'"):
+        for source, adapter in adapters.items():
             seen = set()
             all_results = []
             for variation in variations:
-                results = adapter.search(variation)
+                results = _search_adapter_silent(adapter, variation)
                 for r in results:
                     name = r.get('name', '')
                     if name not in seen:
                         seen.add(name)
                         all_results.append(r)
             results_by_source[source] = all_results
-        except Exception:
-            results_by_source[source] = []
 
     _print_search_results(results_by_source, query)
     return any(results_by_source.values())
@@ -210,18 +265,44 @@ def cmd_list(filter_source: Optional[str] = None):
     adapters = _get_adapters()
     packages_by_source = {}
 
-    for source, adapter in adapters.items():
-        if filter_source and source != filter_source:
-            continue
-        try:
-            packages = adapter.list_installed()
-            if packages:
-                packages_by_source[source] = packages
-        except Exception:
-            pass
+    with Spinner("Loading installed packages"):
+        for source, adapter in adapters.items():
+            if filter_source and source != filter_source:
+                continue
+            try:
+                packages = adapter.list_installed()
+                if packages:
+                    packages_by_source[source] = packages
+            except Exception:
+                pass
 
     _print_installed_list(packages_by_source)
     return True
+
+
+def cmd_search_installed(query: str):
+    """Search within installed packages."""
+    if not query:
+        print(f"  Usage: {_c('bold', 'appi list <query>')}", file=sys.stderr)
+        print(f"  Example: {_c('dim', 'appi list firefox')}", file=sys.stderr)
+        return False
+
+    adapters = _get_adapters()
+    query_lower = query.lower()
+    packages_by_source = {}
+
+    with Spinner(f"Searching installed for '{query}'"):
+        for source, adapter in adapters.items():
+            try:
+                packages = adapter.list_installed()
+                matched = [p for p in packages if query_lower in p.lower()]
+                if matched:
+                    packages_by_source[source] = matched
+            except Exception:
+                pass
+
+    _print_installed_list(packages_by_source, query)
+    return any(packages_by_source.values())
 
 
 def cmd_install(package: str):
@@ -357,6 +438,36 @@ def cmd_update():
     return True
 
 
+def cmd_fix():
+    """Fix broken dependencies."""
+    adapters = _get_adapters()
+    system = adapters.get('system')
+
+    if shutil.which('pacman'):
+        print(f"  {_c('cyan', 'Fixing broken dependencies (pacman)...')}")
+        print()
+        # First refresh databases, then check for orphans
+        _run_cmd(['pkexec', 'pacman', '-Sy'])
+        # Remove orphan packages
+        print(f"  {_c('dim', 'Removing orphan packages...')}")
+        return _run_cmd(['pkexec', 'sh', '-c', 'pacman -Qtdq | xargs -r pacman -Rns --noconfirm'])
+    elif shutil.which('apt-get'):
+        print(f"  {_c('cyan', 'Fixing broken dependencies (apt)...')}")
+        print()
+        return _run_cmd(['pkexec', 'apt-get', 'install', '-f', '-y'])
+    elif shutil.which('dnf'):
+        print(f"  {_c('cyan', 'Fixing broken dependencies (dnf)...')}")
+        print()
+        return _run_cmd(['pkexec', 'dnf', 'distro-sync', '-y'])
+    elif shutil.which('yum'):
+        print(f"  {_c('cyan', 'Fixing broken dependencies (yum)...')}")
+        print()
+        return _run_cmd(['pkexec', 'yum', 'distro-sync', '-y'])
+    else:
+        print(_c('red', '  No supported package manager found for fixing dependencies.'), file=sys.stderr)
+        return False
+
+
 def cmd_info(package: str):
     if not package:
         print(f"  Usage: {_c('bold', 'appi info <package>')}", file=sys.stderr)
@@ -409,6 +520,8 @@ COMMANDS = {
     'purge':     cmd_remove,
     'update':    lambda: cmd_update(),
     'upgrade':   lambda: cmd_update(),
+    'fix':       lambda: cmd_fix(),
+    'repair':    lambda: cmd_fix(),
     'info':      cmd_info,
     'details':   cmd_info,
     'show':      cmd_info,
