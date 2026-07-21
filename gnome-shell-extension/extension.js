@@ -83,6 +83,9 @@ function _isAppInstallAvailable(settings, extensionDir) {
     if (configuredPath && GLib.file_test(configuredPath, GLib.FileTest.EXISTS))
         return true;
 
+    if (GLib.find_program_in_path('appi'))
+        return true;
+
     if (GLib.find_program_in_path('appinstall'))
         return true;
 
@@ -151,11 +154,21 @@ function _launchUninstall(desktopId, settings, extensionDir) {
             ? ['python3', appinstallPath, '--uninstall', desktopId]
             : [appinstallPath, '--uninstall', desktopId];
     } else {
-        const startPy = GLib.build_filenamev([extensionDir, '..', '..', '..', 'appinstall', 'start.py']);
-        if (GLib.file_test(startPy, GLib.FileTest.EXISTS)) {
-            argv = ['python3', startPy, '--uninstall', desktopId];
+        const appiPath = GLib.find_program_in_path('appi');
+        if (appiPath) {
+            argv = [appiPath, '--uninstall', desktopId];
         } else {
-            argv = ['appinstall', '--uninstall', desktopId];
+            const appinstallPath2 = GLib.find_program_in_path('appinstall');
+            if (appinstallPath2) {
+                argv = [appinstallPath2, '--uninstall', desktopId];
+            } else {
+                const startPy = GLib.build_filenamev([extensionDir, '..', '..', '..', 'appinstall', 'start.py']);
+                if (GLib.file_test(startPy, GLib.FileTest.EXISTS)) {
+                    argv = ['python3', startPy, '--uninstall', desktopId];
+                } else {
+                    argv = ['appi', '--uninstall', desktopId];
+                }
+            }
         }
     }
 

@@ -1,19 +1,20 @@
 import sys
 import os
+
+# Add project root to sys.path
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 import gi
 gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
 from gi.repository import Gtk, GLib, Gio, Adw
 
-# Add project root to sys.path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
 from src.ui.utils import load_css, setup_icon_theme
 from src.infrastructure.services.localization import _
 from src.infrastructure.adapters.factory import get_package_manager
 from src.utils.constants import CURRENT_VERSION
+from src.config import CLI_NAME
 
-# Services
 from src.application.install_service import InstallService
 from src.application.update_check_service import UpdateCheckService
 from src.application.package_info_service import PackageInfoService
@@ -124,12 +125,29 @@ class AppInstallApp(Adw.Application):
         win.present()
 
 def main():
-    if len(sys.argv) >= 3 and sys.argv[1] == "--uninstall":
-        from src.cli import handle_cli_args
+    from src.cli import handle_cli_args, _show_help
+    from src.cli_core import COMMANDS
+
+    if len(sys.argv) < 2:
+        _show_help()
+        return False
+
+    arg = sys.argv[1]
+    arg_lower = arg.lower()
+
+    # CLI commands and flags
+    if arg_lower in COMMANDS or arg in ('-h', '--help', 'help', '--version', '-V') or arg_lower in ('-h', '--help', 'help', '--version', '-v', 'version', '--uninstall'):
         return handle_cli_args(sys.argv)
 
-    app = AppInstallApp()
-    return app.run(sys.argv)
+    # File paths or URL schemes → launch GUI
+    if os.path.isfile(arg) or any(arg_lower.startswith(p) for p in ['appstream:', 'snap:', 'flatpak:', 'http://', 'https://']):
+        app = AppInstallApp()
+        return app.run(sys.argv)
+
+    # Unknown argument → show error and help
+    print(f"  Unknown command: '{arg}'", file=sys.stderr)
+    print(f"  Run '{CLI_NAME} help' for usage.", file=sys.stderr)
+    return True
 
 if __name__ == "__main__":
     try:

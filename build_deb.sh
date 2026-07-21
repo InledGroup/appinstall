@@ -1,16 +1,49 @@
 #!/bin/bash
 
 # Script local para construir el paquete .deb de AppInstall
+# Lee la versión de src/utils/constants.py y la incrementa automáticamente
 
 # Asegurar que estamos en el directorio raíz del proyecto
 cd "$(dirname "$0")"
 
-# Nombre del paquete y versión (extraídos del archivo control)
-PACKAGE_NAME=$(grep '^Package:' appinstall/DEBIAN/control | cut -d' ' -f2)
-VERSION=$(grep '^Version:' appinstall/DEBIAN/control | cut -d' ' -f2)
-ARCH=$(grep '^Architecture:' appinstall/DEBIAN/control | cut -d' ' -f2)
+CONSTANTS_FILE="src/utils/constants.py"
+CONTROL_FILE="appinstall/DEBIAN/control"
 
-DEB_FILE="${PACKAGE_NAME}_${VERSION}_${ARCH}.deb"
+# Leer versión actual desde constants.py (fuente única de verdad)
+CURRENT_VERSION=$(python3 -c "
+import re, sys
+with open('$CONSTANTS_FILE') as f:
+    m = re.search(r'CURRENT_VERSION\s*=\s*\"([^\"]+)\"', f.read())
+    if m:
+        print(m.group(1))
+    else:
+        print('1')
+        sys.exit(1)
+")
+
+echo "Versión actual en constants.py: $CURRENT_VERSION"
+
+# Auto-incrementar: si es "20" → "20.1", si es "20.1" → "20.2", etc.
+if [[ "$CURRENT_VERSION" == *.* ]]; then
+    MAJOR="${CURRENT_VERSION%.*}"
+    MINOR="${CURRENT_VERSION#*.}"
+    NEW_MINOR=$((MINOR + 1))
+    NEW_VERSION="${MAJOR}.${NEW_MINOR}"
+else
+    NEW_VERSION="${CURRENT_VERSION}.1"
+fi
+
+echo "Nueva versión: $NEW_VERSION"
+
+# Actualizar constants.py
+sed -i "s/CURRENT_VERSION = \"${CURRENT_VERSION}\"/CURRENT_VERSION = \"${NEW_VERSION}\"/" "$CONSTANTS_FILE"
+
+# Actualizar DEBIAN/control
+sed -i "s/^Version: .*/Version: ${NEW_VERSION}/" "$CONTROL_FILE"
+
+PACKAGE_NAME=$(grep '^Package:' "$CONTROL_FILE" | cut -d' ' -f2)
+ARCH=$(grep '^Architecture:' "$CONTROL_FILE" | cut -d' ' -f2)
+DEB_FILE="${PACKAGE_NAME}_${NEW_VERSION}_${ARCH}.deb"
 
 echo "Construyendo $DEB_FILE..."
 
@@ -45,8 +78,13 @@ cp es.inled.AppInstall.png appinstall/usr/share/pixmaps/es.inled.AppInstall.png
 echo "Ajustando permisos..."
 chmod -R 755 appinstall/usr
 chmod 755 appinstall/DEBIAN/postinst
+chmod 755 appinstall/usr/bin/appinstall
 # Los archivos de control deben tener permisos específicos (644)
 chmod 644 appinstall/DEBIAN/control
+
+# Crear symlink para CLI_NAME desde config
+CLI_NAME=$(python3 -c "import sys; sys.path.insert(0, 'appinstall/usr/share/appinstall'); from src.config import CLI_NAME; print(CLI_NAME)" 2>/dev/null || echo "appi")
+ln -sf /usr/bin/appinstall "appinstall/usr/bin/$CLI_NAME" 2>/dev/null || true
 
 # Construir el paquete
 if command -v dpkg-deb >/dev/null; then

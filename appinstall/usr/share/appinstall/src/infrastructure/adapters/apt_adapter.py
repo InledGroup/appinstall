@@ -114,16 +114,16 @@ class AptAdapter(PackageManager):
                     info['dependencies'] = [dep.split('(')[0].strip() for dep in line.replace('Depends:', '').split(',')]
             
             # Simple icon heuristic: look for an icon with the package name
-            import shutil
-            if shutil.which('gtk-update-icon-cache'): # Just to check if we are in a GUI env
-                icon_names = [package_name, package_name.split('-')[0]]
-                from gi.repository import Gtk
+            try:
+                from gi.repository import Gtk, Gdk
                 theme = Gtk.IconTheme.get_for_display(Gdk.Display.get_default())
+                icon_names = [package_name, package_name.split('-')[0]]
                 for name in icon_names:
                     if theme.has_icon(name):
-                        # We don't have the path easily, but we can signal that it exists
                         info['icon'] = name
                         break
+            except Exception:
+                pass
         except:
             pass
         return info

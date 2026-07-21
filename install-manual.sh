@@ -21,12 +21,17 @@ sudo cp appinstall/usr/share/pixmaps/appinstall.png /usr/share/pixmaps/
 # Crear script ejecutable
 sudo tee /usr/bin/appinstall > /dev/null << 'EOF'
 #!/bin/bash
-/usr/bin/python3 "/usr/share/appinstall/start.py"
+/usr/bin/python3 "/usr/share/appinstall/start.py" "$@"
 EOF
+
+# Leer nombre CLI del config y crear symlink
+CLI_NAME=$(python3 -c "import sys; sys.path.insert(0, '/usr/share/appinstall'); from src.config import CLI_NAME; print(CLI_NAME)")
+sudo ln -sf /usr/bin/appinstall "/usr/bin/$CLI_NAME"
 
 # Dar permisos
 sudo chmod +x /usr/bin/appinstall
 
 echo "AppInstall instalado correctamente!"
-echo "Puedes ejecutarlo con: appinstall"
+echo "CLI disponible como: $CLI_NAME"
+echo "También puedes usar: appinstall"
 echo "O buscarlo en el menú de aplicaciones como 'App Install'"

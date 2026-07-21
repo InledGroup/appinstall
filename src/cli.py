@@ -7,6 +7,60 @@ from typing import Optional, Tuple
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
+from src.config import CLI_NAME
+from src.cli_core import (
+    COMMANDS, cmd_search, cmd_list, cmd_install,
+    cmd_remove, cmd_update, cmd_info, _c
+)
+
+
+def _show_help():
+    from src.utils.constants import CURRENT_VERSION
+    print(f"""
+{_c('bold', CLI_NAME)} {_c('dim', f'v{CURRENT_VERSION}')}  {_c('dim', '— Your friendly package manager')}
+
+{_c('bold', ' USAGE')}
+    {CLI_NAME} <command> [arguments]
+
+{_c('bold', ' COMMANDS')}
+    {_c('cyan', 'search')}  {_c('dim', '<query>')}       Search for packages
+    {_c('cyan', 'list')}                   List installed packages
+    {_c('cyan', 'install')} {_c('dim', '<package>')}    Install a package
+    {_c('cyan', 'remove')}  {_c('dim', '<package>')}    Remove a package
+    {_c('cyan', 'update')}                 Update system packages
+    {_c('cyan', 'info')}    {_c('dim', '<package>')}    Show package details
+
+{_c('bold', ' ALIASES')}
+    {_c('dim', 'search')}    find, look
+    {_c('dim', 'list')}      installed, apps
+    {_c('dim', 'install')}   get, add
+    {_c('dim', 'remove')}    uninstall, delete, purge
+    {_c('dim', 'update')}    upgrade
+    {_c('dim', 'info')}      details, show
+
+{_c('bold', ' SMART SEARCH')}
+    Multi-word queries are tried automatically:
+    {_c('dim', f'{CLI_NAME} search wl clipboard')}   → also searches "wl-clipboard"
+    {_c('dim', f'{CLI_NAME} search visual studio')} → also searches "visual-studio"
+
+{_c('bold', ' PACKAGE SOURCES')}
+    {_c('dim', 'Auto-detect:')}  {CLI_NAME} install firefox
+    {_c('dim', 'Flatpak:')}      {CLI_NAME} install flatpak:org.gimp.GIMP
+    {_c('dim', 'Snap:')}         {CLI_NAME} install snap:code
+    {_c('dim', 'AUR:')}          {CLI_NAME} install aur:package-name
+    {_c('dim', 'Local file:')}   {CLI_NAME} install /path/to/file.deb
+
+{_c('bold', ' EXAMPLES')}
+    {_c('green', f'{CLI_NAME} search firefox')}            {_c('dim', '# search in all sources')}
+    {_c('green', f'{CLI_NAME} search wl clipboard')}      {_c('dim', '# smart search with variations')}
+    {_c('green', f'{CLI_NAME} install firefox')}           {_c('dim', '# install from system repos')}
+    {_c('green', f'{CLI_NAME} install flatpak:gimp')}     {_c('dim', '# install from Flathub')}
+    {_c('green', f'{CLI_NAME} remove firefox')}            {_c('dim', '# remove a package')}
+    {_c('green', f'{CLI_NAME} info firefox')}              {_c('dim', '# show package details')}
+    {_c('green', f'{CLI_NAME} list')}                      {_c('dim', '# list all installed')}
+    {_c('green', f'{CLI_NAME} update')}                    {_c('dim', '# update everything')}
+""")
+
 
 def _detect_desktop_file_type(desktop_path: str) -> Tuple[bool, bool, bool]:
     try:
@@ -154,18 +208,54 @@ def uninstall_by_desktop_id(desktop_id: str) -> Tuple[bool, str]:
 
 
 def handle_cli_args(argv: list) -> bool:
-    if len(argv) < 3:
-        print("Usage: appinstall --uninstall <desktop-id>", file=sys.stderr)
-        print("Example: appinstall --uninstall org.gimp.GIMP", file=sys.stderr)
-        return True
+    if len(argv) < 2:
+        _show_help()
+        return False
 
-    if argv[1] == "--uninstall":
+    if argv[1] in ('-h', '--help', 'help'):
+        _show_help()
+        return False
+
+    if argv[1] in ('--version', '-V', 'version'):
+        from src.utils.constants import CURRENT_VERSION
+        print(f"{CLI_NAME} v{CURRENT_VERSION}")
+        return False
+
+    if argv[1] == '--uninstall':
+        if len(argv) < 3:
+            print(f"  Usage: {_c('bold', f'{CLI_NAME} --uninstall <desktop-id>')}", file=sys.stderr)
+            return True
         desktop_id = argv[2]
         if not desktop_id.endswith(".desktop"):
             desktop_id += ".desktop"
-
         success, message = uninstall_by_desktop_id(desktop_id)
-        print(message)
+        print(f"  {message}")
         return not success
 
-    return False
+    command = argv[1].lower()
+    args = argv[2:] if len(argv) > 2 else []
+
+    if command not in COMMANDS:
+        print(_c('red', f"  Unknown command: '{command}'"), file=sys.stderr)
+        print(_c('dim', f"  Run '{CLI_NAME} help' for usage."), file=sys.stderr)
+        return True
+
+    func = COMMANDS[command]
+
+    if command in ('list', 'installed', 'apps'):
+        return not func(args[0] if args else None)
+    elif command in ('search', 'find', 'look'):
+        query = ' '.join(args) if args else ''
+        if not query:
+            print(f"  Usage: {_c('bold', f'{CLI_NAME} {command} <query>')}", file=sys.stderr)
+            return True
+        return not func(query)
+    elif command in ('install', 'get', 'add',
+                     'remove', 'uninstall', 'delete', 'purge',
+                     'info', 'details', 'show'):
+        if not args:
+            print(f"  Usage: {_c('bold', f'{CLI_NAME} {command} <argument>')}", file=sys.stderr)
+            return True
+        return not func(args[0])
+    else:
+        return not func()

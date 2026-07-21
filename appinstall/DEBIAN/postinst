@@ -16,6 +16,12 @@ if command -v update-mime-database >/dev/null; then
     update-mime-database /usr/share/mime || true
 fi
 
+# Create appi CLI symlink from config
+CLI_NAME=$(python3 -c "import sys; sys.path.insert(0, '/usr/share/appinstall'); from src.config import CLI_NAME; print(CLI_NAME)" 2>/dev/null || echo "appi")
+if [ ! -f "/usr/bin/$CLI_NAME" ]; then
+    ln -sf /usr/bin/appinstall "/usr/bin/$CLI_NAME"
+fi
+
 # Add Inled APT Repository
 REPO_URL="https://apt.inled.es"
 KEY_URL="$REPO_URL/archive.key"

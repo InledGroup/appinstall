@@ -1,4 +1,8 @@
 ![Banner AppInstall](/corp/AppInstall%20banner.png)
+
+> [!NOTE]
+> Keep Appinstall updated, set up the [Inled Repo](https://apt.inled.es)
+
 # AppInstall  
 It's Clean my Mac, but for Linux distros.  
 Compatible with Debian, Fedora and Arch Linux based distros.  

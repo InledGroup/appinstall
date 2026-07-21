@@ -1,5 +1,5 @@
 Package: appinstall
-Version: 19
+Version: 20.4
 Section: utils
 Priority: optional
 Architecture: all
