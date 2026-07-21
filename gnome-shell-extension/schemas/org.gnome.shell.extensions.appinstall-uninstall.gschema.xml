@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+    <schema id="org.gnome.shell.extensions.appinstall-uninstall"
+            path="/org/gnome/shell/extensions/appinstall-uninstall/">
+        <key name="appinstall-path" type="s">
+            <default>''</default>
+            <summary>AppInstall path</summary>
+            <description>Full path to the AppInstall executable. Leave empty to search the system PATH or use start.py relative to the extension.</description>
+        </key>
+        <key name="first-run-shown" type="b">
+            <default>false</default>
+            <summary>First run dialog shown</summary>
+            <description>Whether the first-run informational dialog has been shown.</description>
+        </key>
+    </schema>
+</schemalist>

@@ -13,6 +13,8 @@ sudo mkdir -p /usr/share/pixmaps
 sudo cp start.py /usr/share/appinstall/
 sudo cp styles.css /usr/share/appinstall/
 sudo cp appimage.png /usr/share/appinstall/
+sudo cp -r src /usr/share/appinstall/
+sudo cp -r locale /usr/share/appinstall/ 2>/dev/null || true
 sudo cp appinstall/usr/share/applications/appinstall.desktop /usr/share/applications/
 sudo cp appinstall/usr/share/pixmaps/appinstall.png /usr/share/pixmaps/
 

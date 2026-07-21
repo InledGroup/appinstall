@@ -124,6 +124,10 @@ class AppInstallApp(Adw.Application):
         win.present()
 
 def main():
+    if len(sys.argv) >= 3 and sys.argv[1] == "--uninstall":
+        from src.cli import handle_cli_args
+        return handle_cli_args(sys.argv)
+
     app = AppInstallApp()
     return app.run(sys.argv)
 

@@ -1,0 +1,9 @@
+{
+    "uuid": "appinstall-uninstall@inled.es",
+    "name": "AppInstall Uninstall",
+    "description": "Adds an 'Uninstall' option to the app grid context menu, using AppInstall as the backend.",
+    "shell-version": ["45", "46", "47", "48", "49", "50"],
+    "url": "https://github.com/InledGroup/appinstall",
+    "settings-schema": "org.gnome.shell.extensions.appinstall-uninstall",
+    "gettext-domain": "appinstall-uninstall"
+}
