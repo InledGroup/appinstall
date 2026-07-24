@@ -5,7 +5,8 @@
 
 # AppInstall  
 It's Clean my Mac, but for Linux distros.  
-Compatible with Debian, Fedora and Arch Linux based distros.  
+Compatible with Debian, Fedora and Arch Linux based distros.   
+A new abstraction layer for distro package managers.
 
 ## Features.  
 - Uninstall visually ANY package of your system  
@@ -15,10 +16,15 @@ Compatible with Debian, Fedora and Arch Linux based distros.
 - Scan for viruses  
 - Fix installation errors.  
 - Install ANY package visually, whether from the distro repositories or from any package.
-> [!NOTE]
-> Now supports AUR, Flathub and Snap
+- **App Store look**
 
-> With Appinstall, you won't need technical knowledge to do the most basic things in Linux: managing applications.  
+## GUI  
+You can open AppInstall normally and set it as default application for installation files.  
+
+## CLI (PKM)  
+Now Appinstall comes with a brand new CLI interface. A new abstraction layer for package managers. The same commands for APT, DNF, Homebrew, PACMAN, AUR, FLATHUB, SNAP...  
+No strange syntax, all with words that can be dictated. There are no scripts or other elements, just words.
+You can type `pkm help` in your terminal to see how to use it. Even if you get the wrong command, there is compatibility with synonyms.
 
 ## Installation  
 Download the latest version of Appinstall and double-click on the .deb or .rpm file to install it.  (Only if you're using GNOME or KDE, in other cases you'll need to use the terminal).
@@ -31,4 +37,4 @@ Si necesitas instalarlas manualmente, puedes ejecutar:
 sudo pacman -Syu python python-gobject gtk4 libadwaita python-requests python-packaging polkit
 ```
 ---
-v18
+v21
