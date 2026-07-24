@@ -4,11 +4,16 @@ import shutil
 import os
 import threading
 import time
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Tuple
+
+from src.config import CLI_NAME
 
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
+# ANSI escape codes for terminal text coloring.
+# Keys are human-readable names; values are raw SGR (Select Graphic Rendition) sequences.
+# These are only applied when stdout is a real TTY — see _c().
 _COLORS = {
     'reset':   '\033[0m',
     'bold':    '\033[1m',
@@ -23,28 +28,53 @@ _COLORS = {
     'gray':    '\033[90m',
 }
 
+# Global parseable mode flag. When True, output is plain text without ANSI
+# styles, formatted for easy machine parsing (tab-separated fields).
+PARSEABLE = False
+
 def _c(color: str, text: str) -> str:
-    if not sys.stdout.isatty():
+    """Wrap *text* in an ANSI color escape sequence, or return plain text if stdout is not a TTY.
+    
+    - If sys.stdout.isatty() is False (e.g. piped output), colors are suppressed.
+    - If PARSEABLE mode is active, colors are always suppressed.
+    - Falls back to plain text so logs/redirections stay clean.
+    - Uses _COLORS.get() with a fallback to '' so unknown color names silently degrade.
+    """
+    if PARSEABLE or not sys.stdout.isatty():
         return text
     return f"{_COLORS.get(color, '')}{text}{_COLORS['reset']}"
 
 
 # ── Spinner ─────────────────────────────────────────────────────────────────
 
+# Braille spinner frames used for animated progress indication on TTYs.
+# The sequence simulates a clockwise rotation.
 _SPINNER_CHARS = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
 
 class Spinner:
+    """Context manager that displays an animated CLI spinner while a task runs.
+    
+    Usage:
+        with Spinner("Searching..."):
+            do_work()
+    
+    Behaviour:
+    - On a TTY: starts a daemon thread that writes animated frames to stdout via \r.
+    - On a non-TTY (pipe/file): prints a single static line instead.
+    - On exit: clears the spinner line with \\r\\033[K so next output starts clean.
+    - In PARSEABLE mode: the spinner is completely suppressed.
+    """
     def __init__(self, message: str):
         self.message = message
         self._stop = threading.Event()
         self._thread = None
-        self._is_tty = sys.stdout.isatty()
+        self._is_tty = not PARSEABLE and sys.stdout.isatty()
 
     def __enter__(self):
         if self._is_tty:
             self._thread = threading.Thread(target=self._run, daemon=True)
             self._thread.start()
-        else:
+        elif not PARSEABLE:
             print(f"  {self.message}...")
         return self
 
@@ -52,27 +82,108 @@ class Spinner:
         if self._is_tty:
             self._stop.set()
             if self._thread:
-                self._thread.join()
-            sys.stdout.write('\r\033[K')
-            sys.stdout.flush()
+                self._thread.join(timeout=2)
+            try:
+                sys.stdout.write('\r\033[K')
+                sys.stdout.flush()
+            except Exception:
+                pass
 
     def _run(self):
         i = 0
         while not self._stop.is_set():
             char = _SPINNER_CHARS[i % len(_SPINNER_CHARS)]
-            sys.stdout.write(f"\r  {_c('cyan', char)} {self.message}...")
-            sys.stdout.flush()
+            try:
+                sys.stdout.write(f"\r  \033[36m{char}\033[0m {self.message}...")
+                sys.stdout.flush()
+            except Exception:
+                break
             self._stop.wait(0.08)
             i += 1
+
+
+def _progress_update(message: str, is_tty: bool):
+    """Write a progress line that overwrites itself."""
+    if is_tty:
+        sys.stdout.write(f"\r  \033[36m⠋\033[0m {message}")
+        sys.stdout.flush()
+
+
+def _progress_clear(is_tty: bool):
+    """Clear the progress line."""
+    if is_tty:
+        sys.stdout.write("\r\033[K")
+        sys.stdout.flush()
+
+
+class _LiveSpinner:
+    """Animated spinner that runs in its own thread.
+    
+    Other threads call update() to change the displayed message.
+    The spinner thread independently cycles through braille frames.
+    """
+    def __init__(self):
+        self._stop = threading.Event()
+        self._thread = None
+        self._status = ""
+        self._lock = threading.Lock()
+
+    def start(self, initial_message: str = ""):
+        self._status = initial_message
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+
+    def update(self, message: str):
+        with self._lock:
+            self._status = message
+
+    def stop(self):
+        self._stop.set()
+        if self._thread:
+            self._thread.join(timeout=2)
+        try:
+            sys.stdout.write("\r\033[K")
+            sys.stdout.flush()
+        except Exception:
+            pass
+
+    def _run(self):
+        i = 0
+        while not self._stop.is_set():
+            with self._lock:
+                msg = self._status
+            char = _SPINNER_CHARS[i % len(_SPINNER_CHARS)]
+            try:
+                sys.stdout.write(f"\r  \033[36m{char}\033[0m {msg}")
+                sys.stdout.flush()
+            except Exception:
+                break
+            self._stop.wait(0.08)
+            i += 1
+
+
 
 
 # ── Adapters ────────────────────────────────────────────────────────────────
 
 def _get_adapters():
+    """Discover and return a dict of available package adapters.
+    
+    Returns:
+        dict[str, object] — keyed by source name ('system', 'flatpak', 'snap', 'aur').
+        Only adapters whose backend is actually installed on the machine are included.
+    
+    Resolution order:
+    1. The system adapter (apt/dnf/pacman/etc.) from the factory — always included.
+    2. FlatpakAdapter — only if `flatpak` is on PATH (is_available()).
+    3. SnapAdapter — only if `snap` is on PATH.
+    4. AurAdapter — only if `pacman` is on PATH (AUR helpers depend on pacman).
+    """
     from src.infrastructure.adapters.factory import get_package_manager
     from src.infrastructure.adapters.flatpak_adapter import FlatpakAdapter
     from src.infrastructure.adapters.snap_adapter import SnapAdapter
     from src.infrastructure.adapters.aur_adapter import AurAdapter
+    from src.infrastructure.adapters.brew_adapter import BrewAdapter
 
     pm = get_package_manager()
     adapters = {'system': pm}
@@ -88,18 +199,62 @@ def _get_adapters():
     if shutil.which('pacman'):
         adapters['aur'] = AurAdapter()
 
+    br = BrewAdapter()
+    if br.is_available():
+        adapters['brew'] = br
+
     return adapters
 
 
+# Maps source names to (short_label, colored_label) pairs.
+# The short label is used as a compact identifier (e.g. 'sys', 'fpk').
+# The colored label is the same string wrapped in ANSI codes for terminal display.
 SOURCE_LABELS = {
     'system':  ('sys', _c('blue',   'sys')),
     'flatpak': ('fpk', _c('green',  'fpk')),
     'snap':    ('snap', _c('magenta', 'snap')),
     'aur':     ('aur', _c('yellow', 'aur')),
+    'brew':    ('brew', _c('magenta', 'brew')),
+}
+
+# Aliases: maps user-friendly names to canonical source keys
+SOURCE_ALIASES = {
+    'flatpak': 'flatpak', 'flathub': 'flatpak', 'fpk': 'flatpak',
+    'system': 'system', 'sys': 'system', 'pacman': 'system',
+    'apt': 'system', 'dnf': 'system', 'yum': 'system', 'apt-get': 'system',
+    'snap': 'snap', 'snapcraft': 'snap',
+    'aur': 'aur', 'yay': 'aur', 'paru': 'aur',
+    'brew': 'brew', 'homebrew': 'brew', 'linuxbrew': 'brew',
 }
 
 
+def _normalize_source(name: str) -> str:
+    """Resolve a source name or alias to its canonical key.
+    
+    Examples:
+        _normalize_source("flathub")  -> "flatpak"
+        _normalize_source("sys")      -> "system"
+        _normalize_source("pacman")   -> "system"
+        _normalize_source("homebrew") -> "brew"
+        _normalize_source("unknown")  -> "unknown" (passthrough)
+    """
+    if not name:
+        return name
+    return SOURCE_ALIASES.get(name.lower(), name.lower())
+
+
 def _parse_source(query: str):
+    """Parse an optional source prefix from a package query.
+    
+    Supported prefixes: flatpak:, snap:, aur:, pacman:, brew:
+    
+    Returns:
+        (source_name_or_None, stripped_query)
+    
+    Examples:
+        _parse_source("flatpak:org.gimp.GIMP")  -> ("flatpak", "org.gimp.GIMP")
+        _parse_source("firefox")                 -> (None, "firefox")
+    """
     for prefix in ['flatpak:', 'snap:', 'aur:', 'pacman:', 'brew:']:
         if query.lower().startswith(prefix):
             return prefix.rstrip(':'), query[len(prefix):]
@@ -107,10 +262,17 @@ def _parse_source(query: str):
 
 
 def _generate_search_variations(query: str) -> List[str]:
-    """Generate smart variations of a search query.
+    """Generate smart variations of a search query to improve fuzzy matching.
     
-    "wl clipboard" → ["wl clipboard", "wl-clipboard", "wlclipboard"]
-    "visual studio code" → ["visual studio code", "visual-studio-code", "visualstudiocode"]
+    Takes a multi-word query and produces the original, hyphenated, and
+    concatenated forms so adapters can match against different naming conventions.
+    
+    Examples:
+        "wl clipboard" -> ["wl clipboard", "wl-clipboard", "wlclipboard"]
+        "visual studio code" -> ["visual studio code", "visual-studio-code", "visualstudiocode"]
+    
+    Returns a deduplicated list (preserving insertion order via dict.fromkeys).
+    Single-word queries are returned as-is.
     """
     variations = [query]
     if ' ' in query:
@@ -120,6 +282,20 @@ def _generate_search_variations(query: str) -> List[str]:
 
 
 def _run_cmd(cmd, timeout=120):
+    """Execute an external command and stream its output live.
+    
+    Args:
+        cmd: List of command arguments (passed to subprocess.Popen).
+        timeout: Maximum wall-clock seconds before the process is killed (default 120).
+    
+    Returns:
+        True if the process exited with code 0, False otherwise.
+    
+    Behaviour:
+    - stdout and stderr are merged (stderr=STDOUT) and printed line-by-line as they arrive.
+    - On TimeoutExpired, the process is killed and an error is printed to stderr.
+    - Any other exception (e.g. FileNotFoundError) is caught and printed.
+    """
     try:
         proc = subprocess.Popen(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -138,29 +314,83 @@ def _run_cmd(cmd, timeout=120):
         return False
 
 
-def _search_adapter_silent(adapter, query: str) -> List[Dict]:
-    """Search an adapter, suppressing all output for intermediate variations."""
-    import io
-    old_stdout = sys.stdout
-    old_stderr = sys.stderr
-    sys.stdout = io.StringIO()
-    sys.stderr = io.StringIO()
-    try:
-        return adapter.search(query)
-    except Exception:
-        return []
-    finally:
-        sys.stdout = old_stdout
-        sys.stderr = old_stderr
+def _run_search_with_progress(adapters: dict, query: str, variations: List[str]) -> Dict[str, list]:
+    """Search all adapters in parallel with animated spinner.
+    
+    Returns results grouped by source, with progress updates as each
+    source completes.
+    """
+    import concurrent.futures
+
+    is_tty = not PARSEABLE and sys.stdout.isatty()
+    total = len(adapters)
+    done_count = [0]
+    done_lock = threading.Lock()
+    spinner = _LiveSpinner()
+
+    def search_one(source_name, adapter):
+        seen = set()
+        all_results = []
+        for variation in variations:
+            try:
+                results = adapter.search(variation)
+            except Exception:
+                results = []
+            for r in results:
+                name = r.get('name', '')
+                if name not in seen:
+                    seen.add(name)
+                    all_results.append(r)
+        with done_lock:
+            done_count[0] += 1
+            count = done_count[0]
+        if is_tty:
+            spinner.update(f"Searching ({count}/{total}) {source_name}...")
+        return source_name, all_results
+
+    if is_tty:
+        spinner.start(f"Searching (0/{total})...")
+
+    results_by_source = {}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(total, 4)) as pool:
+        futures = {pool.submit(search_one, src, adv): src for src, adv in adapters.items()}
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                source_name, results = future.result()
+                results_by_source[source_name] = results
+            except Exception:
+                src = futures[future]
+                results_by_source[src] = []
+
+    spinner.stop()
+    return results_by_source
 
 
 # ── Format helpers ──────────────────────────────────────────────────────────
 
 def _print_search_results(results_by_source: Dict[str, list], query: str):
-    """Print search results grouped by source with nice formatting."""
+    """Print search results grouped by source with nice formatting.
+    
+    Each source section shows a colored label header, a divider line,
+    and each package result with its name and truncated description.
+    
+    In PARSEABLE mode, outputs tab-separated lines: name<TAB>source<TAB>description
+    
+    If there are no results, a "No results" message is shown instead.
+    """
     total = sum(len(r) for r in results_by_source.values())
     if total == 0:
+        if PARSEABLE:
+            return
         print(_c('dim', f"  No results for ") + _c('bold', f"'{query}'"))
+        return
+
+    if PARSEABLE:
+        for source, results in results_by_source.items():
+            for r in results:
+                name = r.get('name', '')
+                desc = r.get('desc', '')
+                print(f"{name}\t{source}\t{desc}")
         return
 
     print(_c('dim', f"  Found ") + _c('bold', str(total)) + _c('dim', f" results for ") + _c('bold', f"'{query}'"))
@@ -184,8 +414,23 @@ def _print_search_results(results_by_source: Dict[str, list], query: str):
 
 
 def _print_installed_list(packages_by_source: Dict[str, list], query: str = None):
-    """Print installed packages grouped by source."""
+    """Print installed packages grouped by source.
+    
+    Each source section shows a colored label and the list of installed
+    package names (sorted alphabetically). A total count is printed at the end.
+    
+    In PARSEABLE mode, outputs tab-separated lines: name<TAB>source
+    
+    If *query* is provided, the title reflects the filter (e.g. "Installed packages matching 'firefox'").
+    """
     total = sum(len(p) for p in packages_by_source.values())
+
+    if PARSEABLE:
+        for source, packages in packages_by_source.items():
+            for pkg in sorted(packages):
+                print(f"{pkg}\t{source}")
+        return
+
     title = f"Installed packages"
     if query:
         title += f" matching '{query}'"
@@ -206,13 +451,40 @@ def _print_installed_list(packages_by_source: Dict[str, list], query: str = None
 
 
 def _print_package_info(info: dict, source: str = None):
-    """Print package info in a structured card format."""
+    """Print detailed package information in a structured card format.
+    
+    In PARSEABLE mode, outputs tab-separated key=value pairs.
+    
+    Fields displayed (if present in the info dict):
+    - name (bold, white)
+    - source (colored label)
+    - version
+    - description
+    - developer
+    - license
+    - size
+    """
     name = info.get('name', 'unknown')
     version = info.get('version', '')
     desc = info.get('description', '')
     size = info.get('size', '')
     developer = info.get('developer', '')
     license_ = info.get('license', '')
+
+    if PARSEABLE:
+        fields = [
+            ('name', name),
+            ('version', version),
+            ('description', desc),
+            ('source', source or ''),
+            ('developer', developer),
+            ('license', license_),
+            ('size', size),
+        ]
+        for key, val in fields:
+            if val:
+                print(f"{key}={val}")
+        return
 
     print()
     print(f"  {_c('bold', _c('white', name))}")
@@ -235,56 +507,83 @@ def _print_package_info(info: dict, source: str = None):
 # ── Commands ────────────────────────────────────────────────────────────────
 
 def cmd_search(query: str):
+    """Search for packages across all available adapters.
+    
+    Searches all adapters in parallel with live progress, then displays
+    results grouped by source.
+    """
     if not query:
-        print(f"  Usage: {_c('bold', 'appi search <query>')}", file=sys.stderr)
-        print(f"  Example: {_c('dim', 'appi search wl clipboard')}", file=sys.stderr)
+        print(f"  Usage: {_c('bold', f'{CLI_NAME} search <query>')}", file=sys.stderr)
+        print(f"  Example: {_c('dim', f'{CLI_NAME} search wl clipboard')}", file=sys.stderr)
         return False
 
     adapters = _get_adapters()
     variations = _generate_search_variations(query)
-    results_by_source = {}
 
-    with Spinner(f"Searching for '{query}'"):
-        for source, adapter in adapters.items():
-            seen = set()
-            all_results = []
-            for variation in variations:
-                results = _search_adapter_silent(adapter, variation)
-                for r in results:
-                    name = r.get('name', '')
-                    if name not in seen:
-                        seen.add(name)
-                        all_results.append(r)
-            results_by_source[source] = all_results
-
+    results_by_source = _run_search_with_progress(adapters, query, variations)
     _print_search_results(results_by_source, query)
     return any(results_by_source.values())
 
 
 def cmd_list(filter_source: Optional[str] = None):
-    adapters = _get_adapters()
-    packages_by_source = {}
+    """List all installed packages, optionally filtered by source.
+    
+    Queries all adapters in parallel with animated spinner.
+    """
+    import concurrent.futures
 
-    with Spinner("Loading installed packages"):
+    adapters = _get_adapters()
+    is_tty = not PARSEABLE and sys.stdout.isatty()
+    total = len(adapters)
+    done_count = [0]
+    done_lock = threading.Lock()
+    packages_by_source = {}
+    spinner = _LiveSpinner()
+
+    def load_one(source_name, adapter):
+        try:
+            packages = adapter.list_installed()
+        except Exception:
+            packages = []
+        with done_lock:
+            done_count[0] += 1
+            count = done_count[0]
+        if is_tty:
+            spinner.update(f"Loading ({count}/{total}) {source_name}...")
+        return source_name, packages
+
+    if is_tty:
+        spinner.start(f"Loading (0/{total})...")
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(total, 4)) as pool:
+        futures = {}
         for source, adapter in adapters.items():
             if filter_source and source != filter_source:
                 continue
+            futures[pool.submit(load_one, source, adapter)] = source
+        for future in concurrent.futures.as_completed(futures):
             try:
-                packages = adapter.list_installed()
+                source_name, packages = future.result()
                 if packages:
-                    packages_by_source[source] = packages
+                    packages_by_source[source_name] = packages
             except Exception:
                 pass
 
+    spinner.stop()
     _print_installed_list(packages_by_source)
     return True
 
 
 def cmd_search_installed(query: str):
-    """Search within installed packages."""
+    """Search within installed packages (filter by substring match).
+    
+    Queries each adapter for installed packages, then filters locally
+    with a case-insensitive substring check. Useful for finding whether
+    a package is already installed without leaving the CLI.
+    """
     if not query:
-        print(f"  Usage: {_c('bold', 'appi list <query>')}", file=sys.stderr)
-        print(f"  Example: {_c('dim', 'appi list firefox')}", file=sys.stderr)
+        print(f"  Usage: {_c('bold', f'{CLI_NAME} list <query>')}", file=sys.stderr)
+        print(f"  Example: {_c('dim', f'{CLI_NAME} list firefox')}", file=sys.stderr)
         return False
 
     adapters = _get_adapters()
@@ -305,49 +604,89 @@ def cmd_search_installed(query: str):
     return any(packages_by_source.values())
 
 
-def cmd_install(package: str):
-    if not package:
-        print(f"  Usage: {_c('bold', 'appi install <package>')}", file=sys.stderr)
+def cmd_install(packages):
+    """Install one or more packages by name, source-prefixed name, or local file path.
+
+    Accepts either:
+      - A single string (legacy): "firefox"
+      - A list of (name, source) tuples: [("gimp", "fpk"), ("vlc", "sys")]
+
+    Resolution order per package:
+    1. If *name* is an existing file path, delegate to _install_file().
+    2. If *source* is specified, install from that specific source.
+    3. If name has a prefix (e.g. flatpak:org.gimp.GIMP), install from that source.
+    4. Otherwise, try each adapter in order:
+       a. Check if the package (or a variation) is already installed — reinstall.
+       b. Search the adapter for the query and install the first match.
+    5. Fall back to the system adapter with the raw name.
+    6. Report failure if nothing matched.
+
+    Returns True if at least one package was installed successfully.
+    """
+    if isinstance(packages, str):
+        packages = [(packages, None)]
+
+    if not packages:
+        print(f"  Usage: {_c('bold', f'{CLI_NAME} install <package>')}", file=sys.stderr)
         print(f"  Examples:", file=sys.stderr)
-        print(f"    {_c('dim', 'appi install firefox')}          {_c('dim', '# auto-detect source')}", file=sys.stderr)
-        print(f"    {_c('dim', 'appi install flatpak:org.gimp.GIMP')}", file=sys.stderr)
-        print(f"    {_c('dim', 'appi install snap:code')}", file=sys.stderr)
-        print(f"    {_c('dim', 'appi install /path/to/file.deb')}", file=sys.stderr)
+        print(f"    {_c('dim', f'{CLI_NAME} install firefox')}          {_c('dim', '# auto-detect source')}", file=sys.stderr)
+        print(f"    {_c('dim', f'{CLI_NAME} install flatpak:org.gimp.GIMP')}", file=sys.stderr)
+        print(f"    {_c('dim', f'{CLI_NAME} install snap:code')}", file=sys.stderr)
+        print(f"    {_c('dim', f'{CLI_NAME} install /path/to/file.deb')}", file=sys.stderr)
+        print(f"    {_c('dim', f'{CLI_NAME} install gimp vlc from flathub')}", file=sys.stderr)
+        return False
+
+    success = False
+    for pkg_name, pkg_source in packages:
+        if _install_single(pkg_name, pkg_source):
+            success = True
+    return success
+
+
+def _install_single(package: str, source: str = None) -> bool:
+    """Install a single package. Returns True on success."""
+    if not package:
         return False
 
     if os.path.isfile(package):
         return _install_file(package)
 
-    source, name = _parse_source(package)
     adapters = _get_adapters()
 
     if source and source in adapters:
-        cmd = adapters[source].install(name)
-        print(f"  {_c('cyan', 'Installing')} {_c('bold', name)} {_c('dim', f'from {source}...')}")
+        cmd = adapters[source].install(package)
+        print(f"  {_c('cyan', 'Installing')} {_c('bold', package)} {_c('dim', f'from {source}...')}")
         return _run_cmd(cmd)
 
-    # Try with variations
-    variations = _generate_search_variations(name)
-    for source, adapter in adapters.items():
+    if not source:
+        src, name = _parse_source(package)
+        if src and src in adapters:
+            cmd = adapters[src].install(name)
+            print(f"  {_c('cyan', 'Installing')} {_c('bold', name)} {_c('dim', f'from {src}...')}")
+            return _run_cmd(cmd)
+        package = name
+
+    variations = _generate_search_variations(package)
+    for src, adapter in adapters.items():
         try:
             installed = adapter.list_installed()
             for variation in variations:
                 if variation in installed:
                     cmd = adapter.uninstall(variation)
-                    print(f"  {_c('cyan', 'Installing')} {_c('bold', variation)} {_c('dim', f'from {source}...')}")
+                    print(f"  {_c('cyan', 'Installing')} {_c('bold', variation)} {_c('dim', f'from {src}...')}")
                     return _run_cmd(cmd)
             results = adapter.search(variations[0])
             if results and results[0].get('name') in variations:
                 match_name = results[0]['name']
                 cmd = adapter.install(match_name)
-                print(f"  {_c('cyan', 'Installing')} {_c('bold', match_name)} {_c('dim', f'from {source}...')}")
+                print(f"  {_c('cyan', 'Installing')} {_c('bold', match_name)} {_c('dim', f'from {src}...')}")
                 return _run_cmd(cmd)
         except Exception:
             pass
 
     if 'system' in adapters:
-        cmd = adapters['system'].install(name)
-        print(f"  {_c('cyan', 'Installing')} {_c('bold', name)} {_c('dim', 'from system repos...')}")
+        cmd = adapters['system'].install(package)
+        print(f"  {_c('cyan', 'Installing')} {_c('bold', package)} {_c('dim', 'from system repos...')}")
         return _run_cmd(cmd)
 
     print(_c('red', f"  Could not find '{package}' in any source."), file=sys.stderr)
@@ -355,6 +694,17 @@ def cmd_install(package: str):
 
 
 def _install_file(file_path: str):
+    """Install a local package file by detecting its format and dispatching to the right backend.
+    
+    Supported formats:
+    - .deb        -> pkexec dpkg -i
+    - .rpm        -> pkexec rpm -i
+    - .pkg.tar.zst / .pkg.tar.xz -> pkexec pacman -U
+    - .flatpakref / .flatpak     -> flatpak install (adapter or pkexec fallback)
+    - .AppImage   -> copy to /usr/bin and chmod +x
+    
+    Returns True on success, False on failure or unknown type.
+    """
     adapters = _get_adapters()
 
     if file_path.endswith('.deb') and 'system' in adapters:
@@ -381,38 +731,75 @@ def _install_file(file_path: str):
     return _run_cmd(cmd)
 
 
-def cmd_remove(package: str):
-    if not package:
-        print(f"  Usage: {_c('bold', 'appi remove <package>')}", file=sys.stderr)
+def cmd_remove(packages):
+    """Remove/uninstall one or more packages.
+
+    Accepts either:
+      - A single string (legacy): "firefox"
+      - A list of (name, source) tuples: [("firefox", None), ("vlc", "sys")]
+
+    Resolution order per package (mirrors cmd_install):
+    1. If *source* is specified, remove from that source.
+    2. If name has a prefix (e.g. flatpak:org.gimp.GIMP), remove from that source.
+    3. Try each adapter — check if any variation of the name is installed.
+    4. Fall back to system adapter with the raw name.
+    5. Report failure if not found.
+
+    Returns True if at least one package was removed successfully.
+    """
+    if isinstance(packages, str):
+        packages = [(packages, None)]
+
+    if not packages:
+        print(f"  Usage: {_c('bold', f'{CLI_NAME} remove <package>')}", file=sys.stderr)
         print(f"  Examples:", file=sys.stderr)
-        print(f"    {_c('dim', 'appi remove firefox')}", file=sys.stderr)
-        print(f"    {_c('dim', 'appi remove flatpak:org.gimp.GIMP')}", file=sys.stderr)
+        print(f"    {_c('dim', f'{CLI_NAME} remove firefox')}", file=sys.stderr)
+        print(f"    {_c('dim', f'{CLI_NAME} remove flatpak:org.gimp.GIMP')}", file=sys.stderr)
+        print(f"    {_c('dim', f'{CLI_NAME} remove firefox chromium vlc')}", file=sys.stderr)
         return False
 
-    source, name = _parse_source(package)
+    success = False
+    for pkg_name, pkg_source in packages:
+        if _remove_single(pkg_name, pkg_source):
+            success = True
+    return success
+
+
+def _remove_single(package: str, source: str = None) -> bool:
+    """Remove a single package. Returns True on success."""
+    if not package:
+        return False
+
     adapters = _get_adapters()
 
     if source and source in adapters:
-        cmd = adapters[source].uninstall(name)
-        print(f"  {_c('red', 'Removing')} {_c('bold', name)} {_c('dim', f'from {source}...')}")
+        cmd = adapters[source].uninstall(package)
+        print(f"  {_c('red', 'Removing')} {_c('bold', package)} {_c('dim', f'from {source}...')}")
         return _run_cmd(cmd)
 
-    # Try with variations
-    variations = _generate_search_variations(name)
-    for source, adapter in adapters.items():
+    if not source:
+        src, name = _parse_source(package)
+        if src and src in adapters:
+            cmd = adapters[src].uninstall(name)
+            print(f"  {_c('red', 'Removing')} {_c('bold', name)} {_c('dim', f'from {src}...')}")
+            return _run_cmd(cmd)
+        package = name
+
+    variations = _generate_search_variations(package)
+    for src, adapter in adapters.items():
         try:
             installed = adapter.list_installed()
             for variation in variations:
                 if variation in installed:
                     cmd = adapter.uninstall(variation)
-                    print(f"  {_c('red', 'Removing')} {_c('bold', variation)} {_c('dim', f'from {source}...')}")
+                    print(f"  {_c('red', 'Removing')} {_c('bold', variation)} {_c('dim', f'from {src}...')}")
                     return _run_cmd(cmd)
         except Exception:
             pass
 
     if 'system' in adapters:
-        cmd = adapters['system'].uninstall(name)
-        print(f"  {_c('red', 'Removing')} {_c('bold', name)} {_c('dim', 'from system...')}")
+        cmd = adapters['system'].uninstall(package)
+        print(f"  {_c('red', 'Removing')} {_c('bold', package)} {_c('dim', 'from system...')}")
         return _run_cmd(cmd)
 
     print(_c('red', f"  Package '{package}' not found."), file=sys.stderr)
@@ -420,6 +807,11 @@ def cmd_remove(package: str):
 
 
 def cmd_update():
+    """Update/upgrade all packages from all available sources.
+    
+    Iterates over each adapter and calls its upgrade_system() method.
+    The upgrade command (if any) is printed with the source label and executed.
+    """
     adapters = _get_adapters()
 
     print(_c('bold', '  Updating system packages...'))
@@ -439,7 +831,16 @@ def cmd_update():
 
 
 def cmd_fix():
-    """Fix broken dependencies."""
+    """Fix broken package dependencies.
+    
+    Detects the system package manager and runs the appropriate fix command:
+    - pacman: refresh DBs + remove orphan packages
+    - apt-get: apt-get install -f
+    - dnf: dnf distro-sync
+    - yum: yum distro-sync
+    
+    Returns True if the fix command succeeded, False otherwise.
+    """
     adapters = _get_adapters()
     system = adapters.get('system')
 
@@ -468,32 +869,69 @@ def cmd_fix():
         return False
 
 
-def cmd_info(package: str):
-    if not package:
-        print(f"  Usage: {_c('bold', 'appi info <package>')}", file=sys.stderr)
-        print(f"  Example: {_c('dim', 'appi info firefox')}", file=sys.stderr)
+def cmd_info(packages):
+    """Show detailed information about one or more packages.
+
+    Accepts either:
+      - A single string (legacy): "firefox"
+      - A list of (name, source) tuples
+
+    Resolution order per package:
+    1. If *source* is specified, query that source directly.
+    2. If name has a prefix (e.g. flatpak:org.gimp.GIMP), query that source.
+    3. Try each adapter with each name variation.
+    4. Report failure if nothing matched.
+    """
+    if isinstance(packages, str):
+        packages = [(packages, None)]
+
+    if not packages:
+        print(f"  Usage: {_c('bold', f'{CLI_NAME} info <package>')}", file=sys.stderr)
+        print(f"  Example: {_c('dim', f'{CLI_NAME} info firefox')}", file=sys.stderr)
         return False
 
-    source, name = _parse_source(package)
+    success = False
+    for pkg_name, pkg_source in packages:
+        if _info_single(pkg_name, pkg_source):
+            success = True
+    return success
+
+
+def _info_single(package: str, source: str = None) -> bool:
+    """Show info for a single package. Returns True on success."""
+    if not package:
+        return False
+
     adapters = _get_adapters()
 
     if source and source in adapters:
         try:
-            info = adapters[source].get_package_info(name)
+            info = adapters[source].get_package_info(package)
             _print_package_info(info, source)
             return True
         except Exception as e:
             print(_c('red', f"  Error: {e}"), file=sys.stderr)
             return False
 
-    # Try with variations
-    variations = _generate_search_variations(name)
-    for source, adapter in adapters.items():
+    if not source:
+        src, name = _parse_source(package)
+        if src and src in adapters:
+            try:
+                info = adapters[src].get_package_info(name)
+                _print_package_info(info, src)
+                return True
+            except Exception as e:
+                print(_c('red', f"  Error: {e}"), file=sys.stderr)
+                return False
+        package = name
+
+    variations = _generate_search_variations(package)
+    for src, adapter in adapters.items():
         try:
             for variation in variations:
                 info = adapter.get_package_info(variation)
                 if info.get('version') and info['version'] != 'N/A':
-                    _print_package_info(info, source)
+                    _print_package_info(info, src)
                     return True
         except Exception:
             pass
@@ -504,6 +942,10 @@ def cmd_info(package: str):
 
 # ── Command registry ────────────────────────────────────────────────────────
 
+# Maps CLI command names (and aliases) to their handler functions.
+# Multiple aliases can point to the same handler for user convenience.
+# Commands that take no arguments (update, fix) are wrapped in lambdas to
+# match the () -> bool signature of the others.
 COMMANDS = {
     'search':    cmd_search,
     'find':      cmd_search,

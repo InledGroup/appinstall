@@ -15,8 +15,12 @@ if [ ! -f "$ZIP" ]; then
 fi
 
 echo "Installing from zip..."
+rm -rf "$EXTENSION_DIR"
 mkdir -p "$EXTENSION_DIR"
 unzip -o "$ZIP" -d "$EXTENSION_DIR"
+
+echo "Compiling schemas..."
+glib-compile-schemas "$EXTENSION_DIR/schemas/"
 
 echo ""
 echo "Installed -> $EXTENSION_DIR"

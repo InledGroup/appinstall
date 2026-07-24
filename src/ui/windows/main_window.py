@@ -963,11 +963,13 @@ class PackageInstaller(Adw.ApplicationWindow):
                 
                 if not is_scheme:
                     self.selected_file_label.set_text(_("Archivo seleccionado: {}").format(os.path.basename(self.file_path)))
+                    self.selected_file_box.set_visible(True)
                     self.install_button.set_sensitive(True)
                     self.status_label.set_text(_("Estoy listo para instalar: {}").format(os.path.basename(self.file_path)))
-                    GLib.idle_add(self.show_package_details, is_local=True)
+                    GLib.idle_add(lambda: self.show_package_details(is_local=True))
                 else:
-                    GLib.idle_add(self.show_package_details, identifier=self.file_path, is_local=False)
+                    _id = self.file_path
+                    GLib.idle_add(lambda: self.show_package_details(identifier=_id, is_local=False))
         return False
 
     def on_file_chooser_clicked(self, button):

@@ -83,7 +83,7 @@ chmod 755 appinstall/usr/bin/appinstall
 chmod 644 appinstall/DEBIAN/control
 
 # Crear symlink para CLI_NAME desde config
-CLI_NAME=$(python3 -c "import sys; sys.path.insert(0, 'appinstall/usr/share/appinstall'); from src.config import CLI_NAME; print(CLI_NAME)" 2>/dev/null || echo "appi")
+CLI_NAME=$(python3 -c "import sys; sys.path.insert(0, 'appinstall/usr/share/appinstall'); from src.config import CLI_NAME; print(CLI_NAME)" 2>/dev/null || echo "pkm")
 ln -sf /usr/bin/appinstall "appinstall/usr/bin/$CLI_NAME" 2>/dev/null || true
 
 # Construir el paquete

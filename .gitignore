@@ -41,3 +41,4 @@ archive/
 *.pkg.tar.zst
 archpkg/
 !appinstall/
+gnome-shell-extension/appinstall-uninstall@inled.es.shell-extension.zip

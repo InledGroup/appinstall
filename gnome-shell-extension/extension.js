@@ -196,8 +196,9 @@ export default class AppInstallUninstallExtension extends Extension {
  * resolution order:
  *
  *   1. User-configured path from extension preferences (appinstall-path).
- *   2. 'appi' found on the system PATH (new CLI name).
- *   3. 'appinstall' found on the system PATH (legacy name).
+ *   2. 'pkm' found on the system PATH (current CLI name).
+ *   3. 'appi' found on the system PATH (previous CLI name).
+ *   4. 'appinstall' found on the system PATH (legacy name).
  *   4. start.py relative to the extension directory (development layout).
  *
  * Returns true on the first match, false if none found.
@@ -208,11 +209,15 @@ function _isAppInstallAvailable(settings, extensionDir) {
     if (configuredPath && GLib.file_test(configuredPath, GLib.FileTest.EXISTS))
         return true;
 
-    // Step 2: Check if 'appi' is on PATH (new name)
+    // Step 2: Check if 'pkm' is on PATH (current name)
+    if (GLib.find_program_in_path('pkm'))
+        return true;
+
+    // Step 3: Check if 'appi' is on PATH (previous name)
     if (GLib.find_program_in_path('appi'))
         return true;
 
-    // Step 3: Check if the legacy 'appinstall' command is on PATH.
+    // Step 4: Check if the legacy 'appinstall' command is on PATH.
     if (GLib.find_program_in_path('appinstall'))
         return true;
 
@@ -304,10 +309,11 @@ function _showFirstRunDialog() {
  *
  * CLI resolution order (same as _isAppInstallAvailable):
  *   1. User-configured path from extension preferences.
- *   2. 'appi' on PATH.
- *   3. 'appinstall' on PATH.
- *   4. start.py relative to the extension directory.
- *   5. Fallback to 'appi' (will fail gracefully with an error notification).
+ *   2. 'pkm' on PATH (current CLI name).
+ *   3. 'appi' on PATH (previous CLI name).
+ *   4. 'appinstall' on PATH (legacy name).
+ *   5. start.py relative to the extension directory.
+ *   6. Fallback to 'pkm' (will fail gracefully with an error notification).
  *
  * If the configured path ends in '.py', it is prefixed with 'python3'.
  *
@@ -330,26 +336,31 @@ function _launchUninstall(desktopId, settings, extensionDir) {
             ? ['python3', appinstallPath, '--uninstall', desktopId]
             : [appinstallPath, '--uninstall', desktopId];
     } else {
-        // Step 2: Check if 'appi' is on PATH (new CLI name).
-        const appiPath = GLib.find_program_in_path('appi');
-        if (appiPath) {
-            argv = [appiPath, '--uninstall', desktopId];
+        // Step 2: Check if 'pkm' is on PATH (current CLI name).
+        const pkmPath = GLib.find_program_in_path('pkm');
+        if (pkmPath) {
+            argv = [pkmPath, '--uninstall', desktopId];
         } else {
-            // Step 3: Check if the legacy 'appinstall' is on PATH.
-            const appinstallPath2 = GLib.find_program_in_path('appinstall');
-            if (appinstallPath2) {
-                argv = [appinstallPath2, '--uninstall', desktopId];
+            // Step 3: Check if 'appi' is on PATH (previous CLI name).
+            const appiPath = GLib.find_program_in_path('appi');
+            if (appiPath) {
+                argv = [appiPath, '--uninstall', desktopId];
             } else {
-                // Step 4: Development layout — look for start.py
-                // relative to the extension directory.
-                const startPy = GLib.build_filenamev([extensionDir, '..', '..', '..', 'appinstall', 'start.py']);
-                if (GLib.file_test(startPy, GLib.FileTest.EXISTS)) {
-                    argv = ['python3', startPy, '--uninstall', desktopId];
+                // Step 4: Check if the legacy 'appinstall' is on PATH.
+                const appinstallPath2 = GLib.find_program_in_path('appinstall');
+                if (appinstallPath2) {
+                    argv = [appinstallPath2, '--uninstall', desktopId];
                 } else {
-                    // Step 5: Last resort — try 'appi' directly.
-                    // This will fail if not installed, triggering
-                    // the error notification below.
-                    argv = ['appi', '--uninstall', desktopId];
+                    // Step 5: Development layout — look for start.py
+                    // relative to the extension directory.
+                    const startPy = GLib.build_filenamev([extensionDir, '..', '..', '..', 'appinstall', 'start.py']);
+                    if (GLib.file_test(startPy, GLib.FileTest.EXISTS)) {
+                        argv = ['python3', startPy, '--uninstall', desktopId];
+                    } else {
+                        // Step 6: Last resort — try 'pkm' directly.
+                        // This will fail if not installed, triggering
+                        // the error notification below.
+                        argv = ['pkm', '--uninstall', desktopId];
                 }
             }
         }

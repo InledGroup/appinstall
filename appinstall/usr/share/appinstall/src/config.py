@@ -1,1 +1,1 @@
-CLI_NAME = "appi"
+CLI_NAME = "pkm"
