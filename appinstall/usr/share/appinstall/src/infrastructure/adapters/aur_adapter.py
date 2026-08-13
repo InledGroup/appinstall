@@ -1,6 +1,7 @@
 import os
 import subprocess
 import shutil
+import tempfile
 import requests
 from typing import List, Dict
 from src.domain.ports import PackageManager
@@ -64,37 +65,89 @@ class AurAdapter(PackageManager):
             print(f"Error listing installed AUR packages: {e}")
             return []
 
+    def get_pkgbuild(self, package: str) -> str:
+        """Obtiene el contenido del PKGBUILD de un paquete del AUR."""
+        # 1. Intentar descargar el PKGBUILD directamente desde el git del AUR
+        try:
+            url = f"https://aur.archlinux.org/cgit/aur.git/plain/PKGBUILD?h={package}"
+            r = requests.get(url, timeout=10)
+            if r.status_code == 200 and r.text.strip():
+                return r.text
+        except Exception as e:
+            print(f"AUR PKGBUILD fetch error: {e}")
+            
+        # 2. Fallback: clonar el repositorio y leer el archivo local
+        tmp_dir = tempfile.mkdtemp(prefix=f"appinstall_pkgbuild_")
+        try:
+            subprocess.run(
+                ['git', 'clone', '--depth', '1', f'https://aur.archlinux.org/{package}.git', tmp_dir],
+                check=True, timeout=60, capture_output=True
+            )
+            pkgbuild_path = os.path.join(tmp_dir, 'PKGBUILD')
+            if os.path.exists(pkgbuild_path):
+                with open(pkgbuild_path, 'r', encoding='utf-8', errors='replace') as f:
+                    return f.read()
+        except Exception as e:
+            print(f"AUR PKGBUILD clone fallback error: {e}")
+        finally:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+            
+        return ""
+
     def install(self, package: str) -> List[str]:
-        # Buscar ayudante de AUR preferido
-        if shutil.which('yay'):
-            return ['yay', '--sudo', 'pkexec', '-S', '--noconfirm', '--needed', '--answerclean', 'All', '--answerdiff', 'None', '--answeredit', 'None', package]
-        elif shutil.which('paru'):
-            return ['paru', '--sudo', 'pkexec', '-S', '--noconfirm', '--needed', '--answerclean', 'All', '--answerdiff', 'None', '--answeredit', 'None', package]
-        else:
-            # Fallback nativo: clonar y compilar usando makepkg en el directorio temporal
-            # Usamos pkexec para instalar dependencias si makepkg lo pide, pero makepkg debe correr como usuario normal.
-            # makepkg se encarga de llamar a sudo pacman automáticamente.
-            temp_dir = f"/tmp/appinstall_aur_{package}"
-            return [
-                'sh', '-c',
-                f'rm -rf "{temp_dir}" && ' +
-                f'git clone https://aur.archlinux.org/{package}.git "{temp_dir}" && ' +
-                f'cd "{temp_dir}" && ' +
-                f'makepkg -si --noconfirm --needed && ' +
-                f'rm -rf "{temp_dir}"'
-            ]
- 
+        # Instalación nativa desde el AUR sin depender de yay ni paru:
+        # 1. Asegura que git y base-devel estén disponibles
+        # 2. Clona el repositorio del paquete
+        # 3. Compila con makepkg (instala dependencias con pacman)
+        # 4. Instala el paquete compilado; si pacman detecta archivos en conflicto
+        #    con otro paquete, se reintenta sobrescribiendo SOLO esos archivos
+        #    (mismo comportamiento que los ayudantes de AUR).
+        temp_dir = f"/tmp/appinstall_aur_{package}"
+        script = f"""\
+if ! command -v git >/dev/null 2>&1; then ${{APPINSTALL_SUDO:-sudo}} pacman -S --needed --noconfirm git; fi && \\
+rm -rf "{temp_dir}" && \\
+git clone --depth 1 https://aur.archlinux.org/{package}.git "{temp_dir}" && \\
+cd "{temp_dir}" && \\
+if ! pacman -Qi base-devel >/dev/null 2>&1; then ${{APPINSTALL_SUDO:-sudo}} pacman -S --needed --noconfirm base-devel; fi && \\
+if ! makepkg -s --noconfirm --needed; then
+    exit 1
+fi
+pkgfile="$(ls -1 *.pkg.tar.* 2>/dev/null | head -n1)"
+if [ -z "$pkgfile" ]; then
+    echo "No se encontró el paquete compilado." >&2
+    exit 1
+fi
+# Ruta absoluta: pkexec (elevación gráfica) no conserva el directorio de trabajo,
+# así que una ruta relativa haría que pacman no encuentre el paquete.
+pkgfile="$PWD/$pkgfile"
+tmpout="$(mktemp)"
+trap 'rm -f "$tmpout"; rm -rf "{temp_dir}"' EXIT
+${{APPINSTALL_SUDO:-sudo}} pacman -U --noconfirm "$pkgfile" 2>&1 | tee "$tmpout"
+rc=${{PIPESTATUS[0]}}
+if [ "$rc" -ne 0 ]; then
+    # Pacman devuelve las líneas de conflicto como: <paquete>: /ruta <motivo>
+    conflicts="$(sed -n 's/^[^:]*: \\(\\/[^ ]*\\) .*/\\1/p' "$tmpout" | sort -u)"
+    if [ -n "$conflicts" ]; then
+        echo ""
+        echo "=== Se detectaron archivos en conflicto con otro paquete; se reintenta sobrescribiéndolos ==="
+        extra=""
+        for f in $conflicts; do
+            extra="$extra --overwrite $f"
+        done
+        ${{APPINSTALL_SUDO:-sudo}} pacman -U --noconfirm $extra "$pkgfile"
+        rc=$?
+    fi
+fi
+exit "$rc"
+"""
+        return ['sh', '-c', script]
+
     def install_multiple(self, packages: List[str]) -> List[str]:
-        if shutil.which('yay'):
-            return ['yay', '--sudo', 'pkexec', '-S', '--noconfirm', '--needed', '--answerclean', 'All', '--answerdiff', 'None', '--answeredit', 'None'] + packages
-        elif shutil.which('paru'):
-            return ['paru', '--sudo', 'pkexec', '-S', '--noconfirm', '--needed', '--answerclean', 'All', '--answerdiff', 'None', '--answeredit', 'None'] + packages
-        else:
-            # Si no hay ayudante de AUR, instalar uno a uno usando el método nativo
-            commands = []
-            for pkg in packages:
-                commands.extend(self.install(pkg))
-            return commands
+        # Sin ayudante de AUR: instalar uno a uno usando el método nativo
+        commands = []
+        for pkg in packages:
+            commands.extend(self.install(pkg))
+        return commands
 
     def install_local(self, file_path: str) -> List[str]:
         return ['pkexec', 'pacman', '-U', '--noconfirm', file_path]
@@ -143,8 +196,25 @@ class AurAdapter(PackageManager):
                     url_upstream = pkg.get('URL', '')
                     if url_upstream:
                         info['website'] = url_upstream
+                    
+                    # Dependencias desde la API del AUR
+                    depends = list(pkg.get('Depends', []) or [])
+                    makedepends = list(pkg.get('MakeDepends', []) or [])
+                    checkdepends = list(pkg.get('CheckDepends', []) or [])
+                    deps = depends + makedepends + checkdepends
+                    seen = set()
+                    uniq_deps = []
+                    for d in deps:
+                        if d not in seen:
+                            seen.add(d)
+                            uniq_deps.append(d)
+                    if uniq_deps:
+                        info['dependencies'] = uniq_deps
         except Exception as e:
             print(f"Error fetching AUR package info: {e}")
+            
+        # Cargar el PKGBUILD para mostrarlo antes de instalar
+        info['pkgbuild'] = self.get_pkgbuild(package_name)
             
         return info
 
@@ -161,10 +231,6 @@ class AurAdapter(PackageManager):
 
     # Métodos de la interfaz PackageManager que no aplican directamente
     def update_cache(self) -> List[str]:
-        if shutil.which('yay'):
-            return ['yay', '-Sy']
-        elif shutil.which('paru'):
-            return ['paru', '-Sy']
         return ['pkexec', 'pacman', '-Sy']
         
     def clean_cache(self) -> List[str]:
@@ -183,8 +249,4 @@ class AurAdapter(PackageManager):
         return []
         
     def upgrade_system(self) -> List[str]:
-        if shutil.which('yay'):
-            return ['yay', '--sudo', 'pkexec', '-Syu', '--noconfirm', '--needed', '--answerclean', 'All', '--answerdiff', 'None', '--answeredit', 'None']
-        elif shutil.which('paru'):
-            return ['paru', '--sudo', 'pkexec', '-Syu', '--noconfirm', '--needed', '--answerclean', 'All', '--answerdiff', 'None', '--answeredit', 'None']
         return ['pkexec', 'pacman', '-Syu', '--noconfirm']

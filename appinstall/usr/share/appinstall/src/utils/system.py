@@ -1,8 +1,17 @@
 import os
 import shutil
+import socket
 import subprocess
 import webbrowser
 from gi.repository import Gtk, Gdk
+
+def has_internet(timeout=3.0):
+    """Comprueba rápidamente si hay conexión a internet."""
+    try:
+        with socket.create_connection(("flathub.org", 443), timeout=timeout):
+            return True
+    except Exception:
+        return False
 
 def get_brew_path():
     """Busca la ruta de Homebrew de forma más robusta."""

@@ -136,17 +136,45 @@ X-SwiftInstall={install_type}
             f"cp '{icon_path}' '{target_icon_path}' && echo '{escaped_content}' > '{desktop_path}'"
         ]
 
-    def run_installation(self, cmd, file_path, on_progress, on_complete):
+    def _prepare_env(self):
+        # English: Copy current environment and configure privilege escalation to use pkexec (graphical sudo)
+        # Español: Copiar el entorno actual y configurar la elevación de privilegios con pkexec (sudo gráfico)
+        env = os.environ.copy()
+        # English: makepkg must see PACMAN as the plain pacman path; elevation goes in PACMAN_AUTH.
+        # If PACMAN contains "pkexec pacman", makepkg resolves it to a broken single path and
+        # run_pacman ends up executing: pkexec "/usr/bin/pkexec /usr/bin/pacman" -U ... (double elevation).
+        # Español: makepkg debe ver PACMAN como la ruta simple de pacman; la elevación va en PACMAN_AUTH.
+        env["SUDO"] = "pkexec"
+        env["PACMAN"] = "pacman"
+        # makepkg (AUR nativo) usa PACMAN_AUTH para elevar privilegios
+        env["PACMAN_AUTH"] = "pkexec"
+        # Comandos internos del script de instalación AUR
+        env["APPINSTALL_SUDO"] = "pkexec"
+        return env
+
+    def _run_process_streaming(self, cmd, on_log):
+        """Ejecuta un comando y emite cada línea de salida a on_log."""
+        log_lines = []
+        env = self._prepare_env()
+        process = subprocess.Popen(
+            cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            universal_newlines=True, bufsize=1
+        )
+        for line in process.stdout:
+            stripped = line.rstrip('\n')
+            if stripped.strip():
+                log_lines.append(stripped)
+                if on_log:
+                    GLib.idle_add(on_log, stripped)
+        process.wait()
+        return process.returncode, "\n".join(log_lines[-50:])
+
+    def run_installation(self, cmd, file_path, on_progress, on_complete, on_log=None):
         def _run():
             try:
-                # Copy current environment and configure privilege escalation to use pkexec (graphical sudo)
-                env = os.environ.copy()
-                env["SUDO"] = "pkexec"
-                env["PACMAN"] = "pkexec pacman"
-                process = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
-                stdout, stderr = process.communicate()
+                returncode, stderr = self._run_process_streaming(cmd, on_log)
                 
-                if process.returncode == 0:
+                if returncode == 0:
                     # English: Determine success message based on context
                     # Español: Determinar el mensaje de éxito según el contexto
                     if file_path == "system_upgrade":
@@ -170,17 +198,12 @@ X-SwiftInstall={install_type}
         thread.daemon = True
         thread.start()
 
-    def run_fix_deps(self, cmd, on_progress, on_complete):
+    def run_fix_deps(self, cmd, on_progress, on_complete, on_log=None):
         def _run():
             try:
-                # Copy current environment and configure privilege escalation to use pkexec (graphical sudo)
-                env = os.environ.copy()
-                env["SUDO"] = "pkexec"
-                env["PACMAN"] = "pkexec pacman"
-                process = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
-                stdout, stderr = process.communicate()
+                returncode, stderr = self._run_process_streaming(cmd, on_log)
                 
-                if process.returncode == 0:
+                if returncode == 0:
                     GLib.idle_add(on_complete, _("He arreglado las dependencias"))
                 else:
                     GLib.idle_add(on_complete, _("Vaya, un error al corregir dependencias: {}").format(stderr), True)

@@ -182,25 +182,24 @@ def load_css():
     }
 
     .meta-pill {
-        background-color: @accent_bg_color !important;
+        background-color: @accent_bg_color;
         border-radius: 9999px;
         padding: 4px 12px;
         min-height: 28px;
         min-width: 60px;
-        margin: 0 auto;
-        color: @accent_fg_color !important;
-        border: none !important;
+        margin: 0;
+        color: @accent_fg_color;
+        border: none;
     }
 
     .meta-pill image {
-        color: @accent_fg_color !important;
+        color: @accent_fg_color;
     }
 
     .meta-pill-text {
         font-weight: bold;
         font-size: 13px;
-        text-align: center;
-        color: @accent_fg_color !important;
+        color: @accent_fg_color;
     }
 
     .meta-column-label {
@@ -208,18 +207,17 @@ def load_css():
         color: @theme_fg_color;
         opacity: 0.7;
         margin-top: 6px;
-        text-align: center;
     }
 
     .store-app-card:hover {
-        background-color: @theme_hover_bg_color !important;
-        border: 1px solid @theme_shade_color !important;
+        background-color: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(0, 0, 0, 0.1);
     }
 
     .scrolling-text-container {
-        background: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
+        background: transparent;
+        border: none;
+        box-shadow: none;
     }
 
     .screenshot-nav-btn {
@@ -239,6 +237,16 @@ def load_css():
 
     .screenshot-nav-btn image {
         color: white;
+    }
+
+    .log-view {
+        font-family: monospace;
+        font-size: 9pt;
+    }
+
+    .pkgbuild-view {
+        font-family: monospace;
+        font-size: 9pt;
     }
     """
     

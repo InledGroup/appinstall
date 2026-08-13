@@ -335,32 +335,36 @@ class PackageDetailsWidget(Gtk.Box):
         details_card.append(details_grid)
         main_box.append(details_card)
 
-        # 5. Permissions Section
-        permissions_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        permissions_card.add_css_class("card")
-        
-        perm_title = Gtk.Label(label=_("Permisos"), xalign=0)
-        perm_title.add_css_class("title-label")
-        permissions_card.append(perm_title)
-        
-        perm_hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
-        perm_icon = Gtk.Image.new_from_icon_name("security-high-symbolic")
-        perm_hbox.append(perm_icon)
-        
-        perm_text_vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
-        perm_main = Gtk.Label(label=_("Acceso total al sistema"), xalign=0)
-        perm_main.add_css_class("title-label")
-        perm_text_vbox.append(perm_main)
-        perm_sub = Gtk.Label(label=_("Como paquete nativo, esta aplicación puede acceder a tus archivos y hardware."), xalign=0)
-        perm_sub.add_css_class("subtitle-label")
-        perm_sub.set_wrap(True)
-        perm_text_vbox.append(perm_sub)
-        
-        perm_hbox.append(perm_text_vbox)
-        permissions_card.append(perm_hbox)
-        main_box.append(permissions_card)
-
-
+        # 5. PKGBUILD Section (only for AUR packages, shown before installing)
+        pkgbuild = info.get('pkgbuild', '')
+        if info.get('source') == 'aur' and pkgbuild:
+            pkgbuild_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+            pkgbuild_card.add_css_class("card")
+            
+            pkgbuild_title = Gtk.Label(label=_("PKGBUILD"), xalign=0)
+            pkgbuild_title.add_css_class("title-label")
+            pkgbuild_card.append(pkgbuild_title)
+            
+            pkgbuild_warn = Gtk.Label(label=_("Este paquete se compila desde el AUR. Revisa el PKGBUILD antes de instalarlo: cualquier archivo se ejecuta con tus permisos."), xalign=0)
+            pkgbuild_warn.add_css_class("subtitle-label")
+            pkgbuild_warn.set_wrap(True)
+            pkgbuild_card.append(pkgbuild_warn)
+            
+            pkgbuild_scroll = Gtk.ScrolledWindow()
+            pkgbuild_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+            pkgbuild_scroll.set_min_content_height(200)
+            pkgbuild_scroll.set_max_content_height(300)
+            
+            pkgbuild_view = Gtk.TextView()
+            pkgbuild_view.set_editable(False)
+            pkgbuild_view.set_cursor_visible(False)
+            pkgbuild_view.set_wrap_mode(Gtk.WrapMode.NONE)
+            pkgbuild_view.add_css_class("pkgbuild-view")
+            pkgbuild_view.get_buffer().set_text(pkgbuild)
+            pkgbuild_scroll.set_child(pkgbuild_view)
+            pkgbuild_card.append(pkgbuild_scroll)
+            
+            main_box.append(pkgbuild_card)
 
     def on_install_clicked(self, button):
         self.on_install_callback()

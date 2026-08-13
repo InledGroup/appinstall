@@ -5,7 +5,7 @@ import requests
 from gi.repository import Gtk, GLib, Adw, Gdk, Pango
 from src.infrastructure.services.localization import _
 from src.utils.constants import CURRENT_VERSION
-from src.utils.system import get_safe_window_size, safe_open_url, HAS_BREW, BREW_PATH
+from src.utils.system import get_safe_window_size, safe_open_url, has_internet, HAS_BREW, BREW_PATH
 from src.ui.components.update_dialog import UpdateDialog
 
 # Import other windows
@@ -194,8 +194,8 @@ class PackageInstaller(Adw.ApplicationWindow):
         
         # --- Main Header ---
         main_header = Adw.HeaderBar()
-        main_header.set_show_end_title_buttons(False)
-        main_header.set_show_start_title_buttons(False)
+        main_header.set_show_end_title_buttons(True)
+        main_header.set_show_start_title_buttons(True)
         title_widget = Adw.WindowTitle(title="App Install", subtitle=_("Versión {}").format(CURRENT_VERSION))
         main_header.set_title_widget(title_widget)
         main_header.add_css_class("header-bar")
@@ -223,8 +223,8 @@ class PackageInstaller(Adw.ApplicationWindow):
 
         # --- Search Header ---
         self.search_header_bar = Adw.HeaderBar()
-        self.search_header_bar.set_show_end_title_buttons(False)
-        self.search_header_bar.set_show_start_title_buttons(False)
+        self.search_header_bar.set_show_end_title_buttons(True)
+        self.search_header_bar.set_show_start_title_buttons(True)
         self.search_header_bar.add_css_class("header-bar")
         
         search_header_content = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
@@ -243,6 +243,24 @@ class PackageInstaller(Adw.ApplicationWindow):
         
         self.search_header_bar.set_title_widget(search_header_content)
         self.header_stack.add_named(self.search_header_bar, "search")
+
+        # --- Details Header (toolbar with close button and back) ---
+        self.details_header_bar = Adw.HeaderBar()
+        self.details_header_bar.set_show_end_title_buttons(True)
+        self.details_header_bar.set_show_start_title_buttons(False)
+        self.details_header_bar.add_css_class("header-bar")
+
+        details_back_btn = Gtk.Button()
+        details_back_btn.set_icon_name("go-previous-symbolic")
+        details_back_btn.add_css_class("flat")
+        details_back_btn.connect("clicked", self.on_details_back_clicked)
+        self.details_header_bar.pack_start(details_back_btn)
+
+        self.details_title_label = Gtk.Label(label="", xalign=0)
+        self.details_title_label.add_css_class("title-label")
+        self.details_header_bar.set_title_widget(self.details_title_label)
+
+        self.header_stack.add_named(self.details_header_bar, "details")
 
         store_box.append(self.header_stack)
         
@@ -347,6 +365,31 @@ class PackageInstaller(Adw.ApplicationWindow):
         self.main_box.set_margin_top(24); self.main_box.set_margin_bottom(24)
         self.main_box.set_margin_start(24); self.main_box.set_margin_end(24)
         clamp.set_child(self.main_box)
+
+        # English: Offline warning banner (hidden until we detect no internet)
+        # Español: Aviso de modo sin conexión (oculto hasta detectar que no hay internet)
+        self.offline_banner = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        self.offline_banner.add_css_class("card")
+
+        offline_icon = Gtk.Image.new_from_icon_name("network-offline-symbolic")
+        offline_icon.set_pixel_size(28)
+        self.offline_banner.append(offline_icon)
+
+        offline_text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        offline_text_box.set_hexpand(True)
+
+        offline_title = Gtk.Label(label=_("No se han podido cargar las aplicaciones sugeridas"), xalign=0)
+        offline_title.add_css_class("title-label")
+        offline_text_box.append(offline_title)
+
+        offline_desc = Gtk.Label(label=_("Sin conexión a internet solo puedes instalar paquetes locales."), xalign=0)
+        offline_desc.add_css_class("subtitle-label")
+        offline_desc.set_wrap(True)
+        offline_text_box.append(offline_desc)
+
+        self.offline_banner.append(offline_text_box)
+        self.offline_banner.set_visible(False)
+        self.main_box.append(self.offline_banner)
         
         # 1. Apps imprescindibles Section (from Flathub)
         self.popular_section_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
@@ -555,38 +598,62 @@ class PackageInstaller(Adw.ApplicationWindow):
         def _fetch():
             if not self.search_service:
                 return
-            
-            # Fetch popular apps (17 total, to use 12 for popular, 5 for top free)
-            popular_all = self.search_service.get_popular_apps(limit=17)
-            popular = popular_all[:12]
-            top_free = popular_all[12:17] if len(popular_all) > 12 else popular_all[:5]
-            
-            # Fetch trending apps (12)
-            trending = self.search_service.get_trending_apps(limit=12)
-            
-            GLib.idle_add(self.populate_recommendations, popular, trending, top_free)
-            
+
+            if not has_internet():
+                GLib.idle_add(self.show_offline_banner)
+                return
+
+            try:
+                # Fetch popular apps (17 total, to use 12 for popular, 5 for top free)
+                popular_all = self.search_service.get_popular_apps(limit=17)
+                popular = popular_all[:12]
+                top_free = popular_all[12:17] if len(popular_all) > 12 else popular_all[:5]
+
+                # Fetch trending apps (12)
+                trending = self.search_service.get_trending_apps(limit=12)
+            except Exception as e:
+                print(f"Error loading store recommendations: {e}")
+                popular_all = []
+                trending = []
+
+            if not popular_all and not trending:
+                GLib.idle_add(self.show_offline_banner)
+            else:
+                GLib.idle_add(self.populate_recommendations, popular, trending, top_free)
+
         threading.Thread(target=_fetch, daemon=True).start()
 
-    def populate_recommendations(self, popular, trending, top_free):
-        # Stop and remove spinners if they exist
+    def _stop_recommendation_spinners(self):
+        # English: Stop and remove the loading spinners of the store sections
+        # Español: Detener y quitar los indicadores de carga de las secciones de la tienda
         if hasattr(self, 'popular_spinner') and self.popular_spinner:
             try:
                 self.popular_spinner.stop()
                 self.popular_section_box.remove(self.popular_spinner)
             except: pass
-            
+
         if hasattr(self, 'trending_spinner') and self.trending_spinner:
             try:
                 self.trending_spinner.stop()
                 self.trending_section_box.remove(self.trending_spinner)
             except: pass
-            
+
         if hasattr(self, 'top_free_spinner') and self.top_free_spinner:
             try:
                 self.top_free_spinner.stop()
                 self.top_free_section_box.remove(self.top_free_spinner)
             except: pass
+
+    def show_offline_banner(self):
+        # English: Show the offline warning on the home screen
+        # Español: Mostrar el aviso de modo sin conexión en la pantalla de inicio
+        self._stop_recommendation_spinners()
+        if hasattr(self, 'offline_banner'):
+            self.offline_banner.set_visible(True)
+
+    def populate_recommendations(self, popular, trending, top_free):
+        # Stop and remove spinners if they exist
+        self._stop_recommendation_spinners()
             
         # Populate popular (4 rows, 3 columns)
         for idx, app in enumerate(popular[:12]):
@@ -725,8 +792,8 @@ class PackageInstaller(Adw.ApplicationWindow):
         updates_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         
         header_bar = Adw.HeaderBar()
-        header_bar.set_show_end_title_buttons(False)
-        header_bar.set_show_start_title_buttons(False)
+        header_bar.set_show_end_title_buttons(True)
+        header_bar.set_show_start_title_buttons(True)
         header_bar.set_title_widget(Adw.WindowTitle(title=_("Actualizaciones")))
         header_bar.add_css_class("header-bar")
         updates_box.append(header_bar)
@@ -1093,10 +1160,17 @@ class PackageInstaller(Adw.ApplicationWindow):
         )
         self.main_stack.add_named(self.details_widget_instance, "details")
         self.main_stack.set_visible_child_name("details")
-        self.header_stack.set_visible(False)
-
-    def on_details_back_clicked(self):
+        # Show the details toolbar (with close button) instead of hiding the header
+        self.details_title_label.set_text(info.get('name', ''))
         self.header_stack.set_visible(True)
+        self.header_stack.set_visible_child_name("details")
+
+    def on_details_back_clicked(self, btn=None):
+        self.header_stack.set_visible(True)
+        if self.details_prev_view == "search_results":
+            self.header_stack.set_visible_child_name("search")
+        else:
+            self.header_stack.set_visible_child_name("main")
         self.main_stack.set_visible_child_name(self.details_prev_view)
         if self.details_prev_view == "search_results":
             GLib.timeout_add(100, self.sidebar_search_entry.grab_focus)
@@ -1144,6 +1218,52 @@ class PackageInstaller(Adw.ApplicationWindow):
             config_window.present()
             return
         
+        # AUR: mostrar el PKGBUILD y pedir confirmación antes de instalar
+        if self.file_path.startswith('aur:'):
+            pkg_name = self.file_path.replace('aur:', '', 1)
+            self._show_aur_confirmation(pkg_name)
+            return
+        
+        self._proceed_install()
+
+    def _show_aur_confirmation(self, pkg_name):
+        def _load():
+            pkgbuild = ""
+            try:
+                pkgbuild = self.install_service.aur_adapter.get_pkgbuild(pkg_name)
+            except Exception as e:
+                print(f"Error fetching PKGBUILD for {pkg_name}: {e}")
+            GLib.idle_add(self._present_aur_confirmation, pkg_name, pkgbuild)
+        threading.Thread(target=_load, daemon=True).start()
+
+    def _present_aur_confirmation(self, pkg_name, pkgbuild):
+        dialog = Adw.AlertDialog(
+            heading=_("Instalar desde AUR: {}").format(pkg_name),
+            body=_("Este paquete se compilará e instalará desde el Arch User Repository. Revisa el PKGBUILD: cualquier archivo se ejecuta con tus permisos.")
+        )
+        if pkgbuild:
+            scrolled = Gtk.ScrolledWindow()
+            scrolled.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+            scrolled.set_size_request(-1, 300)
+            view = Gtk.TextView()
+            view.set_editable(False)
+            view.set_cursor_visible(False)
+            view.add_css_class("pkgbuild-view")
+            view.get_buffer().set_text(pkgbuild)
+            scrolled.set_child(view)
+            dialog.set_extra_child(scrolled)
+        dialog.add_response("cancel", _("Cancelar"))
+        dialog.add_response("install", _("Instalar"))
+        dialog.set_default_response("cancel")
+        dialog.set_response_appearance("install", Adw.ResponseAppearance.SUGGESTED)
+        dialog.connect("response", self._on_aur_confirm_response)
+        dialog.present(self)
+
+    def _on_aur_confirm_response(self, dialog, response):
+        if response == "install":
+            self._proceed_install()
+
+    def _proceed_install(self):
         cmd = self.install_service.get_install_command(self.file_path)
         if not cmd:
             self.status_label.set_text(_("Formato de paquete no soportado por App Install"))
@@ -1153,21 +1273,19 @@ class PackageInstaller(Adw.ApplicationWindow):
         self.status_label.set_text(_("Instalando..."))
         self.progress_bar.set_fraction(0.0)
         
-        self.progress_dialog = ProgressWindow(self, _("Instalando..."))
-        self.progress_dialog.present()
+        self._show_progress(_("Instalando..."))
         
-        self.install_service.run_installation(cmd, self.file_path, self.update_progress_ui, self.on_installation_complete)
+        self.install_service.run_installation(cmd, self.file_path, self.update_progress_ui, self.on_installation_complete, on_log=self.on_operation_log)
 
     def on_fix_deps_clicked(self, widget):
         self.set_buttons_sensitive(False)
         self.status_label.set_text(_("Corregir errores"))
         self.progress_bar.set_fraction(0.0)
         
-        self.progress_dialog = ProgressWindow(self, _("Corregir errores"))
-        self.progress_dialog.present()
+        self._show_progress(_("Corregir errores"))
         
         cmd = self.pkg_manager.fix_broken()
-        self.install_service.run_fix_deps(cmd, self.update_progress_ui, self.on_fix_deps_complete)
+        self.install_service.run_fix_deps(cmd, self.update_progress_ui, self.on_fix_deps_complete, on_log=self.on_operation_log)
 
     def on_upgrade_system_clicked(self, widget):
         # English: Trigger full system update and upgrade
@@ -1176,11 +1294,10 @@ class PackageInstaller(Adw.ApplicationWindow):
         self.status_label.set_text(_("Actualizando el sistema..."))
         self.progress_bar.set_fraction(0.0)
         
-        self.progress_dialog = ProgressWindow(self, _("Actualizando el sistema..."))
-        self.progress_dialog.present()
+        self._show_progress(_("Actualizando el sistema..."))
         
         cmd = self.pkg_manager.upgrade_system()
-        self.install_service.run_installation(cmd, "system_upgrade", self.update_progress_ui, self.on_upgrade_system_complete)
+        self.install_service.run_installation(cmd, "system_upgrade", self.update_progress_ui, self.on_upgrade_system_complete, on_log=self.on_operation_log)
 
     def on_apps_clicked(self, widget):
         self.sidebar_list.select_row(self.sidebar_list.get_row_at_index(1))
@@ -1200,22 +1317,40 @@ class PackageInstaller(Adw.ApplicationWindow):
         self.status_label.set_text(_("Instalando..."))
         self.progress_bar.set_fraction(0.0)
         
-        self.progress_dialog = ProgressWindow(self, _("Instalando {}...").format(display_name))
-        self.progress_dialog.present()
+        self._show_progress(_("Instalando {}...").format(display_name))
         
         cmd = self.install_service.get_appimage_install_command(self.file_path, display_name, icon_path)
-        self.install_service.run_installation(cmd, self.file_path, self.update_progress_ui, self.on_installation_complete)
+        self.install_service.run_installation(cmd, self.file_path, self.update_progress_ui, self.on_installation_complete, on_log=self.on_operation_log)
 
     def proceed_with_pwa_installation(self, display_name, url, icon_path):
         self.set_buttons_sensitive(False)
         self.status_label.set_text(_("Creando PWA..."))
         self.progress_bar.set_fraction(0.0)
         
-        self.progress_dialog = ProgressWindow(self, _("Creando PWA {}...").format(display_name))
-        self.progress_dialog.present()
+        self._show_progress(_("Creando PWA {}...").format(display_name))
         
         cmd = self.install_service.get_pwa_install_command(display_name, url, icon_path)
-        self.install_service.run_installation(cmd, None, self.update_progress_ui, self.on_installation_complete)
+        self.install_service.run_installation(cmd, None, self.update_progress_ui, self.on_installation_complete, on_log=self.on_operation_log)
+
+    def on_operation_log(self, line):
+        # English: Append a line to the operation log shown in the progress window
+        # Español: Añadir una línea al registro de operación mostrado en la ventana de progreso
+        if hasattr(self, 'progress_dialog') and self.progress_dialog:
+            self.progress_dialog.append_log(line)
+
+    def _close_progress_dialog(self):
+        if hasattr(self, 'progress_dialog') and self.progress_dialog:
+            try:
+                self.progress_dialog.close()
+            except Exception:
+                pass
+            self.progress_dialog = None
+
+    def _show_progress(self, message, skip_callback=None):
+        self._close_progress_dialog()
+        self.progress_dialog = ProgressWindow(self, message, skip_callback=skip_callback)
+        self.progress_dialog.present()
+        return self.progress_dialog
 
     def update_progress_ui(self):
         new_value = min(1.0, self.progress_bar.get_fraction() + 0.01)
@@ -1223,16 +1358,19 @@ class PackageInstaller(Adw.ApplicationWindow):
         return False
 
     def on_installation_complete(self, message, is_error=False, stderr_output=""):
-        if hasattr(self, 'progress_dialog') and self.progress_dialog:
-            self.progress_dialog.close()
-            self.progress_dialog = None
-            
         self.progress_bar.set_fraction(1.0)
         self.status_label.set_text(message)
         
         if is_error:
+            # English: Keep the log window open so the user can inspect the output
+            # Español: Mantener abierta la ventana de registro para que el usuario inspeccione la salida
+            if hasattr(self, 'progress_dialog') and self.progress_dialog:
+                self.progress_dialog.auto_show_log()
             dialog = Adw.AlertDialog(heading=_("¡Un error en la instalación!"), body=message)
         else:
+            if hasattr(self, 'progress_dialog') and self.progress_dialog:
+                self.progress_dialog.close()
+                self.progress_dialog = None
             dialog = Adw.AlertDialog(heading=_("He terminado la instalación"), body=message)
         
         dialog.add_response("ok", "OK")
@@ -1241,15 +1379,16 @@ class PackageInstaller(Adw.ApplicationWindow):
         self.set_buttons_sensitive(True)
 
     def on_fix_deps_complete(self, message, is_error=False):
-        if hasattr(self, 'progress_dialog') and self.progress_dialog:
-            self.progress_dialog.close()
-            self.progress_dialog = None
-            
         self.progress_bar.set_fraction(1.0)
         self.status_label.set_text(message)
         if is_error:
+            if hasattr(self, 'progress_dialog') and self.progress_dialog:
+                self.progress_dialog.auto_show_log()
             dialog = Adw.AlertDialog(heading=_("¡Un error al corregir las dependencias!"), body=message)
         else:
+            if hasattr(self, 'progress_dialog') and self.progress_dialog:
+                self.progress_dialog.close()
+                self.progress_dialog = None
             dialog = Adw.AlertDialog(heading=_("He corregido las dependencias"), body=message)
         
         dialog.add_response("ok", "OK")
@@ -1260,16 +1399,17 @@ class PackageInstaller(Adw.ApplicationWindow):
     def on_upgrade_system_complete(self, message, is_error=False, stderr_output=""):
         # English: Handle system upgrade completion dialog and state reset
         # Español: Manejar el diálogo de finalización de actualización del sistema y reinicio de estado
-        if hasattr(self, 'progress_dialog') and self.progress_dialog:
-            self.progress_dialog.close()
-            self.progress_dialog = None
-            
         self.progress_bar.set_fraction(1.0)
         self.status_label.set_text(message)
         
         if is_error:
+            if hasattr(self, 'progress_dialog') and self.progress_dialog:
+                self.progress_dialog.auto_show_log()
             dialog = Adw.AlertDialog(heading=_("¡Un error al actualizar el sistema!"), body=message)
         else:
+            if hasattr(self, 'progress_dialog') and self.progress_dialog:
+                self.progress_dialog.close()
+                self.progress_dialog = None
             dialog = Adw.AlertDialog(heading=_("He terminado de actualizar el sistema"), body=message)
         
         dialog.add_response("ok", "OK")
@@ -1291,28 +1431,29 @@ class PackageInstaller(Adw.ApplicationWindow):
 
     def check_updates_thread(self):
         try:
-            latest_version = self.update_service.get_latest_version()
-            if latest_version and latest_version != CURRENT_VERSION:
-                GLib.idle_add(self.show_update_dialog, latest_version)
-        except: pass
+            result = self.update_service.check_for_updates()
+            if result and result[0]:
+                GLib.idle_add(self.show_update_dialog, result[1], result[2])
+        except Exception:
+            pass
 
-    def show_update_dialog(self, latest_version):
-        dialog = UpdateDialog(self, latest_version)
+    def show_update_dialog(self, latest_version, release_url):
+        dialog = UpdateDialog(self, latest_version, release_url)
         dialog.connect("response", self.on_update_dialog_response)
         dialog.present()
 
     def on_update_dialog_response(self, dialog, response):
         if response == "update":
-            safe_open_url("https://github.com/InledGroup/appinstall/releases/latest")
+            safe_open_url(getattr(dialog, "release_url", "https://github.com/InledGroup/appinstall/releases/latest"))
         dialog.close()
 
     def on_check_updates_clicked(self, button):
         self.status_label.set_text(_("Estoy comprobando las actualizaciones"))
         def _check():
             try:
-                latest_version = self.update_service.get_latest_version()
-                if latest_version and latest_version != CURRENT_VERSION:
-                    GLib.idle_add(self.show_update_dialog, latest_version)
+                result = self.update_service.check_for_updates()
+                if result and result[0]:
+                    GLib.idle_add(self.show_update_dialog, result[1], result[2])
                 else:
                     GLib.idle_add(self.show_up_to_date_dialog)
             except Exception as e:
