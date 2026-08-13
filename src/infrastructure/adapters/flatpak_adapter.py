@@ -290,7 +290,26 @@ class FlatpakAdapter(PackageManager):
                         break
             except:
                 pass
-                
+
+        # 4. Dependencias (runtime y sdk) desde flatpak remote-info
+        try:
+            if self.is_available():
+                res = subprocess.run(
+                    ['flatpak', 'remote-info', 'flathub', package_name],
+                    capture_output=True, text=True, timeout=15
+                )
+                deps = []
+                for line in res.stdout.split('\n'):
+                    lower = line.lower()
+                    if ('runtime:' in lower or 'tiempo de ejecución:' in lower or 'sdk:' in lower) and ':' in line:
+                        val = line.split(':', 1)[1].strip()
+                        if val and val not in deps:
+                            deps.append(val)
+                if deps:
+                    info['dependencies'] = deps
+        except Exception as e:
+            print(f"Error fetching Flatpak dependencies for {package_name}: {e}")
+            
         return info
 
     def get_local_file_info(self, file_path: str) -> Dict[str, str]:

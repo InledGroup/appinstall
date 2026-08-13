@@ -643,6 +643,43 @@ def cmd_install(packages):
     return success
 
 
+def _install_aur(adapter, name: str) -> bool:
+    """Install a package from the AUR, showing the PKGBUILD first and asking for confirmation."""
+    print(f"  {_c('yellow', 'AUR')}  {_c('bold', name)}  {_c('dim', '· PKGBUILD')}")
+    print(_c('dim', '  ' + '─' * 50))
+    pkgbuild = ""
+    try:
+        pkgbuild = adapter.get_pkgbuild(name)
+    except Exception as e:
+        print(_c('red', f"  Error al obtener el PKGBUILD: {e}"), file=sys.stderr)
+
+    if not pkgbuild:
+        print(_c('red', "  No se pudo obtener el PKGBUILD."), file=sys.stderr)
+        try:
+            answer = input(_c('bold', "  ¿Instalar de todas formas? [s/N] "))
+        except EOFError:
+            answer = ""
+    else:
+        for line in pkgbuild.split('\n')[:120]:
+            print(f"  {line}")
+        total_lines = pkgbuild.count('\n')
+        if total_lines > 120:
+            print(_c('dim', f"  ... (PKGBUILD truncado, {total_lines} líneas)"))
+        print(_c('dim', '  ' + '─' * 50))
+        try:
+            answer = input(_c('bold', f"  ¿Revisado el PKGBUILD? Instalar '{name}' desde AUR [s/N] "))
+        except EOFError:
+            answer = ""
+
+    if answer.lower() not in ('s', 'si', 'y', 'yes'):
+        print(_c('dim', "  Instalación cancelada."))
+        return False
+
+    print(f"  {_c('cyan', 'Building and installing')} {_c('bold', name)} {_c('dim', 'from AUR...')}")
+    cmd = adapter.install(name)
+    return _run_cmd(cmd)
+
+
 def _install_single(package: str, source: str = None) -> bool:
     """Install a single package. Returns True on success."""
     if not package:
@@ -654,6 +691,8 @@ def _install_single(package: str, source: str = None) -> bool:
     adapters = _get_adapters()
 
     if source and source in adapters:
+        if source == 'aur':
+            return _install_aur(adapters[source], package)
         cmd = adapters[source].install(package)
         print(f"  {_c('cyan', 'Installing')} {_c('bold', package)} {_c('dim', f'from {source}...')}")
         return _run_cmd(cmd)
@@ -661,6 +700,8 @@ def _install_single(package: str, source: str = None) -> bool:
     if not source:
         src, name = _parse_source(package)
         if src and src in adapters:
+            if src == 'aur':
+                return _install_aur(adapters[src], name)
             cmd = adapters[src].install(name)
             print(f"  {_c('cyan', 'Installing')} {_c('bold', name)} {_c('dim', f'from {src}...')}")
             return _run_cmd(cmd)
@@ -678,6 +719,8 @@ def _install_single(package: str, source: str = None) -> bool:
             results = adapter.search(variations[0])
             if results and results[0].get('name') in variations:
                 match_name = results[0]['name']
+                if src == 'aur':
+                    return _install_aur(adapter, match_name)
                 cmd = adapter.install(match_name)
                 print(f"  {_c('cyan', 'Installing')} {_c('bold', match_name)} {_c('dim', f'from {src}...')}")
                 return _run_cmd(cmd)

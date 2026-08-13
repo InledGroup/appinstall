@@ -13,8 +13,8 @@ class SystemCleanupWidget(Gtk.Box):
 
         # Header bar al estilo GNOME
         header_bar = Adw.HeaderBar()
-        header_bar.set_show_end_title_buttons(False)
-        header_bar.set_show_start_title_buttons(False)
+        header_bar.set_show_end_title_buttons(True)
+        header_bar.set_show_start_title_buttons(True)
         header_bar.set_title_widget(Adw.WindowTitle(title=_("Limpiar sistema")))
         header_bar.add_css_class("header-bar")
 

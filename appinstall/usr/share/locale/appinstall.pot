@@ -1,131 +1,388 @@
 # SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR ORGANIZATION
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 #
+#, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
-"POT-Creation-Date: 2026-05-08 20:55+0200\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-08-13 21:45+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: pygettext.py 1.5\n"
 
+#: src/application/install_service.py:177
+msgid "El sistema se ha actualizado correctamente."
+msgstr ""
 
-#: start.py:212
+#: src/application/install_service.py:181
+#, python-brace-format
+msgid "AppImage instalado como {}. Se ha creado un acceso directo."
+msgstr ""
+
+#: src/application/install_service.py:183
+msgid "¡Web App creada correctamente! Ya la tienes disponible en tu menú."
+msgstr ""
+
+#: src/application/install_service.py:185
+msgid "He instalado todo bien, ¡disfrútala!"
+msgstr ""
+
+#: src/application/install_service.py:189
+#, python-brace-format
+msgid "Vaya, he encontrado un error al instalar: {}"
+msgstr ""
+
+#: src/application/install_service.py:191
+#, python-brace-format
+msgid "Error en la instalación: {}"
+msgstr ""
+
+#: src/application/install_service.py:203
+msgid "He arreglado las dependencias"
+msgstr ""
+
+#: src/application/install_service.py:205
+#, python-brace-format
+msgid "Vaya, un error al corregir dependencias: {}"
+msgstr ""
+
+#: src/application/install_service.py:207
+#, python-brace-format
+msgid "Error al corregir dependencias: {}"
+msgstr ""
+
+#: src/ui/components/update_dialog.py:8
 msgid "Actualización disponible"
 msgstr ""
 
-#: start.py:213
+#: src/ui/components/update_dialog.py:9
+#, python-brace-format
 msgid ""
 "Versión actual: {}\n"
 "Nueva versión: {}"
 msgstr ""
 
-#: start.py:214
+#: src/ui/components/update_dialog.py:10
 msgid "Recordar más tarde"
 msgstr ""
 
-#: start.py:215
+#: src/ui/components/update_dialog.py:11
 msgid "Actualizar ahora"
 msgstr ""
 
-#: start.py:225 start.py:237 start.py:2574
-msgid "Limpiar sistema"
+#: src/ui/windows/antivirus_window.py:19
+msgid "Análisis de virus"
 msgstr ""
 
-#: start.py:271
-msgid "Limpieza del sistema"
+#: src/ui/windows/antivirus_window.py:47
+msgid "Puedo analizar tu sistema en busca de virus."
 msgstr ""
 
-#: start.py:276
-msgid "Dime qué quieres que limpie y te dejo el sistema reluciente"
+#: src/ui/windows/antivirus_window.py:52
+msgid "Protege tu sistema con análisis antivirus"
 msgstr ""
 
-#: start.py:284
-msgid "Directorios a limpiar"
+#: src/ui/windows/antivirus_window.py:59
+msgid "Estado del antivirus"
 msgstr ""
 
-#: start.py:293
-msgid "Caché de aplicaciones del usuario"
+#: src/ui/windows/antivirus_window.py:63
+msgid "Verificando ClamAV..."
 msgstr ""
 
-#: start.py:294
-msgid "Papelera del usuario"
+#: src/ui/windows/antivirus_window.py:71 src/ui/windows/antivirus_window.py:278
+msgid "Instalar ClamAV"
 msgstr ""
 
-#: start.py:295
-msgid "Archivos temporales del sistema"
+#: src/ui/windows/antivirus_window.py:83
+msgid "Configuración del análisis"
 msgstr ""
 
-#: start.py:296
-msgid "Miniaturas de imágenes"
+#: src/ui/windows/antivirus_window.py:88
+msgid "Tipo de análisis:"
 msgstr ""
 
-#: start.py:297
-msgid "Archivos temporales variables"
+#: src/ui/windows/antivirus_window.py:97
+msgid "Análisis rápido"
 msgstr ""
 
-#: start.py:298
-msgid "Logs de aplicaciones"
+#: src/ui/windows/antivirus_window.py:100
+msgid "Carpetas importantes del usuario (~, /tmp, /var/tmp)"
 msgstr ""
 
-#: start.py:299
-msgid "Logs del sistema (requiere privilegios)"
+#: src/ui/windows/antivirus_window.py:111
+msgid "Análisis completo"
 msgstr ""
 
-#: start.py:300
-msgid "Lista de archivos recientes"
+#: src/ui/windows/antivirus_window.py:114
+msgid "Todo el sistema (puedo estar bastante rato trabajando)"
 msgstr ""
 
-#: start.py:331 start.py:897
+#: src/ui/windows/antivirus_window.py:125
+msgid "Análisis personalizado"
+msgstr ""
+
+#: src/ui/windows/antivirus_window.py:128
+msgid "Selecciona los directorios que quieres que analice"
+msgstr ""
+
+#: src/ui/windows/antivirus_window.py:137
+msgid "Ruta del directorio a analizar..."
+msgstr ""
+
+#: src/ui/windows/antivirus_window.py:153 src/ui/windows/cleanup_window.py:98
 msgid "Opciones avanzadas"
 msgstr ""
 
-#: start.py:342
+#: src/ui/windows/antivirus_window.py:162
+msgid "Actualizar definiciones antes del análisis"
+msgstr ""
+
+#: src/ui/windows/antivirus_window.py:165
+msgid "Descargar las últimas actualizaciones de definiciones de virus"
+msgstr ""
+
+#: src/ui/windows/antivirus_window.py:175
+msgid "Análisis profundo"
+msgstr ""
+
+#: src/ui/windows/antivirus_window.py:178
+msgid "Incluir archivos comprimidos y análisis heurístico"
+msgstr ""
+
+#: src/ui/windows/antivirus_window.py:193
+msgid "Actualizar"
+msgstr ""
+
+#: src/ui/windows/antivirus_window.py:204
+msgid "Iniciar análisis"
+msgstr ""
+
+#: src/ui/windows/antivirus_window.py:217
+msgid "Listo para iniciar análisis"
+msgstr ""
+
+#: src/ui/windows/antivirus_window.py:223
+msgid "Resultados del análisis"
+msgstr ""
+
+#: src/ui/windows/antivirus_window.py:260
+msgid "Seleccionar directorio para análisis"
+msgstr ""
+
+#: src/ui/windows/antivirus_window.py:263
+msgid "Seleccionar"
+msgstr ""
+
+#: src/ui/windows/antivirus_window.py:264
+#: src/ui/windows/antivirus_window.py:281
+#: src/ui/windows/appimage_config_window.py:91
+#: src/ui/windows/appimage_config_window.py:113
+#: src/ui/windows/cleanup_window.py:215 src/ui/windows/main_window.py:1048
+#: src/ui/windows/main_window.py:1255 src/ui/windows/main_window.py:1750
+#: src/ui/windows/pwa_config_window.py:103
+#: src/ui/windows/pwa_config_window.py:179
+msgid "Cancelar"
+msgstr ""
+
+#: src/ui/windows/antivirus_window.py:279
+msgid ""
+"¿Quieres instalar ClamAV y sus definiciones de virus?\n"
+"\n"
+"Esto puede tardar varios minutos."
+msgstr ""
+
+#: src/ui/windows/antivirus_window.py:282 src/ui/windows/main_window.py:505
+#: src/ui/windows/main_window.py:1256
+#: src/ui/windows/package_details_window.py:151
+msgid "Instalar"
+msgstr ""
+
+#: src/ui/windows/antivirus_window.py:295
+#: src/ui/windows/antivirus_window.py:297
+msgid "Instalando ClamAV..."
+msgstr ""
+
+#: src/ui/windows/antivirus_window.py:320
+msgid "ClamAV instalado correctamente"
+msgstr ""
+
+#: src/ui/windows/antivirus_window.py:331
+msgid "Actualizando definiciones de virus..."
+msgstr ""
+
+#: src/ui/windows/antivirus_window.py:333
+msgid "Actualizando definiciones..."
+msgstr ""
+
+#: src/ui/windows/antivirus_window.py:351
+msgid "Definiciones actualizadas correctamente"
+msgstr ""
+
+#: src/ui/windows/antivirus_window.py:374
+msgid "Iniciando análisis antivirus..."
+msgstr ""
+
+#: src/ui/windows/antivirus_window.py:377
+msgid "Analizando virus..."
+msgstr ""
+
+#: src/ui/windows/antivirus_window.py:425
+msgid "⚠️ ¡Cuidado!"
+msgstr ""
+
+#: src/ui/windows/antivirus_window.py:428
+msgid "Ignorar"
+msgstr ""
+
+#: src/ui/windows/antivirus_window.py:429
+msgid "Poner en cuarentena"
+msgstr ""
+
+#: src/ui/windows/antivirus_window.py:430
+msgid "Eliminar amenazas"
+msgstr ""
+
+#: src/ui/windows/appimage_config_window.py:9
+#: src/ui/windows/appimage_config_window.py:32
+msgid "Configurar AppImage"
+msgstr ""
+
+#: src/ui/windows/appimage_config_window.py:49
+msgid "¿Cómo quieres llamar a la app?"
+msgstr ""
+
+#: src/ui/windows/appimage_config_window.py:54
+msgid "Escribe el nombre de la aplicación..."
+msgstr ""
+
+#: src/ui/windows/appimage_config_window.py:61
+msgid "Ponle un icono chulo"
+msgstr ""
+
+#: src/ui/windows/appimage_config_window.py:71
+msgid "Icono por defecto"
+msgstr ""
+
+#: src/ui/windows/appimage_config_window.py:79
+msgid "Seleccionar icono..."
+msgstr ""
+
+#: src/ui/windows/appimage_config_window.py:100
+msgid "¡Instalar!"
+msgstr ""
+
+#: src/ui/windows/appimage_config_window.py:109
+msgid "Seleccionar icono para la aplicación"
+msgstr ""
+
+#: src/ui/windows/appimage_config_window.py:112
+#: src/ui/windows/main_window.py:1047 src/ui/windows/pwa_config_window.py:178
+msgid "Abrir"
+msgstr ""
+
+#: src/ui/windows/appimage_config_window.py:116
+msgid "Archivos de imagen"
+msgstr ""
+
+#: src/ui/windows/cleanup_window.py:18
+msgid "Limpiar sistema"
+msgstr ""
+
+#: src/ui/windows/cleanup_window.py:46
+msgid "Limpieza del sistema"
+msgstr ""
+
+#: src/ui/windows/cleanup_window.py:51
+msgid "Dime qué quieres que limpie y te dejo el sistema reluciente"
+msgstr ""
+
+#: src/ui/windows/cleanup_window.py:59
+msgid "Directorios a limpiar"
+msgstr ""
+
+#: src/ui/windows/cleanup_window.py:65
+msgid "Caché de aplicaciones del usuario"
+msgstr ""
+
+#: src/ui/windows/cleanup_window.py:66
+msgid "Papelera del usuario"
+msgstr ""
+
+#: src/ui/windows/cleanup_window.py:67
+msgid "Archivos temporales del sistema"
+msgstr ""
+
+#: src/ui/windows/cleanup_window.py:68
+msgid "Miniaturas de imágenes"
+msgstr ""
+
+#: src/ui/windows/cleanup_window.py:69
+msgid "Archivos temporales variables"
+msgstr ""
+
+#: src/ui/windows/cleanup_window.py:70
+msgid "Logs de aplicaciones"
+msgstr ""
+
+#: src/ui/windows/cleanup_window.py:71
+msgid "Logs del sistema (requiere privilegios)"
+msgstr ""
+
+#: src/ui/windows/cleanup_window.py:72
+msgid "Lista de archivos recientes"
+msgstr ""
+
+#: src/ui/windows/cleanup_window.py:108
 msgid "Eliminar paquetes huérfanos"
 msgstr ""
 
-#: start.py:346
+#: src/ui/windows/cleanup_window.py:111
 msgid "Paquetes que ya no son necesarios"
 msgstr ""
 
-#: start.py:360
-msgid "Limpiar caché de APT"
+#: src/ui/windows/cleanup_window.py:123
+msgid "Limpiar caché de paquetes"
 msgstr ""
 
-#: start.py:364
-msgid "Archivos .deb descargados"
+#: src/ui/windows/cleanup_window.py:126
+msgid "Archivos de instalación descargados"
 msgstr ""
 
-#: start.py:382
+#: src/ui/windows/cleanup_window.py:142
 msgid "Analizar"
 msgstr ""
 
-#: start.py:394
+#: src/ui/windows/cleanup_window.py:153
 msgid "Limpiar ahora"
 msgstr ""
 
-#: start.py:411
+#: src/ui/windows/cleanup_window.py:169
 msgid "Selecciona las opciones y presiona 'Analizar'"
 msgstr ""
 
-#: start.py:425
+#: src/ui/windows/cleanup_window.py:180
 msgid "Analizando archivos..."
 msgstr ""
 
-#: start.py:534
+#: src/ui/windows/cleanup_window.py:198
+#, python-brace-format
 msgid "Análisis completo. Se pueden liberar: {}"
 msgstr ""
 
-#: start.py:557
+#: src/ui/windows/cleanup_window.py:212
 msgid "Autorízame y yo limpio el sistema"
 msgstr ""
 
-#: start.py:558
+#: src/ui/windows/cleanup_window.py:213
+#, python-brace-format
 msgid ""
 "Voy a limpiar el sistema.\n"
 "\n"
@@ -134,546 +391,667 @@ msgid ""
 "Ten en cuenta que esta acción no se puede revertir."
 msgstr ""
 
-#: start.py:560 start.py:1065 start.py:1084 start.py:2086 start.py:2177
-#: start.py:2293 start.py:2316 start.py:2662
-msgid "Cancelar"
-msgstr ""
-
-#: start.py:561
+#: src/ui/windows/cleanup_window.py:216
 msgid "Limpiar"
 msgstr ""
 
-#: start.py:583
+#: src/ui/windows/cleanup_window.py:236 src/ui/windows/cleanup_window.py:238
 msgid "Limpiando archivos..."
 msgstr ""
 
-#: start.py:697
+#: src/ui/windows/cleanup_window.py:256
+#, python-brace-format
 msgid "Limpieza completada. Espacio liberado: {}"
 msgstr ""
 
-#: start.py:701
+#: src/ui/windows/cleanup_window.py:259
 msgid "¡Ya he terminado!"
 msgstr ""
 
-#: start.py:702
+#: src/ui/windows/cleanup_window.py:260
+#, python-brace-format
 msgid ""
 "He dejado impoluto tu Linux.\n"
 "\n"
 "He liberado {} que estaban ocupando espacio sin necesidad."
 msgstr ""
 
-#: start.py:704 start.py:721 start.py:1958 start.py:1975 start.py:2788
-#: start.py:2799
+#: src/ui/windows/cleanup_window.py:262 src/ui/windows/cleanup_window.py:273
+#: src/ui/windows/installed_apps_window.py:559
+#: src/ui/windows/installed_apps_window.py:585
+#: src/ui/windows/main_window.py:1479
 msgid "OK"
 msgstr ""
 
-#: start.py:715
+#: src/ui/windows/cleanup_window.py:267
+#, python-brace-format
 msgid "Error en la limpieza: {}"
 msgstr ""
 
-#: start.py:718
+#: src/ui/windows/cleanup_window.py:270
 msgid "Error en la limpieza"
 msgstr ""
 
-#: start.py:719
+#: src/ui/windows/cleanup_window.py:271
+#, python-brace-format
 msgid ""
 "Ocurrió un error durante la limpieza:\n"
 "\n"
 "{}"
 msgstr ""
 
-#: start.py:730 start.py:2592
-msgid "Análisis antivirus"
-msgstr ""
-
-#: start.py:742
-msgid "Análisis de virus"
-msgstr ""
-
-#: start.py:776
-msgid "Puedo analizar tu sistema en busca de virus."
-msgstr ""
-
-#: start.py:781
-msgid "Protege tu sistema con análisis antivirus"
-msgstr ""
-
-#: start.py:789
-msgid "Estado del antivirus"
-msgstr ""
-
-#: start.py:793
-msgid "Verificando ClamAV..."
-msgstr ""
-
-#: start.py:802 start.py:1081
-msgid "Instalar ClamAV"
-msgstr ""
-
-#: start.py:816
-msgid "Configuración del análisis"
-msgstr ""
-
-#: start.py:823
-msgid "Tipo de análisis:"
-msgstr ""
-
-#: start.py:833
-msgid "Análisis rápido"
-msgstr ""
-
-#: start.py:836
-msgid "Carpetas importantes del usuario (~, /tmp, /var/tmp)"
-msgstr ""
-
-#: start.py:847
-msgid "Análisis completo"
-msgstr ""
-
-#: start.py:850
-msgid "Todo el sistema (puedo estar bastante rato trabajando)"
-msgstr ""
-
-#: start.py:861
-msgid "Análisis personalizado"
-msgstr ""
-
-#: start.py:864
-msgid "Selecciona los directorios que quieres que analice"
-msgstr ""
-
-#: start.py:875
-msgid "Ruta del directorio a analizar..."
-msgstr ""
-
-#: start.py:908
-msgid "Actualizar definiciones antes del análisis"
-msgstr ""
-
-#: start.py:912
-msgid "Descargar las últimas actualizaciones de definiciones de virus para detectarles mejor"
-msgstr ""
-
-#: start.py:925
-msgid "Análisis profundo"
-msgstr ""
-
-#: start.py:929
-msgid "Incluir archivos comprimidos y análisis heurístico"
-msgstr ""
-
-#: start.py:947
-msgid "Actualizar"
-msgstr ""
-
-#: start.py:959
-msgid "Iniciar análisis"
-msgstr ""
-
-#: start.py:975
-msgid "Listo para iniciar análisis"
-msgstr ""
-
-#: start.py:983
-msgid "Resultados del análisis"
-msgstr ""
-
-#: start.py:1061
-msgid "Seleccionar directorio para análisis"
-msgstr ""
-
-#: start.py:1064
-msgid "Seleccionar"
-msgstr ""
-
-#: start.py:1082
-msgid ""
-"¿Quieres instalar ClamAV y sus definiciones de virus?\n"
-"\n"
-"Esto puede tardar varios minutos y requiere conexión a internet."
-msgstr ""
-
-#: start.py:1085 start.py:2531
-msgid "Instalar"
-msgstr ""
-
-#: start.py:1106
-msgid "Instalando ClamAV..."
-msgstr ""
-
-#: start.py:1198
-msgid "ClamAV instalado correctamente"
-msgstr ""
-
-#: start.py:1212
-msgid "Actualizando definiciones de virus..."
-msgstr ""
-
-#: start.py:1255
-msgid "Definiciones actualizadas correctamente"
-msgstr ""
-
-#: start.py:1284
-msgid "Iniciando análisis antivirus..."
-msgstr ""
-
-#: start.py:1395
-msgid "⚠️ ¡Cuidado!"
-msgstr ""
-
-#: start.py:1398
-msgid "Ignorar"
-msgstr ""
-
-#: start.py:1399
-msgid "Poner en cuarentena"
-msgstr ""
-
-#: start.py:1400
-msgid "Eliminar amenazas"
-msgstr ""
-
-#: start.py:1447
+#: src/ui/windows/installed_apps_window.py:23
 msgid "Aplicaciones instaladas"
 msgstr ""
 
-#: start.py:1478
+#: src/ui/windows/installed_apps_window.py:45
 msgid "Buscar aplicaciones..."
 msgstr ""
 
-#: start.py:1511
+#: src/ui/windows/installed_apps_window.py:83
+#: src/ui/windows/installed_apps_window.py:151
 msgid "Cargando aplicaciones..."
 msgstr ""
 
-#: start.py:1540
+#: src/ui/windows/installed_apps_window.py:114
 msgid "No he encontrado nada que coincida"
 msgstr ""
 
-#: start.py:1730
+#: src/ui/windows/installed_apps_window.py:374
 msgid "AppImage"
 msgstr ""
 
-#: start.py:1732
+#: src/ui/windows/installed_apps_window.py:376
 msgid "PWA (Web App)"
 msgstr ""
 
-#: start.py:1734
+#: src/ui/windows/installed_apps_window.py:378
 msgid "Paquete Homebrew"
 msgstr ""
 
-#: start.py:1736
-msgid "Paquete instalado"
+#: src/ui/windows/installed_apps_window.py:380
+#: src/ui/windows/main_window.py:1730
+msgid "Flatpak (Flathub)"
 msgstr ""
 
-#: start.py:1746
+#: src/ui/windows/installed_apps_window.py:382
+msgid "Paquete Snap"
+msgstr ""
+
+#: src/ui/windows/installed_apps_window.py:384
+msgid "Paquete AUR"
+msgstr ""
+
+#: src/ui/windows/installed_apps_window.py:386
+msgid "Paquete del sistema"
+msgstr ""
+
+#: src/ui/windows/installed_apps_window.py:395
+#: src/ui/windows/package_details_window.py:147
 msgid "Desinstalar"
 msgstr ""
 
-#: start.py:1768
-msgid "No he encontrado aplicaciones instaladas en tu sistema"
-msgstr ""
-
-#: start.py:1797
+#: src/ui/windows/installed_apps_window.py:419
 msgid "No he podido encontrar aplicaciones instaladas en tu sistema"
 msgstr ""
 
-#: start.py:1848
+#: src/ui/windows/installed_apps_window.py:461
+#, python-brace-format
 msgid "¿Deseas desinstalar {}? (AppImage)"
 msgstr ""
 
-#: start.py:1850
+#: src/ui/windows/installed_apps_window.py:463
+#, python-brace-format
 msgid "¿Deseas desinstalar {}? (Web App)"
 msgstr ""
 
-#: start.py:1852
+#: src/ui/windows/installed_apps_window.py:465
+#, python-brace-format
 msgid "¿Deseas desinstalar {}? (Homebrew)"
 msgstr ""
 
-#: start.py:1854
+#: src/ui/windows/installed_apps_window.py:467
+#, python-brace-format
+msgid "¿Deseas desinstalar {}? (Flatpak)"
+msgstr ""
+
+#: src/ui/windows/installed_apps_window.py:469
+#, python-brace-format
+msgid "¿Deseas desinstalar {}? (Snap)"
+msgstr ""
+
+#: src/ui/windows/installed_apps_window.py:471
+#, python-brace-format
+msgid "¿Deseas desinstalar {}? (AUR)"
+msgstr ""
+
+#: src/ui/windows/installed_apps_window.py:473
+#, python-brace-format
 msgid "¿Deseas desinstalar {}?"
 msgstr ""
 
-#: start.py:1857
+#: src/ui/windows/installed_apps_window.py:476
 msgid "Confirmación"
 msgstr ""
 
-#: start.py:1860
+#: src/ui/windows/installed_apps_window.py:479
 msgid "No"
 msgstr ""
 
-#: start.py:1861
+#: src/ui/windows/installed_apps_window.py:480
 msgid "Sí"
 msgstr ""
 
-#: start.py:1881
+#: src/ui/windows/installed_apps_window.py:505
+#: src/ui/windows/installed_apps_window.py:507
+#, python-brace-format
 msgid "Desinstalando {}..."
 msgstr ""
 
-#: start.py:1946
-msgid "{} ha sido desinstalado correctamente. Recuerda borrar los archivos que haya creado la aplicación."
+#: src/ui/windows/installed_apps_window.py:541
+#, python-brace-format
+msgid ""
+"{} ha sido desinstalado correctamente. Recuerda borrar los archivos que haya "
+"creado la aplicación."
 msgstr ""
 
-#: start.py:1948
+#: src/ui/windows/installed_apps_window.py:543
+#, python-brace-format
 msgid "La Web App {} ha sido eliminada correctamente."
 msgstr ""
 
-#: start.py:1950
+#: src/ui/windows/installed_apps_window.py:545
+#, python-brace-format
 msgid "{} ha sido desinstalado de Homebrew correctamente."
 msgstr ""
 
-#: start.py:1952
+#: src/ui/windows/installed_apps_window.py:547
+#, python-brace-format
+msgid "{} ha sido desinstalado de Flatpak correctamente."
+msgstr ""
+
+#: src/ui/windows/installed_apps_window.py:549
+#, python-brace-format
+msgid "{} ha sido desinstalado de Snap correctamente."
+msgstr ""
+
+#: src/ui/windows/installed_apps_window.py:551
+#, python-brace-format
+msgid "{} ha sido desinstalado de AUR correctamente."
+msgstr ""
+
+#: src/ui/windows/installed_apps_window.py:553
+#, python-brace-format
 msgid "{} ha sido desinstalado correctamente."
 msgstr ""
 
-#: start.py:1955 start.py:1960
+#: src/ui/windows/installed_apps_window.py:556
+#: src/ui/windows/installed_apps_window.py:561
 msgid "Desinstalación completada"
 msgstr ""
 
-#: start.py:1963
+#: src/ui/windows/installed_apps_window.py:567
+#, python-brace-format
 msgid "Error al desinstalar AppImage - {}."
 msgstr ""
 
-#: start.py:1965
+#: src/ui/windows/installed_apps_window.py:569
+#, python-brace-format
 msgid "Error al eliminar la Web App {}."
 msgstr ""
 
-#: start.py:1967
+#: src/ui/windows/installed_apps_window.py:571
+#, python-brace-format
 msgid "Error al desinstalar {} de Homebrew."
 msgstr ""
 
-#: start.py:1969
+#: src/ui/windows/installed_apps_window.py:573
+#, python-brace-format
+msgid "Error al desinstalar {} de Flatpak."
+msgstr ""
+
+#: src/ui/windows/installed_apps_window.py:575
+#, python-brace-format
+msgid "Error al desinstalar {} de Snap."
+msgstr ""
+
+#: src/ui/windows/installed_apps_window.py:577
+#, python-brace-format
+msgid "Error al desinstalar {} de AUR."
+msgstr ""
+
+#: src/ui/windows/installed_apps_window.py:579
+#, python-brace-format
 msgid "Error al desinstalar {}."
 msgstr ""
 
-#: start.py:1972
+#: src/ui/windows/installed_apps_window.py:582
 msgid "Error en la desinstalación"
 msgstr ""
 
-#: start.py:1977
+#: src/ui/windows/installed_apps_window.py:587
 msgid "Uy... ha habido un error cuando estaba desinstalándote la app"
 msgstr ""
 
-#: start.py:1986
-msgid "Crear PWA (Web App)"
+#: src/ui/windows/main_window.py:153
+msgid "Buscar..."
 msgstr ""
 
-#: start.py:2001 start.py:2604
-msgid "Crear PWA"
+#: src/ui/windows/main_window.py:169
+msgid "Buscar / Tienda"
 msgstr ""
 
-#: start.py:2020
-msgid "Introduce la URL de la web"
+#: src/ui/windows/main_window.py:170
+msgid "Mis Aplicaciones"
 msgstr ""
 
-#: start.py:2026
-msgid "https://ejemplo.com"
+#: src/ui/windows/main_window.py:171 src/ui/windows/main_window.py:797
+msgid "Actualizaciones"
 msgstr ""
 
-#: start.py:2033
-msgid "Cargar información de la web"
+#: src/ui/windows/main_window.py:172
+msgid "Limpiar Sistema"
 msgstr ""
 
-#: start.py:2047
-msgid "Nombre de la aplicación"
+#: src/ui/windows/main_window.py:173
+msgid "Análisis de Virus"
 msgstr ""
 
-#: start.py:2057
-msgid "Icono"
-msgstr ""
-
-#: start.py:2066
-msgid "Cambiar icono..."
-msgstr ""
-
-#: start.py:2095
-msgid "¡Crear PWA!"
-msgstr ""
-
-#: start.py:2173
-msgid "Seleccionar icono para la PWA"
-msgstr ""
-
-#: start.py:2176 start.py:2315 start.py:2661
-msgid "Abrir"
-msgstr ""
-
-#: start.py:2201 start.py:2223
-msgid "Configurar AppImage"
-msgstr ""
-
-#: start.py:2242
-msgid "¿Cómo quieres llamar a la app?"
-msgstr ""
-
-#: start.py:2248
-msgid "Escribe el nombre de la aplicación..."
-msgstr ""
-
-#: start.py:2257
-msgid "Ponle un icono chulo"
-msgstr ""
-
-#: start.py:2269
-msgid "Icono por defecto"
-msgstr ""
-
-#: start.py:2277
-msgid "Seleccionar icono..."
-msgstr ""
-
-#: start.py:2302
-msgid "¡Instalar!"
-msgstr ""
-
-#: start.py:2312
-msgid "Seleccionar icono para la aplicación"
-msgstr ""
-
-#: start.py:2320
-msgid "Archivos de imagen"
-msgstr ""
-
-#: start.py:2359
+#: src/ui/windows/main_window.py:199
+#, python-brace-format
 msgid "Versión {}"
 msgstr ""
 
-#: start.py:2365
+#: src/ui/windows/main_window.py:204
 msgid "Menú"
 msgstr ""
 
-#: start.py:2378
+#: src/ui/windows/main_window.py:211
 msgid "Acerca de App Install"
 msgstr ""
 
-#: start.py:2382
+#: src/ui/windows/main_window.py:212
 msgid "Reportar un error"
 msgstr ""
 
-#: start.py:2386
+#: src/ui/windows/main_window.py:213
 msgid "Buscar actualizaciones"
 msgstr ""
 
-#: start.py:2435
-msgid "¿Qué debo instalar?"
+#: src/ui/windows/main_window.py:214
+msgid "Prioridad de búsqueda..."
 msgstr ""
 
-#: start.py:2448
-msgid "Selecciona el archivo que debo instalar"
+#: src/ui/windows/main_window.py:240
+msgid "Resultados de búsqueda"
 msgstr ""
 
-#: start.py:2459 start.py:3381
+#: src/ui/windows/main_window.py:381
+msgid "No se han podido cargar las aplicaciones sugeridas"
+msgstr ""
+
+#: src/ui/windows/main_window.py:385
+msgid "Sin conexión a internet solo puedes instalar paquetes locales."
+msgstr ""
+
+#: src/ui/windows/main_window.py:397
+msgid "Apps imprescindibles"
+msgstr ""
+
+#: src/ui/windows/main_window.py:418
+msgid "Lo mejor de la semana"
+msgstr ""
+
+#: src/ui/windows/main_window.py:439
+msgid "Top apps gratis"
+msgstr ""
+
+#: src/ui/windows/main_window.py:471
+msgid "¿Tienes un archivo de paquete local?"
+msgstr ""
+
+#: src/ui/windows/main_window.py:475
+msgid ""
+"Instala archivos .deb, .rpm, .pkg.tar.zst o PWAs directamente en tu sistema."
+msgstr ""
+
+#: src/ui/windows/main_window.py:483
+msgid "Seleccionar archivo..."
+msgstr ""
+
+#: src/ui/windows/main_window.py:487
+msgid "Crear PWA..."
+msgstr ""
+
+#: src/ui/windows/main_window.py:500
 msgid "Aún no has seleccionado ningún archivo"
 msgstr ""
 
-#: start.py:2467
-msgid "O escribe el nombre del paquete"
+#: src/ui/windows/main_window.py:510
+msgid "Corregir dependencias"
 msgstr ""
 
-#: start.py:2472
-msgid "ej: vlc, firefox, chrome..."
+#: src/ui/windows/main_window.py:524
+msgid "Listo para empezar"
 msgstr ""
 
-#: start.py:2515
-msgid "Acciones"
+#: src/ui/windows/main_window.py:708 src/ui/windows/main_window.py:771
+#: src/ui/windows/main_window.py:1640
+msgid "Ver"
 msgstr ""
 
-#: start.py:2544
-msgid "Corregir errores"
+#: src/ui/windows/main_window.py:821 src/ui/windows/main_window.py:860
+msgid "Comprobando actualizaciones..."
 msgstr ""
 
-#: start.py:2562
-msgid "Eliminar apps"
+#: src/ui/windows/main_window.py:834
+msgid "Comprobar ahora"
 msgstr ""
 
-#: start.py:2622
-msgid "Progreso"
+#: src/ui/windows/main_window.py:838
+msgid "Actualizar todo"
 msgstr ""
 
-#: start.py:2634 start.py:2791 start.py:2802
-msgid "Empieza seleccionando un archivo que contenga una app"
+#: src/ui/windows/main_window.py:938
+msgid "El sistema está actualizado"
 msgstr ""
 
-#: start.py:2651 start.py:2676
+#: src/ui/windows/main_window.py:942
+#, python-brace-format
+msgid "Tienes {} actualizaciones disponibles"
+msgstr ""
+
+#: src/ui/windows/main_window.py:946
+#, python-brace-format
+msgid "Nueva versión disponible: {} (actual: {})"
+msgstr ""
+
+#: src/ui/windows/main_window.py:949
+msgid "Actualización disponible de los repositorios del sistema"
+msgstr ""
+
+#: src/ui/windows/main_window.py:952
+#, python-brace-format
+msgid "Y {} actualizaciones más..."
+msgstr ""
+
+#: src/ui/windows/main_window.py:984
+msgid "Error al comprobar actualizaciones"
+msgstr ""
+
+#: src/ui/windows/main_window.py:1032 src/ui/windows/main_window.py:1058
+#, python-brace-format
 msgid "Archivo seleccionado: {}"
 msgstr ""
 
-#: start.py:2653 start.py:2678
+#: src/ui/windows/main_window.py:1035 src/ui/windows/main_window.py:1061
+#, python-brace-format
 msgid "Estoy listo para instalar: {}"
 msgstr ""
 
-#: start.py:2658
+#: src/ui/windows/main_window.py:1044
 msgid "Seleccionar paquete"
 msgstr ""
 
-#: start.py:2722 start.py:2819
-msgid "Instalando..."
+#: src/ui/windows/main_window.py:1076
+msgid "Obteniendo información de la aplicación..."
 msgstr ""
 
-#: start.py:2785
-msgid "Estoy actualizado :)"
+#: src/ui/windows/main_window.py:1077
+msgid "Analizando paquete..."
 msgstr ""
 
-#: start.py:2786
-msgid "Bien hecho, estoy actualizado a la última versión ({})."
+#: src/ui/windows/main_window.py:1135
+msgid "No he podido obtener detalles del paquete"
 msgstr ""
 
-#: start.py:2796
-msgid "He encontrado un error"
+#: src/ui/windows/main_window.py:1142
+msgid "Detalles de la aplicación cargados"
 msgstr ""
 
-#: start.py:2797
-msgid "Vaya, no he podido comprobar las actualizaciones. ¿Estás conectado a internet?"
+#: src/ui/windows/main_window.py:1200
+msgid "Análisis omitido, instalando..."
 msgstr ""
 
-#: start.py:2854
+#: src/ui/windows/main_window.py:1241
+#, python-brace-format
+msgid "Instalar desde AUR: {}"
+msgstr ""
+
+#: src/ui/windows/main_window.py:1242
+msgid ""
+"Este paquete se compilará e instalará desde el Arch User Repository. Revisa "
+"el PKGBUILD: cualquier archivo se ejecuta con tus permisos."
+msgstr ""
+
+#: src/ui/windows/main_window.py:1269
 msgid "Formato de paquete no soportado por App Install"
 msgstr ""
 
-#: start.py:2870
-msgid "Corrigiendo errores"
+#: src/ui/windows/main_window.py:1273 src/ui/windows/main_window.py:1276
+#: src/ui/windows/main_window.py:1317
+msgid "Instalando..."
 msgstr ""
 
-#: start.py:2921
+#: src/ui/windows/main_window.py:1282 src/ui/windows/main_window.py:1285
+msgid "Corregir errores"
+msgstr ""
+
+#: src/ui/windows/main_window.py:1294 src/ui/windows/main_window.py:1297
+msgid "Actualizando el sistema..."
+msgstr ""
+
+#: src/ui/windows/main_window.py:1320
+#, python-brace-format
+msgid "Instalando {}..."
+msgstr ""
+
+#: src/ui/windows/main_window.py:1327
 msgid "Creando PWA..."
 msgstr ""
 
-#: start.py:2974
-msgid "AppImage instalado como {}. Se ha creado un acceso directo."
+#: src/ui/windows/main_window.py:1330
+#, python-brace-format
+msgid "Creando PWA {}..."
 msgstr ""
 
-#: start.py:2977
-msgid "¡Web App creada correctamente! Ya la tienes disponible en tu menú."
+#: src/ui/windows/main_window.py:1369
+msgid "¡Un error en la instalación!"
 msgstr ""
 
-#: start.py:2979
-msgid "He instalado todo bien, ¡disfrútala!"
-msgstr ""
-
-#: start.py:2981
-msgid "Vaya, he encontrado un error al instalar: {}"
-msgstr ""
-
-#: start.py:2983
-msgid "Error en la instalación: {}"
-msgstr ""
-
-#: start.py:2993
-msgid "He arreglado las dependencias"
-msgstr ""
-
-#: start.py:3022
+#: src/ui/windows/main_window.py:1374
 msgid "He terminado la instalación"
 msgstr ""
 
-#: start.py:3041
+#: src/ui/windows/main_window.py:1387
 msgid "¡Un error al corregir las dependencias!"
 msgstr ""
 
-#: start.py:3046
+#: src/ui/windows/main_window.py:1392
 msgid "He corregido las dependencias"
 msgstr ""
 
-#: start.py:3429
+#: src/ui/windows/main_window.py:1408
+msgid "¡Un error al actualizar el sistema!"
+msgstr ""
+
+#: src/ui/windows/main_window.py:1413
+msgid "He terminado de actualizar el sistema"
+msgstr ""
+
+#: src/ui/windows/main_window.py:1451
+msgid "Estoy comprobando las actualizaciones"
+msgstr ""
+
+#: src/ui/windows/main_window.py:1466 src/ui/windows/main_window.py:1472
+msgid "Estoy actualizado :)"
+msgstr ""
+
+#: src/ui/windows/main_window.py:1467
+#, python-brace-format
+msgid "Bien hecho, estoy actualizado a la última versión ({})."
+msgstr ""
+
+#: src/ui/windows/main_window.py:1469
+msgid "Aceptar"
+msgstr ""
+
+#: src/ui/windows/main_window.py:1476
+msgid "He encontrado un error"
+msgstr ""
+
+#: src/ui/windows/main_window.py:1477
+msgid ""
+"Vaya, no he podido comprobar las actualizaciones. ¿Estás conectado a "
+"internet?"
+msgstr ""
+
+#: src/ui/windows/main_window.py:1545
 msgid "Fórmula de Homebrew"
 msgstr ""
 
+#: src/ui/windows/main_window.py:1615
+msgid "Nativo"
+msgstr ""
+
+#: src/ui/windows/main_window.py:1678
+msgid "Instalador de paquetes gráfico para Linux."
+msgstr ""
+
+#: src/ui/windows/main_window.py:1703
+msgid "Prioridad de Búsqueda"
+msgstr ""
+
+#: src/ui/windows/main_window.py:1717
+msgid "Elige qué origen de paquetes prefieres ver primero en las búsquedas:"
+msgstr ""
+
+#: src/ui/windows/main_window.py:1726
+msgid "Nativo (Sistema: APT/DNF/Pacman)"
+msgstr ""
+
+#: src/ui/windows/main_window.py:1735
+msgid "Snap Store"
+msgstr ""
+
+#: src/ui/windows/main_window.py:1740
+msgid "AUR (Arch User Repository)"
+msgstr ""
+
+#: src/ui/windows/main_window.py:1754
+msgid "Guardar"
+msgstr ""
+
+#: src/ui/windows/package_details_window.py:135
+msgid "Autor verificado"
+msgstr ""
+
+#: src/ui/windows/package_details_window.py:210
+msgid "NATIVO"
+msgstr ""
+
+#: src/ui/windows/package_details_window.py:219
+msgid "Descarga"
+msgstr ""
+
+#: src/ui/windows/package_details_window.py:226
+msgid "Desarrollador"
+msgstr ""
+
+#: src/ui/windows/package_details_window.py:234
+msgid "Verificado"
+msgstr ""
+
+#: src/ui/windows/package_details_window.py:246
+msgid "Capturas de pantalla"
+msgstr ""
+
+#: src/ui/windows/package_details_window.py:281
+msgid "Información"
+msgstr ""
+
+#: src/ui/windows/package_details_window.py:296
+msgid "Detalles técnicos"
+msgstr ""
+
+#: src/ui/windows/package_details_window.py:305
+msgid "Tamaño instalado"
+msgstr ""
+
+#: src/ui/windows/package_details_window.py:313
+msgid "Formato"
+msgstr ""
+
+#: src/ui/windows/package_details_window.py:326
+msgid "Ninguna"
+msgstr ""
+
+#: src/ui/windows/package_details_window.py:332
+msgid "Dependencias"
+msgstr ""
+
+#: src/ui/windows/package_details_window.py:344
+msgid "PKGBUILD"
+msgstr ""
+
+#: src/ui/windows/package_details_window.py:348
+msgid ""
+"Este paquete se compila desde el AUR. Revisa el PKGBUILD antes de "
+"instalarlo: cualquier archivo se ejecuta con tus permisos."
+msgstr ""
+
+#: src/ui/windows/package_details_window.py:385
+msgid "Captura de pantalla"
+msgstr ""
+
+#: src/ui/windows/progress_window.py:28
+msgid "Operación en curso"
+msgstr ""
+
+#: src/ui/windows/progress_window.py:69
+msgid "Instalar directamente"
+msgstr ""
+
+#: src/ui/windows/progress_window.py:82 src/ui/windows/progress_window.py:121
+msgid "Mostrar registro"
+msgstr ""
+
+#: src/ui/windows/progress_window.py:119
+msgid "Ocultar registro"
+msgstr ""
+
+#: src/ui/windows/pwa_config_window.py:11
+msgid "Crear PWA (Web App)"
+msgstr ""
+
+#: src/ui/windows/pwa_config_window.py:28
+msgid "Crear PWA"
+msgstr ""
+
+#: src/ui/windows/pwa_config_window.py:45
+msgid "Introduce la URL de la web"
+msgstr ""
+
+#: src/ui/windows/pwa_config_window.py:51
+msgid "https://ejemplo.com"
+msgstr ""
+
+#: src/ui/windows/pwa_config_window.py:69
+msgid "Nombre de la aplicación"
+msgstr ""
+
+#: src/ui/windows/pwa_config_window.py:78
+msgid "Icono"
+msgstr ""
+
+#: src/ui/windows/pwa_config_window.py:87
+msgid "Cambiar icono..."
+msgstr ""
+
+#: src/ui/windows/pwa_config_window.py:112
+msgid "¡Crear PWA!"
+msgstr ""
+
+#: src/ui/windows/pwa_config_window.py:175
+msgid "Seleccionar icono para la PWA"
+msgstr ""

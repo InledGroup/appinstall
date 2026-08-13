@@ -3,20 +3,28 @@ import locale
 import gettext
 
 def setup_localization():
-    # Configurar localización
-    LOCALE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'locale')
-    if not os.path.exists(LOCALE_DIR):
-        LOCALE_DIR = '/app/share/locale'  # Fallback for Flatpak
-    if not os.path.exists(LOCALE_DIR):
-        LOCALE_DIR = '/usr/share/locale'  # Fallback for system install
+    # Buscar el directorio de traducciones en las ubicaciones habituales
+    base = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+    locale_dirs = [
+        os.path.join(base, 'locale'),                             # Desarrollo desde el repositorio
+        os.path.join(base, 'appinstall/usr/share/appinstall/locale'),  # Copia incluida en el repo
+        '/app/share/appinstall/locale',                           # Flatpak
+        '/app/share/locale',                                      # Flatpak genérico
+        '/usr/share/appinstall/locale',                           # Instalación de sistema
+        '/usr/share/locale',                                      # Sistema genérico
+    ]
+    LOCALE_DIR = next((d for d in locale_dirs if os.path.isdir(d)), locale_dirs[0])
 
     try:
         locale.setlocale(locale.LC_ALL, '')
     except:
         pass
 
-    gettext.bindtextdomain('appinstall', LOCALE_DIR)
-    gettext.textdomain('appinstall')
+    try:
+        gettext.bindtextdomain('appinstall', LOCALE_DIR)
+        gettext.textdomain('appinstall')
+    except Exception:
+        pass
     return gettext.gettext
 
 _ = setup_localization()
