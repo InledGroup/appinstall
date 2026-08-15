@@ -2,7 +2,7 @@
 Name=App Install
 Comment=Simple package installer for Linux
 Exec=/usr/bin/appinstall %U
-Icon=org.gnome.Software
+Icon=es.inled.AppInstall
 Terminal=false
 Type=Application
 Categories=Utility;System;
