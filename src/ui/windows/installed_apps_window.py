@@ -511,12 +511,23 @@ class InstalledAppsWidget(Gtk.Box):
             package_name, is_appimage, is_brew, is_pwa, BREW_PATH,
             is_flatpak=is_flatpak, is_snap=is_snap, is_aur=is_aur
         )
-        self.uninstall_service.run_uninstall(cmd, self.update_uninstall_progress, 
-                                           lambda success, error: self.uninstall_complete(package_name, success, is_appimage, is_brew, is_pwa, is_flatpak, is_snap, is_aur, error))
+        self.uninstall_service.run_uninstall(
+            cmd,
+            on_progress=self.update_uninstall_progress,
+            on_complete=lambda success, error: self.uninstall_complete(package_name, success, is_appimage, is_brew, is_pwa, is_flatpak, is_snap, is_aur, error),
+            on_log=self.on_uninstall_log
+        )
         return False
     
+    def on_uninstall_log(self, line):
+        if hasattr(self, 'progress_dialog') and self.progress_dialog:
+            self.progress_dialog.append_log(line)
+        self.update_uninstall_progress()
+
     def update_uninstall_progress(self):
-        new_value = min(1.0, self.progress_bar.get_fraction() + 0.05)
+        new_value = self.progress_bar.get_fraction() + 0.04
+        if new_value > 0.95:
+            new_value = 0.15
         self.progress_bar.set_fraction(new_value)
         return False
 
