@@ -254,16 +254,17 @@ def _normalize_source(name: str) -> str:
 def _parse_source(query: str):
     """Parse an optional source prefix from a package query.
     
-    Supported prefixes: flatpak:, snap:, aur:, pacman:, brew:
+    Supported prefixes: flatpak:, snap:, aur:, pacman:, brew:, pulsar:
     
     Returns:
         (source_name_or_None, stripped_query)
     
     Examples:
         _parse_source("flatpak:org.gimp.GIMP")  -> ("flatpak", "org.gimp.GIMP")
+        _parse_source("pulsar:sayri-gateway-tg") -> ("pulsar", "sayri-gateway-tg")
         _parse_source("firefox")                 -> (None, "firefox")
     """
-    for prefix in ['flatpak:', 'snap:', 'aur:', 'pacman:', 'brew:']:
+    for prefix in ['flatpak:', 'snap:', 'aur:', 'pacman:', 'brew:', 'pulsar:']:
         if query.lower().startswith(prefix):
             return prefix.rstrip(':'), query[len(prefix):]
     return None, query
@@ -519,13 +520,29 @@ def cmd_search(query: str):
     
     Searches all adapters in parallel with live progress, then displays
     results grouped by source.
+    
+    Supports source prefix filtering:
+      pulsar:sayri  → search only in Pulsar Store
+      flatpak:gimp  → search only in Flatpak
     """
     if not query:
         print(f"  Usage: {_c('bold', f'{CLI_NAME} search <query>')}", file=sys.stderr)
         print(f"  Example: {_c('dim', f'{CLI_NAME} search wl clipboard')}", file=sys.stderr)
         return False
 
-    adapters = _get_adapters()
+    # Check for source prefix (e.g. pulsar:sayri)
+    source_prefix, clean_query = _parse_source(query)
+    if source_prefix:
+        normalized = _normalize_source(source_prefix)
+        all_adapters = _get_adapters()
+        if normalized in all_adapters:
+            adapters = {normalized: all_adapters[normalized]}
+            query = clean_query
+        else:
+            adapters = _get_adapters()
+    else:
+        adapters = _get_adapters()
+
     variations = _generate_search_variations(query)
 
     results_by_source = _run_search_with_progress(adapters, query, variations)
