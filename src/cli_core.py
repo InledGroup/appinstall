@@ -170,7 +170,7 @@ def _get_adapters():
     """Discover and return a dict of available package adapters.
     
     Returns:
-        dict[str, object] — keyed by source name ('system', 'flatpak', 'snap', 'aur').
+        dict[str, object] — keyed by source name ('system', 'flatpak', 'snap', 'aur', 'pulsar').
         Only adapters whose backend is actually installed on the machine are included.
     
     Resolution order:
@@ -178,12 +178,14 @@ def _get_adapters():
     2. FlatpakAdapter — only if `flatpak` is on PATH (is_available()).
     3. SnapAdapter — only if `snap` is on PATH.
     4. AurAdapter — only if `pacman` is on PATH (AUR helpers depend on pacman).
+    5. PulsarStoreAdapter — always available (remote catalog).
     """
     from src.infrastructure.adapters.factory import get_package_manager
     from src.infrastructure.adapters.flatpak_adapter import FlatpakAdapter
     from src.infrastructure.adapters.snap_adapter import SnapAdapter
     from src.infrastructure.adapters.aur_adapter import AurAdapter
     from src.infrastructure.adapters.brew_adapter import BrewAdapter
+    from src.infrastructure.adapters.pulsar_store_adapter import PulsarStoreAdapter
 
     pm = get_package_manager()
     adapters = {'system': pm}
@@ -203,6 +205,9 @@ def _get_adapters():
     if br.is_available():
         adapters['brew'] = br
 
+    # Pulsar Store is always available (remote catalog)
+    adapters['pulsar'] = PulsarStoreAdapter()
+
     return adapters
 
 
@@ -215,6 +220,7 @@ SOURCE_LABELS = {
     'snap':    ('snap', _c('magenta', 'snap')),
     'aur':     ('aur', _c('yellow', 'aur')),
     'brew':    ('brew', _c('magenta', 'brew')),
+    'pulsar':  ('psr', _c('cyan',   'psr')),
 }
 
 # Aliases: maps user-friendly names to canonical source keys
@@ -225,6 +231,8 @@ SOURCE_ALIASES = {
     'snap': 'snap', 'snapcraft': 'snap',
     'aur': 'aur', 'yay': 'aur', 'paru': 'aur',
     'brew': 'brew', 'homebrew': 'brew', 'linuxbrew': 'brew',
+    'pulsar': 'pulsar', 'store': 'pulsar', 'pulsar-store': 'pulsar',
+    'psr': 'pulsar',
 }
 
 

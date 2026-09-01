@@ -82,6 +82,7 @@ def _show_help():
     {_c('dim', 'Flatpak:')}      {CLI_NAME} install flatpak:org.gimp.GIMP
     {_c('dim', 'Snap:')}         {CLI_NAME} install snap:code
     {_c('dim', 'AUR:')}          {CLI_NAME} install aur:package-name
+    {_c('dim', 'Pulsar Store:')} {CLI_NAME} install pulsar:sayri-gateway-telegram
     {_c('dim', 'Local file:')}   {CLI_NAME} install /path/to/file.deb
 
 {_c('bold', ' EXAMPLES')}
@@ -94,6 +95,8 @@ def _show_help():
     {_c('green', f'{CLI_NAME} install wl clipboard from flathub')} {_c('dim', '# smart multi-word install')}
     {_c('green', f'{CLI_NAME} install gimp vlc from flathub')}     {_c('dim', '# multiple packages, same source')}
     {_c('green', f'{CLI_NAME} install gimp from fpk and vlc from sys')} {_c('dim', '# different sources')}
+    {_c('green', f'{CLI_NAME} search sayri from pulsar')} {_c('dim', '# search Pulsar Store')}
+    {_c('green', f'{CLI_NAME} install pulsar:sayri-gateway-telegram')} {_c('dim', '# install from Pulsar Store')}
     {_c('green', f'{CLI_NAME} remove firefox')}            {_c('dim', '# remove a package')}
     {_c('green', f'{CLI_NAME} remove firefox chromium vlc')} {_c('dim', '# remove multiple packages')}
     {_c('green', f'{CLI_NAME} update')}                    {_c('dim', '# update everything')}
