@@ -783,8 +783,11 @@ class PackageInstaller(Adw.ApplicationWindow):
 
     def on_recommendation_clicked(self, app_data):
         pkg_name = app_data['name']
-        if app_data.get('source') == 'flatpak':
+        source = app_data.get('source', '')
+        if source == 'flatpak':
             pkg_name = f"flatpak:{pkg_name}"
+        elif source == 'pulsar':
+            pkg_name = f"pulsar:{pkg_name}"
         self.file_path = pkg_name
         self.show_package_details(identifier=pkg_name, is_local=False)
 
@@ -1659,6 +1662,8 @@ class PackageInstaller(Adw.ApplicationWindow):
             pkg_name = f"snap:{pkg_name}"
         elif row.source == 'aur':
             pkg_name = f"aur:{pkg_name}"
+        elif row.source == 'pulsar':
+            pkg_name = f"pulsar:{pkg_name}"
             
         if self.search_timer:
             GLib.source_remove(self.search_timer)

@@ -8,6 +8,7 @@ from src.utils.system import HAS_BREW, BREW_PATH
 from src.infrastructure.adapters.flatpak_adapter import FlatpakAdapter
 from src.infrastructure.adapters.snap_adapter import SnapAdapter
 from src.infrastructure.adapters.aur_adapter import AurAdapter
+from src.infrastructure.adapters.pulsar_store_adapter import PulsarStoreAdapter
 
 from src.infrastructure.services.localization import _
 
@@ -17,6 +18,7 @@ class InstallService:
         self.flatpak_adapter = FlatpakAdapter()
         self.snap_adapter = SnapAdapter()
         self.aur_adapter = AurAdapter()
+        self.pulsar_adapter = PulsarStoreAdapter()
 
     def get_pwa_command(self, url):
         """Busca el mejor navegador para ejecutar una PWA."""
@@ -65,6 +67,9 @@ X-SwiftInstall={install_type}
         elif file_path.startswith('aur:'):
             pkg_name = file_path.replace('aur:', '', 1)
             return self.aur_adapter.install(pkg_name)
+        elif file_path.startswith('pulsar:'):
+            pkg_name = file_path.replace('pulsar:', '', 1)
+            return self.pulsar_adapter.install(pkg_name)
 
         file_extension = os.path.splitext(file_path)[1].lower()
         is_brew_file = HAS_BREW and file_extension == '.rb'
