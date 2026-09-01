@@ -296,6 +296,7 @@ class PulsarStoreAdapter(PackageManager):
             "icon": "system-software-install-symbolic",
             "pulsar_type": type_label,
             "pulsar_id": pkg.get("id", package_name),
+            "readme_url": pkg.get("readme_url", ""),
             "security_score": str(security_score),
             "security_status": security_status,
         }

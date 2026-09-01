@@ -1,6 +1,7 @@
 import os
 import re
 import hashlib
+import threading
 from gi.repository import Gtk, Adw, GLib, Gdk
 from src.infrastructure.services.localization import _
 
@@ -93,10 +94,20 @@ class PackageDetailsWidget(Gtk.Box):
         info_box.set_hexpand(True)
         header_box.append(info_box)
         
-        # Icon
-        icon_path = info.get('icon')
+        # Icon (supports local files, cached icons, and symbolic names)
+        icon_path = info.get('icon', '')
         if icon_path and os.path.exists(icon_path):
             icon_image = Gtk.Image.new_from_file(icon_path)
+        elif icon_path and icon_path.startswith('http'):
+            try:
+                from src.utils.system import get_cached_icon
+                cached = get_cached_icon(icon_path, info.get('name', 'app'))
+                if cached and os.path.exists(cached):
+                    icon_image = Gtk.Image.new_from_file(cached)
+                else:
+                    icon_image = Gtk.Image.new_from_icon_name("system-software-install-symbolic")
+            except Exception:
+                icon_image = Gtk.Image.new_from_icon_name("system-software-install-symbolic")
         else:
             icon_name = icon_path if icon_path else "system-software-install-symbolic"
             icon_image = Gtk.Image.new_from_icon_name(icon_name)
@@ -288,6 +299,70 @@ class PackageDetailsWidget(Gtk.Box):
         desc_section.append(desc_text)
         
         main_box.append(desc_section)
+
+        # 3.5 README Section (for Pulsar Store packages)
+        readme_url = info.get('readme_url', '')
+        if readme_url and info.get('source') == 'pulsar':
+            readme_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+            readme_card.add_css_class("card")
+            
+            readme_title = Gtk.Label(label=_("README"), xalign=0)
+            readme_title.add_css_class("title-label")
+            readme_card.append(readme_title)
+            
+            readme_scroll = Gtk.ScrolledWindow()
+            readme_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+            readme_scroll.set_min_content_height(200)
+            readme_scroll.set_max_content_height(400)
+            
+            readme_view = Gtk.TextView()
+            readme_view.set_editable(False)
+            readme_view.set_cursor_visible(False)
+            readme_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+            readme_view.add_css_class("readme-view")
+            readme_view.get_buffer().set_text(_("Cargando README..."))
+            readme_scroll.set_child(readme_view)
+            readme_card.append(readme_scroll)
+            
+            main_box.append(readme_card)
+            
+            # Fetch README in background thread
+            def _fetch_readme():
+                try:
+                    import requests
+                    r = requests.get(readme_url, timeout=10)
+                    if r.status_code == 200:
+                        md = r.text
+                        # Simple markdown to text conversion
+                        import re
+                        text = md
+                        # Remove code blocks
+                        text = re.sub(r'```[\s\S]*?```', '', text)
+                        # Remove inline code
+                        text = re.sub(r'`([^`]+)`', r'\1', text)
+                        # Remove images
+                        text = re.sub(r'!\[([^\]]*)\]\([^)]+\)', '', text)
+                        # Convert links to text
+                        text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', text)
+                        # Remove headings markers
+                        text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
+                        # Remove bold/italic
+                        text = re.sub(r'\*\*\*([^*]+)\*\*\*', r'\1', text)
+                        text = re.sub(r'\*\*([^*]+)\*\*', r'\1', text)
+                        text = re.sub(r'\*([^*]+)\*', r'\1', text)
+                        # Convert tables to simple format
+                        text = re.sub(r'\|([^\n]+)\|', lambda m: ' | '.join(c.strip() for c in m.group(1).split('|') if c.strip()), text)
+                        text = re.sub(r'^[-:|\s]+$', '', text, flags=re.MULTILINE)
+                        # Remove horizontal rules
+                        text = re.sub(r'^---+$', '', text, flags=re.MULTILINE)
+                        # Clean up
+                        text = re.sub(r'\n{3,}', '\n\n', text)
+                        text = text.strip()
+                        GLib.idle_add(readme_view.get_buffer().set_text, text)
+                except Exception as e:
+                    GLib.idle_add(readme_view.get_buffer().set_text, f"Error loading README: {e}")
+            
+            threading.Thread(target=_fetch_readme, daemon=True).start()
 
         # 4. Technical Details Card
         details_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)

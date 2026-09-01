@@ -276,3 +276,9 @@
         margin-right: 4px;
         padding: 8px 12px;
     }
+/* Pulsar Store README view */
+.readme-view {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    padding: 12px;
+}
