@@ -521,32 +521,48 @@ def cmd_search(query: str):
     Searches all adapters in parallel with live progress, then displays
     results grouped by source.
     
-    Supports source prefix filtering:
-      pulsar:sayri  → search only in Pulsar Store
-      flatpak:gimp  → search only in Flatpak
+    Supports 'from' source filtering:
+      sayri from pulsar  → search only in Pulsar Store
+      gimp from flathub  → search only in Flatpak
     """
     if not query:
         print(f"  Usage: {_c('bold', f'{CLI_NAME} search <query>')}", file=sys.stderr)
         print(f"  Example: {_c('dim', f'{CLI_NAME} search wl clipboard')}", file=sys.stderr)
         return False
 
-    # Check for source prefix (e.g. pulsar:sayri)
-    source_prefix, clean_query = _parse_source(query)
-    if source_prefix:
-        normalized = _normalize_source(source_prefix)
-        all_adapters = _get_adapters()
-        if normalized in all_adapters:
-            adapters = {normalized: all_adapters[normalized]}
-            query = clean_query
-        else:
-            adapters = _get_adapters()
+    # Check for 'from' syntax (e.g. 'sayri from pulsar')
+    source_filter = None
+    clean_query = query
+    query_lower = query.lower()
+    if ' from ' in query_lower:
+        parts = query.rsplit(' from ', 1)
+        if len(parts) == 2:
+            possible_source = parts[1].strip().lower()
+            normalized = _normalize_source(possible_source)
+            all_adapters = _get_adapters()
+            if normalized in all_adapters:
+                source_filter = normalized
+                clean_query = parts[0].strip()
+
+    # Also support prefix syntax (flatpak:gimp, pulsar:sayri)
+    if not source_filter:
+        source_prefix, parsed_query = _parse_source(query)
+        if source_prefix:
+            normalized = _normalize_source(source_prefix)
+            all_adapters = _get_adapters()
+            if normalized in all_adapters:
+                source_filter = normalized
+                clean_query = parsed_query
+
+    if source_filter:
+        adapters = {source_filter: _get_adapters()[source_filter]}
     else:
         adapters = _get_adapters()
 
-    variations = _generate_search_variations(query)
+    variations = _generate_search_variations(clean_query)
 
-    results_by_source = _run_search_with_progress(adapters, query, variations)
-    _print_search_results(results_by_source, query)
+    results_by_source = _run_search_with_progress(adapters, clean_query, variations)
+    _print_search_results(results_by_source, clean_query)
     return any(results_by_source.values())
 
 
