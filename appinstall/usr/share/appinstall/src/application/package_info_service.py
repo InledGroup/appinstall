@@ -7,6 +7,7 @@ from src.domain.ports import PackageManager
 from src.infrastructure.adapters.flatpak_adapter import FlatpakAdapter
 from src.infrastructure.adapters.snap_adapter import SnapAdapter
 from src.infrastructure.adapters.aur_adapter import AurAdapter
+from src.infrastructure.adapters.pulsar_store_adapter import PulsarStoreAdapter
 
 class PackageInfoService:
     def __init__(self, package_manager: PackageManager):
@@ -14,6 +15,7 @@ class PackageInfoService:
         self.flatpak_adapter = FlatpakAdapter()
         self.snap_adapter = SnapAdapter()
         self.aur_adapter = AurAdapter()
+        self.pulsar_adapter = PulsarStoreAdapter()
 
     def get_info(self, identifier: str, is_local: bool = True) -> Dict[str, str]:
         if not identifier:
@@ -55,6 +57,9 @@ class PackageInfoService:
                     'icon': 'system-software-install-symbolic',
                     'source': 'brew'
                 }
+            elif identifier.startswith('pulsar:'):
+                pkg_name = identifier.replace('pulsar:', '', 1)
+                return self.pulsar_adapter.get_package_info(pkg_name)
             return self.package_manager.get_package_info(identifier)
         
         return {}

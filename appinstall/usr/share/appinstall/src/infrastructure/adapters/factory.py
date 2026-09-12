@@ -2,6 +2,7 @@ import shutil
 from .apt_adapter import AptAdapter
 from .dnf_adapter import DnfAdapter
 from .pacman_adapter import PacmanAdapter
+from .pulsar_store_adapter import PulsarStoreAdapter
 
 def get_package_manager():
     # English: Detect package manager by checking binary availability
@@ -14,4 +15,8 @@ def get_package_manager():
         return DnfAdapter()
     else:
         return AptAdapter()
+
+def get_pulsar_store_adapter():
+    """Get the Pulsar Store adapter instance."""
+    return PulsarStoreAdapter()
 

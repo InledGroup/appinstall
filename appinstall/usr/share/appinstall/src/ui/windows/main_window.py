@@ -456,7 +456,28 @@ class PackageInstaller(Adw.ApplicationWindow):
         self.top_free_spinner.start()
         self.top_free_section_box.append(self.top_free_spinner)
         
-        # 4. Local File Installation Banner (Moved to bottom)
+        # 4. Pulsar Store Section (Pulsar OS packages)
+        self.pulsar_section_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        pulsar_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        pulsar_title = Gtk.Label(label=_("Pulsar Store"), xalign=0)
+        pulsar_title.add_css_class("store-section-title")
+        pulsar_header.append(pulsar_title)
+        self.pulsar_section_box.append(pulsar_header)
+        
+        self.pulsar_grid = Gtk.Grid()
+        self.pulsar_grid.set_column_spacing(24)
+        self.pulsar_grid.set_row_spacing(16)
+        self.pulsar_grid.set_column_homogeneous(True)
+        self.pulsar_section_box.append(self.pulsar_grid)
+        self.main_box.append(self.pulsar_section_box)
+        
+        self.pulsar_spinner = Gtk.Spinner()
+        self.pulsar_spinner.set_size_request(24, 24)
+        self.pulsar_spinner.set_halign(Gtk.Align.CENTER)
+        self.pulsar_spinner.start()
+        self.pulsar_section_box.append(self.pulsar_spinner)
+        
+        # 5. Local File Installation Banner (Moved to bottom)
         local_install_card = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16)
         local_install_card.add_css_class("card")
         local_install_card.set_margin_bottom(8)
@@ -616,10 +637,43 @@ class PackageInstaller(Adw.ApplicationWindow):
                 popular_all = []
                 trending = []
 
-            if not popular_all and not trending:
+            # Fetch Pulsar Store packages
+            pulsar_packages = []
+            try:
+                from src.infrastructure.adapters.pulsar_store_adapter import PulsarStoreAdapter
+                pulsar = PulsarStoreAdapter()
+                catalog = pulsar._get_catalog()
+                for pkg in catalog:
+                    icon_url = pkg.get('icon_url', '')
+                    # Download icon to cache if it's a URL
+                    cached_icon = ''
+                    if icon_url and icon_url.startswith('http'):
+                        try:
+                            from src.utils.system import get_cached_icon
+                            cached_icon = get_cached_icon(icon_url, f"pulsar_{pkg.get('id', '')}")
+                        except Exception:
+                            pass
+                    type_label = {
+                        'flatpak': 'Flatpak',
+                        'gnome_extension': 'Extension',
+                        'sayri_skill': 'Skill',
+                        'sayri_plugin': 'Plugin',
+                    }.get(pkg.get('type', ''), pkg.get('type', ''))
+                    pulsar_packages.append({
+                        'name': pkg.get('id', ''),
+                        'display_name': pkg.get('name', ''),
+                        'desc': f"[{type_label}] {pkg.get('description', '')}",
+                        'source': 'pulsar',
+                        'icon': cached_icon or 'system-software-install-symbolic',
+                        'version': pkg.get('version', ''),
+                    })
+            except Exception as e:
+                print(f"Error loading Pulsar Store: {e}")
+
+            if not popular_all and not trending and not pulsar_packages:
                 GLib.idle_add(self.show_offline_banner)
             else:
-                GLib.idle_add(self.populate_recommendations, popular, trending, top_free)
+                GLib.idle_add(self.populate_recommendations, popular, trending, top_free, pulsar_packages)
 
         threading.Thread(target=_fetch, daemon=True).start()
 
@@ -651,28 +705,115 @@ class PackageInstaller(Adw.ApplicationWindow):
         if hasattr(self, 'offline_banner'):
             self.offline_banner.set_visible(True)
 
-    def populate_recommendations(self, popular, trending, top_free):
+    def populate_recommendations(self, popular, trending, top_free, pulsar_packages=None):
         # Stop and remove spinners if they exist
         self._stop_recommendation_spinners()
             
-        # Populate popular (4 rows, 3 columns)
-        for idx, app in enumerate(popular[:12]):
-            row = idx % 4
-            col = idx // 4
-            item_widget = self.create_app_grid_item(app)
-            self.popular_grid.attach(item_widget, col, row, 1, 1)
-            
-        # Populate trending (4 rows, 3 columns)
-        for idx, app in enumerate(trending[:12]):
-            row = idx % 4
-            col = idx // 4
-            item_widget = self.create_app_grid_item(app)
-            self.trending_grid.attach(item_widget, col, row, 1, 1)
-            
-        # Populate top free (5 items side by side)
-        for idx, app in enumerate(top_free[:5]):
-            card = self.create_top_free_card(idx + 1, app)
-            self.top_free_horizontal_box.append(card)
+        # Populate popular (Mac App Store ranked two-column list, 1..N)
+        self._fill_ranked_columns(self.popular_grid, popular[:12])
+        
+        # Populate trending (Mac App Store ranked two-column list, 1..N)
+        self._fill_ranked_columns(self.trending_grid, trending[:12])
+        
+        # Populate top free (Mac App Store ranked two-column list, 1..N)
+        self._fill_ranked_columns(self.top_free_horizontal_box, top_free[:6])
+
+        # Populate Pulsar Store packages (same ranked style)
+        if pulsar_packages:
+            try:
+                self.pulsar_spinner.stop()
+                self.pulsar_section_box.remove(self.pulsar_spinner)
+            except: pass
+            self._fill_ranked_columns(self.pulsar_grid, pulsar_packages[:8])
+
+    def _fill_ranked_columns(self, container, apps):
+        """English: Fill a container with a Mac App Store style ranked
+        two-column list (number, icon, name, GET button per row).
+        Español: Rellena un contenedor con una lista numerada en dos columnas
+        estilo Mac App Store (número, icono, nombre, botón Obtener)."""
+        # Clear previous content
+        child = container.get_first_child()
+        while child:
+            container.remove(child)
+            child = container.get_first_child()
+
+        half = (len(apps) + 1) // 2
+        for col_idx, chunk in enumerate((apps[:half], apps[half:])):
+            list_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+            list_box.set_hexpand(True)
+            list_box.set_valign(Gtk.Align.START)
+            # Gtk.Grid containers need explicit attach(); Gtk.Box just appends
+            if isinstance(container, Gtk.Grid):
+                container.attach(list_box, col_idx, 0, 1, 1)
+            else:
+                container.append(list_box)
+
+            for rank, app in enumerate(chunk, start=(1 if col_idx == 0 else half + 1)):
+                if list_box.get_first_child():
+                    sep = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
+                    sep.add_css_class("store-rank-sep")
+                    list_box.append(sep)
+                list_box.append(self.create_ranked_row(app, rank))
+
+    def create_ranked_row(self, app_data, rank):
+        row_btn = Gtk.Button()
+        row_btn.add_css_class("store-rank-row")
+        row_btn.set_has_frame(False)
+        row_btn.set_halign(Gtk.Align.FILL)
+
+        hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        row_btn.set_child(hbox)
+
+        rank_lbl = Gtk.Label(label=str(rank), xalign=0.5)
+        rank_lbl.add_css_class("store-rank-number")
+        rank_lbl.set_valign(Gtk.Align.CENTER)
+        hbox.append(rank_lbl)
+
+        # Rounded App Icon (supports local files, cached icons, and symbolic names)
+        icon_path = app_data.get('icon', '')
+        if icon_path and os.path.exists(icon_path):
+            icon = Gtk.Image.new_from_file(icon_path)
+        elif icon_path and icon_path.startswith('http'):
+            # Remote URL — try to load from cache, fallback to symbolic
+            try:
+                from src.utils.system import get_cached_icon
+                cached = get_cached_icon(icon_path, app_data.get('name', 'app'))
+                if cached and os.path.exists(cached):
+                    icon = Gtk.Image.new_from_file(cached)
+                else:
+                    icon = Gtk.Image.new_from_icon_name("system-software-install-symbolic")
+            except Exception:
+                icon = Gtk.Image.new_from_icon_name("system-software-install-symbolic")
+        else:
+            icon = Gtk.Image.new_from_icon_name(icon_path if icon_path else "system-software-install-symbolic")
+        icon.set_pixel_size(44)
+        icon.set_valign(Gtk.Align.CENTER)
+        icon.add_css_class("app-card-icon")
+        hbox.append(icon)
+
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+        vbox.set_hexpand(True)
+        vbox.set_valign(Gtk.Align.CENTER)
+        hbox.append(vbox)
+
+        name_lbl = Gtk.Label(label=app_data.get('display_name', ''), xalign=0)
+        name_lbl.add_css_class("store-rank-name")
+        name_lbl.set_ellipsize(Pango.EllipsizeMode.END)
+        vbox.append(name_lbl)
+
+        sub_lbl = Gtk.Label(label=app_data.get('desc', ''), xalign=0)
+        sub_lbl.add_css_class("store-rank-sub")
+        sub_lbl.set_ellipsize(Pango.EllipsizeMode.END)
+        vbox.append(sub_lbl)
+
+        get_btn = Gtk.Button(label=_("Obtener"))
+        get_btn.add_css_class("app-card-button")
+        get_btn.set_valign(Gtk.Align.CENTER)
+        get_btn.connect("clicked", lambda b: self.on_recommendation_clicked(app_data))
+        hbox.append(get_btn)
+
+        row_btn.connect("clicked", lambda b: self.on_recommendation_clicked(app_data))
+        return row_btn
 
     def create_app_grid_item(self, app_data):
         box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
@@ -680,12 +821,23 @@ class PackageInstaller(Adw.ApplicationWindow):
         box.set_hexpand(True)
         box.set_valign(Gtk.Align.CENTER)
         
-        # Rounded App Icon
+        # Rounded App Icon (supports local files, cached icons, and symbolic names)
         icon_path = app_data.get('icon', '')
         if icon_path and os.path.exists(icon_path):
             icon = Gtk.Image.new_from_file(icon_path)
+        elif icon_path and icon_path.startswith('http'):
+            # Remote URL — try to load from cache, fallback to symbolic
+            try:
+                from src.utils.system import get_cached_icon
+                cached = get_cached_icon(icon_path, app_data.get('name', 'app'))
+                if cached and os.path.exists(cached):
+                    icon = Gtk.Image.new_from_file(cached)
+                else:
+                    icon = Gtk.Image.new_from_icon_name("system-software-install-symbolic")
+            except Exception:
+                icon = Gtk.Image.new_from_icon_name("system-software-install-symbolic")
         else:
-            icon = Gtk.Image.new_from_icon_name("system-software-install-symbolic")
+            icon = Gtk.Image.new_from_icon_name(icon_path if icon_path else "system-software-install-symbolic")
         icon.set_pixel_size(48)
         icon.add_css_class("app-card-icon")
         box.append(icon)
@@ -783,8 +935,11 @@ class PackageInstaller(Adw.ApplicationWindow):
 
     def on_recommendation_clicked(self, app_data):
         pkg_name = app_data['name']
-        if app_data.get('source') == 'flatpak':
+        source = app_data.get('source', '')
+        if source == 'flatpak':
             pkg_name = f"flatpak:{pkg_name}"
+        elif source == 'pulsar':
+            pkg_name = f"pulsar:{pkg_name}"
         self.file_path = pkg_name
         self.show_package_details(identifier=pkg_name, is_local=False)
 
@@ -1021,7 +1176,7 @@ class PackageInstaller(Adw.ApplicationWindow):
 
     def load_initial_file(self):
         if self.file_path:
-            is_scheme = any(self.file_path.startswith(prefix) for prefix in ["flatpak:", "snap:", "aur:", "brew:", "appstream:", "flatpak+https:"])
+            is_scheme = any(self.file_path.startswith(prefix) for prefix in ["flatpak:", "snap:", "aur:", "brew:", "pulsar:", "appstream:", "flatpak+https:"])
             if is_scheme or os.path.exists(self.file_path):
                 # Ensure store tab is active and visible
                 store_row = self.sidebar_list.get_row_at_index(0)
@@ -1659,6 +1814,8 @@ class PackageInstaller(Adw.ApplicationWindow):
             pkg_name = f"snap:{pkg_name}"
         elif row.source == 'aur':
             pkg_name = f"aur:{pkg_name}"
+        elif row.source == 'pulsar':
+            pkg_name = f"pulsar:{pkg_name}"
             
         if self.search_timer:
             GLib.source_remove(self.search_timer)

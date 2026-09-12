@@ -44,33 +44,46 @@ class UninstallService:
         else:
             return self.package_manager.uninstall(package_name)
 
-    def run_uninstall(self, cmd, on_progress, on_complete):
+    def _prepare_env(self):
+        env = os.environ.copy()
+        env["SUDO"] = "pkexec"
+        env["PACMAN"] = "pacman"
+        env["PACMAN_AUTH"] = "pkexec"
+        env["APPINSTALL_SUDO"] = "pkexec"
+        return env
+
+    def run_uninstall(self, cmd, on_progress=None, on_complete=None, on_log=None):
         def _run():
             try:
-                process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+                env = self._prepare_env()
+                process = subprocess.Popen(
+                    cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                    universal_newlines=True, bufsize=1
+                )
                 
-                import time
-                last_update = 0
-                
-                while True:
-                    output = process.stdout.readline()
-                    if output == '' and process.poll() is not None:
-                        break
-                    if output:
-                        current_time = time.time()
-                        # Solo actualizar la UI cada 100ms para no saturar el hilo principal
-                        if current_time - last_update > 0.1:
+                log_lines = []
+                for line in process.stdout:
+                    stripped = line.rstrip('\n')
+                    if stripped.strip():
+                        log_lines.append(stripped)
+                        if on_log:
+                            GLib.idle_add(on_log, stripped)
+                        elif on_progress:
                             GLib.idle_add(on_progress)
-                            last_update = current_time
                 
-                _, stderr = process.communicate()
+                process.wait()
+                returncode = process.returncode
+                stderr = "\n".join(log_lines[-20:]) if log_lines else ""
                 
-                if process.returncode == 0:
-                    GLib.idle_add(on_complete, True, None)
+                if returncode == 0:
+                    if on_complete:
+                        GLib.idle_add(on_complete, True, None)
                 else:
-                    GLib.idle_add(on_complete, False, str(stderr))
+                    if on_complete:
+                        GLib.idle_add(on_complete, False, stderr or "Error en la ejecución del comando de desinstalación")
             except Exception as e:
-                GLib.idle_add(on_complete, False, str(e))
+                if on_complete:
+                    GLib.idle_add(on_complete, False, str(e))
 
         thread = threading.Thread(target=_run)
         thread.daemon = True

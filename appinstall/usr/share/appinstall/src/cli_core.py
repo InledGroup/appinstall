@@ -170,7 +170,7 @@ def _get_adapters():
     """Discover and return a dict of available package adapters.
     
     Returns:
-        dict[str, object] — keyed by source name ('system', 'flatpak', 'snap', 'aur').
+        dict[str, object] — keyed by source name ('system', 'flatpak', 'snap', 'aur', 'pulsar').
         Only adapters whose backend is actually installed on the machine are included.
     
     Resolution order:
@@ -178,12 +178,14 @@ def _get_adapters():
     2. FlatpakAdapter — only if `flatpak` is on PATH (is_available()).
     3. SnapAdapter — only if `snap` is on PATH.
     4. AurAdapter — only if `pacman` is on PATH (AUR helpers depend on pacman).
+    5. PulsarStoreAdapter — always available (remote catalog).
     """
     from src.infrastructure.adapters.factory import get_package_manager
     from src.infrastructure.adapters.flatpak_adapter import FlatpakAdapter
     from src.infrastructure.adapters.snap_adapter import SnapAdapter
     from src.infrastructure.adapters.aur_adapter import AurAdapter
     from src.infrastructure.adapters.brew_adapter import BrewAdapter
+    from src.infrastructure.adapters.pulsar_store_adapter import PulsarStoreAdapter
 
     pm = get_package_manager()
     adapters = {'system': pm}
@@ -203,6 +205,9 @@ def _get_adapters():
     if br.is_available():
         adapters['brew'] = br
 
+    # Pulsar Store is always available (remote catalog)
+    adapters['pulsar'] = PulsarStoreAdapter()
+
     return adapters
 
 
@@ -215,6 +220,7 @@ SOURCE_LABELS = {
     'snap':    ('snap', _c('magenta', 'snap')),
     'aur':     ('aur', _c('yellow', 'aur')),
     'brew':    ('brew', _c('magenta', 'brew')),
+    'pulsar':  ('psr', _c('cyan',   'psr')),
 }
 
 # Aliases: maps user-friendly names to canonical source keys
@@ -225,6 +231,8 @@ SOURCE_ALIASES = {
     'snap': 'snap', 'snapcraft': 'snap',
     'aur': 'aur', 'yay': 'aur', 'paru': 'aur',
     'brew': 'brew', 'homebrew': 'brew', 'linuxbrew': 'brew',
+    'pulsar': 'pulsar', 'store': 'pulsar', 'pulsar-store': 'pulsar',
+    'psr': 'pulsar',
 }
 
 
@@ -246,16 +254,17 @@ def _normalize_source(name: str) -> str:
 def _parse_source(query: str):
     """Parse an optional source prefix from a package query.
     
-    Supported prefixes: flatpak:, snap:, aur:, pacman:, brew:
+    Supported prefixes: flatpak:, snap:, aur:, pacman:, brew:, pulsar:
     
     Returns:
         (source_name_or_None, stripped_query)
     
     Examples:
         _parse_source("flatpak:org.gimp.GIMP")  -> ("flatpak", "org.gimp.GIMP")
+        _parse_source("pulsar:sayri-gateway-tg") -> ("pulsar", "sayri-gateway-tg")
         _parse_source("firefox")                 -> (None, "firefox")
     """
-    for prefix in ['flatpak:', 'snap:', 'aur:', 'pacman:', 'brew:']:
+    for prefix in ['flatpak:', 'snap:', 'aur:', 'pacman:', 'brew:', 'pulsar:']:
         if query.lower().startswith(prefix):
             return prefix.rstrip(':'), query[len(prefix):]
     return None, query
@@ -511,17 +520,49 @@ def cmd_search(query: str):
     
     Searches all adapters in parallel with live progress, then displays
     results grouped by source.
+    
+    Supports 'from' source filtering:
+      sayri from pulsar  → search only in Pulsar Store
+      gimp from flathub  → search only in Flatpak
     """
     if not query:
         print(f"  Usage: {_c('bold', f'{CLI_NAME} search <query>')}", file=sys.stderr)
         print(f"  Example: {_c('dim', f'{CLI_NAME} search wl clipboard')}", file=sys.stderr)
         return False
 
-    adapters = _get_adapters()
-    variations = _generate_search_variations(query)
+    # Check for 'from' syntax (e.g. 'sayri from pulsar')
+    source_filter = None
+    clean_query = query
+    query_lower = query.lower()
+    if ' from ' in query_lower:
+        parts = query.rsplit(' from ', 1)
+        if len(parts) == 2:
+            possible_source = parts[1].strip().lower()
+            normalized = _normalize_source(possible_source)
+            all_adapters = _get_adapters()
+            if normalized in all_adapters:
+                source_filter = normalized
+                clean_query = parts[0].strip()
 
-    results_by_source = _run_search_with_progress(adapters, query, variations)
-    _print_search_results(results_by_source, query)
+    # Also support prefix syntax (flatpak:gimp, pulsar:sayri)
+    if not source_filter:
+        source_prefix, parsed_query = _parse_source(query)
+        if source_prefix:
+            normalized = _normalize_source(source_prefix)
+            all_adapters = _get_adapters()
+            if normalized in all_adapters:
+                source_filter = normalized
+                clean_query = parsed_query
+
+    if source_filter:
+        adapters = {source_filter: _get_adapters()[source_filter]}
+    else:
+        adapters = _get_adapters()
+
+    variations = _generate_search_variations(clean_query)
+
+    results_by_source = _run_search_with_progress(adapters, clean_query, variations)
+    _print_search_results(results_by_source, clean_query)
     return any(results_by_source.values())
 
 

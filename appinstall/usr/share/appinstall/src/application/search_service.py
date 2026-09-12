@@ -7,6 +7,7 @@ from src.infrastructure.adapters.flatpak_adapter import FlatpakAdapter
 from src.infrastructure.adapters.snap_adapter import SnapAdapter
 from src.infrastructure.adapters.aur_adapter import AurAdapter
 from src.infrastructure.adapters.brew_adapter import BrewAdapter
+from src.infrastructure.adapters.pulsar_store_adapter import PulsarStoreAdapter
 
 CONFIG_PATH = os.path.expanduser("~/.config/appinstall/config.json")
 
@@ -17,10 +18,11 @@ class SearchService:
         self.snap_adapter = SnapAdapter()
         self.aur_adapter = AurAdapter()
         self.brew_adapter = BrewAdapter()
+        self.pulsar_adapter = PulsarStoreAdapter()
         self.priority_order = self.load_priority_order()
 
     def load_priority_order(self) -> List[str]:
-        default_order = ["system", "flatpak", "snap", "aur", "brew"]
+        default_order = ["system", "flatpak", "snap", "aur", "brew", "pulsar"]
         if not os.path.exists(CONFIG_PATH):
             return default_order
         try:
@@ -67,6 +69,9 @@ class SearchService:
         # 5. Homebrew (si está disponible)
         if self.brew_adapter.is_available():
             tasks.append(("brew", lambda: self.brew_adapter.search(query)))
+            
+        # 6. Pulsar Store (siempre disponible — catálogo remoto)
+        tasks.append(("pulsar", lambda: self.pulsar_adapter.search(query)))
             
         # Ejecutar búsquedas en paralelo con ThreadPoolExecutor
         with concurrent.futures.ThreadPoolExecutor(max_workers=len(tasks)) as executor:

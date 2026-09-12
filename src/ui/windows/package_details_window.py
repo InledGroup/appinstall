@@ -159,7 +159,7 @@ class PackageDetailsWidget(Gtk.Box):
             self.install_btn.add_css_class("destructive-action")
             self.install_btn.connect("clicked", self.on_uninstall_clicked)
         else:
-            self.install_btn = Gtk.Button(label=_("Instalar"))
+            self.install_btn = Gtk.Button(label=_("Obtener"))
             self.install_btn.add_css_class("suggested-action")
             self.install_btn.connect("clicked", self.on_install_clicked)
             
