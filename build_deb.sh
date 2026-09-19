@@ -68,6 +68,9 @@ cp es.inled.AppInstall.desktop appinstall/usr/share/applications/
 mkdir -p appinstall/usr/share/metainfo/
 cp es.inled.AppInstall.metainfo.xml appinstall/usr/share/metainfo/
 
+mkdir -p appinstall/usr/share/mime/packages/
+cp es.inled.AppInstall.xml appinstall/usr/share/mime/packages/
+
 # Asegurar que los iconos están en las rutas correctas
 mkdir -p appinstall/usr/share/icons/hicolor/512x512/apps/
 cp es.inled.AppInstall.png appinstall/usr/share/icons/hicolor/512x512/apps/es.inled.AppInstall.png
@@ -77,7 +80,8 @@ cp es.inled.AppInstall.png appinstall/usr/share/pixmaps/es.inled.AppInstall.png
 # Ajustar permisos necesarios para el paquete Debian
 echo "Ajustando permisos..."
 chmod -R 755 appinstall/usr
-chmod 755 appinstall/DEBIAN/postinst
+[ -d appinstall/etc ] && chmod -R 755 appinstall/etc
+chmod 755 appinstall/DEBIAN/postinst 2>/dev/null || true
 chmod 755 appinstall/usr/bin/appinstall
 # Los archivos de control deben tener permisos específicos (644)
 chmod 644 appinstall/DEBIAN/control

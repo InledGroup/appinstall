@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=AppInstall Auto-Updater
+Comment=Background update checker for Pulsar OS
+Exec=/usr/bin/appinstall daemon
+Icon=es.inled.AppInstall
+Terminal=false
+Hidden=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Delay=180

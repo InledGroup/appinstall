@@ -27,10 +27,13 @@ if __name__ == "__main__":
         print(f"Compiling {po_path} to {mo_path}...")
         compile_po(po_path, mo_path)
         # Also copy to the appinstall structure
-        dest_mo = 'appinstall/usr/share/locale/en/LC_MESSAGES/appinstall.mo'
-        os.makedirs(os.path.dirname(dest_mo), exist_ok=True)
+        dest_mo1 = 'appinstall/usr/share/locale/en/LC_MESSAGES/appinstall.mo'
+        dest_mo2 = 'appinstall/usr/share/appinstall/locale/en/LC_MESSAGES/appinstall.mo'
         import shutil
-        shutil.copy(mo_path, dest_mo)
+        os.makedirs(os.path.dirname(dest_mo1), exist_ok=True)
+        shutil.copy(mo_path, dest_mo1)
+        os.makedirs(os.path.dirname(dest_mo2), exist_ok=True)
+        shutil.copy(mo_path, dest_mo2)
         print("Done.")
     else:
         print(f"File {po_path} not found.")

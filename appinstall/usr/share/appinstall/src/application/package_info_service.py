@@ -25,12 +25,14 @@ class PackageInfoService:
             if not os.path.exists(identifier):
                 return {}
             ext = os.path.splitext(identifier)[1].lower()
-            # English: Check for supported system packages (.deb, .rpm, .pkg.tar.zst, .pkg.tar.xz)
-            # Español: Comprobar si son paquetes de sistema compatibles (.deb, .rpm, .pkg.tar.zst, .pkg.tar.xz)
+            # English: Check for supported system packages (.deb, .rpm, .pkg.tar.zst, .pkg.tar.xz, .pkg.tar.gz, .pkg.tar, .pacman)
+            # Español: Comprobar si son paquetes de sistema compatibles (.deb, .rpm, .pkg.tar.zst, .pkg.tar.xz, .pkg.tar.gz, .pkg.tar, .pacman)
             is_local_pkg = (
-                ext in ('.deb', '.rpm') or
+                ext in ('.deb', '.rpm', '.pacman') or
                 identifier.lower().endswith('.pkg.tar.zst') or
-                identifier.lower().endswith('.pkg.tar.xz')
+                identifier.lower().endswith('.pkg.tar.xz') or
+                identifier.lower().endswith('.pkg.tar.gz') or
+                identifier.lower().endswith('.pkg.tar')
             )
             if is_local_pkg:
                 return self.package_manager.get_local_file_info(identifier)

@@ -19,9 +19,10 @@ echo "Construyendo $ARCH_PKG_NAME..."
 # Crear el directorio temporal para el paquete Arch
 mkdir -p archpkg/
 cp -r appinstall/usr/ archpkg/
+[ -d appinstall/etc ] && cp -r appinstall/etc/ archpkg/
 
 # Calcular el tamaño de la carpeta en bytes y obtener la fecha de compilación
-SIZE=$(du -sb archpkg/usr | cut -f1)
+SIZE=$(du -sb archpkg | cut -f1)
 BUILDDATE=$(date +%s)
 
 # Escribir el archivo de metadatos PKGINFO para el gestor de paquetes pacman de Arch
@@ -47,7 +48,7 @@ printf "%s\n" \
 # Construir el archivo .pkg.tar.zst con tar y zstd
 if command -v tar >/dev/null && command -v zstd >/dev/null; then
     cd archpkg
-    tar --owner=0 --group=0 -cf - .PKGINFO usr | zstd -z -19 > "../${ARCH_PKG_NAME}"
+    tar --owner=0 --group=0 -cf - .PKGINFO * | zstd -z -19 > "../${ARCH_PKG_NAME}"
     cd ..
     echo "¡Hecho! El paquete de Arch Linux se ha creado: $ARCH_PKG_NAME"
     # Limpiar

@@ -526,7 +526,7 @@ def handle_cli_args(argv: list) -> bool:
         packages = _parse_multi_package_args(args)
         if not packages:
             print(f"  Usage: {_c('bold', f'{CLI_NAME} {command} <package> [from <source>]')}", file=sys.stderr)
-            return True
-        return not func(packages)
+    elif command in ('daemon', 'autoupdate'):
+        return not func(args)
     else:
         return not func()

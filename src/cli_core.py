@@ -953,6 +953,20 @@ def cmd_fix():
         return False
 
 
+def cmd_daemon(args=None):
+    """Run background auto-updater daemon."""
+    from src.application.daemon_service import DaemonService
+    delay = 180
+    if args:
+        if isinstance(args, str):
+            args = [args]
+        if any(a in ('--no-delay', '--run-once', '-1', 'now') for a in args):
+            delay = 0
+    daemon = DaemonService()
+    daemon.run_check_and_update(initial_delay=delay)
+    return True
+
+
 def cmd_info(packages):
     """Show detailed information about one or more packages.
 
@@ -1046,6 +1060,8 @@ COMMANDS = {
     'purge':     cmd_remove,
     'update':    lambda: cmd_update(),
     'upgrade':   lambda: cmd_update(),
+    'daemon':    cmd_daemon,
+    'autoupdate': cmd_daemon,
     'fix':       lambda: cmd_fix(),
     'repair':    lambda: cmd_fix(),
     'info':      cmd_info,

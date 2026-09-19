@@ -75,12 +75,14 @@ X-SwiftInstall={install_type}
         is_brew_file = HAS_BREW and file_extension == '.rb'
         is_name_only = not file_extension
 
-        # English: Check if it is a supported local package archive (.deb, .rpm, .pkg.tar.zst, .pkg.tar.xz)
-        # Español: Comprobar si es un archivo de paquete local compatible (.deb, .rpm, .pkg.tar.zst, .pkg.tar.xz)
+        # English: Check if it is a supported local package archive (.deb, .rpm, .pkg.tar.zst, .pkg.tar.xz, .pkg.tar.gz, .pkg.tar, .pacman)
+        # Español: Comprobar si es un archivo de paquete local compatible (.deb, .rpm, .pkg.tar.zst, .pkg.tar.xz, .pkg.tar.gz, .pkg.tar, .pacman)
         is_local_package = (
-            file_extension in ('.deb', '.rpm') or
+            file_extension in ('.deb', '.rpm', '.pacman') or
             file_path.lower().endswith('.pkg.tar.zst') or
-            file_path.lower().endswith('.pkg.tar.xz')
+            file_path.lower().endswith('.pkg.tar.xz') or
+            file_path.lower().endswith('.pkg.tar.gz') or
+            file_path.lower().endswith('.pkg.tar')
         )
 
         if is_local_package:
