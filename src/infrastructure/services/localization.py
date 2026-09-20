@@ -25,6 +25,13 @@ def setup_localization():
     lang_env = os.environ.get('LANGUAGE') or os.environ.get('LC_ALL') or os.environ.get('LC_MESSAGES') or os.environ.get('LANG') or ''
     lang_clean = lang_env.split('.')[0].split(':')[0].strip()
 
+    # C / POSIX / sin idioma: no hay un idioma real (muy común en instalaciones
+    # Arch minimales con LANG=C.UTF-8). El sistema no está en español, así que
+    # el idioma efectivo es el inglés. Además, gettext lanza FileNotFoundError
+    # si 'C' va dentro de la lista 'languages', así que debe normalizarse antes.
+    if lang_clean.lower() in ('c', 'posix', ''):
+        lang_clean = 'en'
+
     # Si el sistema está en español, los textos del código fuente ya son en español
     if lang_clean.lower().startswith('es'):
         try:
