@@ -20,6 +20,22 @@ msgstr ""
 msgid "El sistema se ha actualizado correctamente."
 msgstr "The system was successfully upgraded."
 
+#: src/application/daemon_service.py:158
+msgid "Pulsar OS - Actualizaciones"
+msgstr "Pulsar OS - Updates"
+
+#: src/application/daemon_service.py:159
+msgid "El sistema y las aplicaciones se han actualizado automáticamente con éxito."
+msgstr "The system and applications have been automatically updated successfully."
+
+#: src/ui/windows/main_window.py:930
+msgid "Actualizaciones automáticas"
+msgstr "Automatic updates"
+
+#: src/ui/windows/main_window.py:933
+msgid "Instala automáticamente en segundo plano las actualizaciones del sistema y de las aplicaciones."
+msgstr "Automatically installs system and application updates in the background."
+
 #: src/application/install_service.py:192
 #, python-brace-format
 msgid "AppImage instalado como {}. Se ha creado un acceso directo."

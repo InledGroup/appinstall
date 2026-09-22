@@ -36,8 +36,18 @@ class SearchService:
         self.priority_order = order
         try:
             os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
+            # Preservar el resto de claves del config (p. ej. 'auto_update'),
+            # en vez de sobrescribir el archivo entero.
+            data = {}
+            if os.path.exists(CONFIG_PATH):
+                try:
+                    with open(CONFIG_PATH, 'r') as f:
+                        data = json.load(f)
+                except Exception:
+                    data = {}
+            data["search_priority"] = order
             with open(CONFIG_PATH, 'w') as f:
-                json.dump({"search_priority": order}, f)
+                json.dump(data, f, ensure_ascii=False, indent=2)
         except Exception as e:
             print(f"Error saving priority configuration: {e}")
 

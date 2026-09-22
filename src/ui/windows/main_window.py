@@ -1,4 +1,5 @@
 import os
+import json
 import threading
 import subprocess
 import requests
@@ -921,6 +922,31 @@ class PackageInstaller(Adw.ApplicationWindow):
         
         content.append(status_card)
         
+        # ── Actualizaciones automáticas (toggle) ────────────────────────────
+        auto_card = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        auto_card.add_css_class("card")
+        auto_card.set_halign(Gtk.Align.FILL)
+        
+        auto_texts = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        auto_title = Gtk.Label(label=_("Actualizaciones automáticas"), xalign=0)
+        auto_title.add_css_class("title-label")
+        auto_subtitle = Gtk.Label(
+            label=_("Instala automáticamente en segundo plano las actualizaciones del sistema y de las aplicaciones."),
+            xalign=0, wrap=True,
+        )
+        auto_subtitle.add_css_class("dim-label")
+        auto_texts.append(auto_title)
+        auto_texts.append(auto_subtitle)
+        auto_card.append(auto_texts)
+        
+        self.auto_update_switch = Gtk.Switch()
+        self.auto_update_switch.set_valign(Gtk.Align.CENTER)
+        self.auto_update_switch.set_active(self._load_auto_update())
+        self.auto_update_switch.connect("state-set", self.on_auto_update_toggled)
+        auto_card.append(self.auto_update_switch)
+        
+        content.append(auto_card)
+        
         actions_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         actions_box.set_halign(Gtk.Align.CENTER)
         
@@ -946,6 +972,39 @@ class PackageInstaller(Adw.ApplicationWindow):
         content.append(updates_list_container)
         
         return updates_box
+
+    def _load_auto_update(self) -> bool:
+        """Lee la preferencia 'auto_update' de la configuración (activa por defecto)."""
+        try:
+            for path in (
+                os.path.expanduser("~/.config/appinstall/config.json"),
+                "/etc/appinstall/config.json",
+            ):
+                if os.path.exists(path):
+                    with open(path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                        if "auto_update" in data:
+                            return bool(data["auto_update"])
+        except Exception as e:
+            print(f"Error reading auto_update configuration: {e}")
+        return True
+
+    def on_auto_update_toggled(self, switch, state):
+        """Persiste el estado del interruptor de actualizaciones automáticas."""
+        try:
+            path = os.path.expanduser("~/.config/appinstall/config.json")
+            data = {}
+            if os.path.exists(path):
+                with open(path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+            data["auto_update"] = bool(state)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"Error saving auto_update configuration: {e}")
+            switch.set_active(not state)  # revertir el interruptor
+        return True
 
     def trigger_updates_check(self):
         self.updates_spinner.start()

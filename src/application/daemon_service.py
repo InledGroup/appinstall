@@ -6,6 +6,8 @@ import subprocess
 import socket
 import shutil
 
+from src.infrastructure.services.localization import _
+
 class DaemonService:
     """Demonio de segundo plano para comprobación y aplicación automática de actualizaciones en Pulsar OS."""
 
@@ -155,8 +157,8 @@ class DaemonService:
         if updated:
             print("[Daemon] Sistema actualizado correctamente.")
             self.send_notification(
-                "Pulsar OS - Actualizaciones",
-                "El sistema y las aplicaciones se han actualizado automáticamente con éxito."
+                _("Pulsar OS - Actualizaciones"),
+                _("El sistema y las aplicaciones se han actualizado automáticamente con éxito.")
             )
         else:
             print("[Daemon] El sistema ya se encuentra al día.")
