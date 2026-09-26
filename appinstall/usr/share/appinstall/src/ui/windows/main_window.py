@@ -1,4 +1,5 @@
 import os
+import json
 import threading
 import subprocess
 import requests
@@ -456,28 +457,7 @@ class PackageInstaller(Adw.ApplicationWindow):
         self.top_free_spinner.start()
         self.top_free_section_box.append(self.top_free_spinner)
         
-        # 4. Pulsar Store Section (Pulsar OS packages)
-        self.pulsar_section_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        pulsar_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        pulsar_title = Gtk.Label(label=_("Pulsar Store"), xalign=0)
-        pulsar_title.add_css_class("store-section-title")
-        pulsar_header.append(pulsar_title)
-        self.pulsar_section_box.append(pulsar_header)
-        
-        self.pulsar_grid = Gtk.Grid()
-        self.pulsar_grid.set_column_spacing(24)
-        self.pulsar_grid.set_row_spacing(16)
-        self.pulsar_grid.set_column_homogeneous(True)
-        self.pulsar_section_box.append(self.pulsar_grid)
-        self.main_box.append(self.pulsar_section_box)
-        
-        self.pulsar_spinner = Gtk.Spinner()
-        self.pulsar_spinner.set_size_request(24, 24)
-        self.pulsar_spinner.set_halign(Gtk.Align.CENTER)
-        self.pulsar_spinner.start()
-        self.pulsar_section_box.append(self.pulsar_spinner)
-        
-        # 5. Local File Installation Banner (Moved to bottom)
+        # 4. Local File Installation Banner (Moved to bottom)
         local_install_card = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16)
         local_install_card.add_css_class("card")
         local_install_card.set_margin_bottom(8)
@@ -637,43 +617,10 @@ class PackageInstaller(Adw.ApplicationWindow):
                 popular_all = []
                 trending = []
 
-            # Fetch Pulsar Store packages
-            pulsar_packages = []
-            try:
-                from src.infrastructure.adapters.pulsar_store_adapter import PulsarStoreAdapter
-                pulsar = PulsarStoreAdapter()
-                catalog = pulsar._get_catalog()
-                for pkg in catalog:
-                    icon_url = pkg.get('icon_url', '')
-                    # Download icon to cache if it's a URL
-                    cached_icon = ''
-                    if icon_url and icon_url.startswith('http'):
-                        try:
-                            from src.utils.system import get_cached_icon
-                            cached_icon = get_cached_icon(icon_url, f"pulsar_{pkg.get('id', '')}")
-                        except Exception:
-                            pass
-                    type_label = {
-                        'flatpak': 'Flatpak',
-                        'gnome_extension': 'Extension',
-                        'sayri_skill': 'Skill',
-                        'sayri_plugin': 'Plugin',
-                    }.get(pkg.get('type', ''), pkg.get('type', ''))
-                    pulsar_packages.append({
-                        'name': pkg.get('id', ''),
-                        'display_name': pkg.get('name', ''),
-                        'desc': f"[{type_label}] {pkg.get('description', '')}",
-                        'source': 'pulsar',
-                        'icon': cached_icon or 'system-software-install-symbolic',
-                        'version': pkg.get('version', ''),
-                    })
-            except Exception as e:
-                print(f"Error loading Pulsar Store: {e}")
-
-            if not popular_all and not trending and not pulsar_packages:
+            if not popular_all and not trending:
                 GLib.idle_add(self.show_offline_banner)
             else:
-                GLib.idle_add(self.populate_recommendations, popular, trending, top_free, pulsar_packages)
+                GLib.idle_add(self.populate_recommendations, popular, trending, top_free)
 
         threading.Thread(target=_fetch, daemon=True).start()
 
@@ -705,7 +652,7 @@ class PackageInstaller(Adw.ApplicationWindow):
         if hasattr(self, 'offline_banner'):
             self.offline_banner.set_visible(True)
 
-    def populate_recommendations(self, popular, trending, top_free, pulsar_packages=None):
+    def populate_recommendations(self, popular, trending, top_free):
         # Stop and remove spinners if they exist
         self._stop_recommendation_spinners()
             
@@ -717,14 +664,6 @@ class PackageInstaller(Adw.ApplicationWindow):
         
         # Populate top free (Mac App Store ranked two-column list, 1..N)
         self._fill_ranked_columns(self.top_free_horizontal_box, top_free[:6])
-
-        # Populate Pulsar Store packages (same ranked style)
-        if pulsar_packages:
-            try:
-                self.pulsar_spinner.stop()
-                self.pulsar_section_box.remove(self.pulsar_spinner)
-            except: pass
-            self._fill_ranked_columns(self.pulsar_grid, pulsar_packages[:8])
 
     def _fill_ranked_columns(self, container, apps):
         """English: Fill a container with a Mac App Store style ranked
@@ -983,6 +922,31 @@ class PackageInstaller(Adw.ApplicationWindow):
         
         content.append(status_card)
         
+        # ── Actualizaciones automáticas (toggle) ────────────────────────────
+        auto_card = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        auto_card.add_css_class("card")
+        auto_card.set_halign(Gtk.Align.FILL)
+        
+        auto_texts = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        auto_title = Gtk.Label(label=_("Actualizaciones automáticas"), xalign=0)
+        auto_title.add_css_class("title-label")
+        auto_subtitle = Gtk.Label(
+            label=_("Instala automáticamente en segundo plano las actualizaciones del sistema y de las aplicaciones."),
+            xalign=0, wrap=True,
+        )
+        auto_subtitle.add_css_class("dim-label")
+        auto_texts.append(auto_title)
+        auto_texts.append(auto_subtitle)
+        auto_card.append(auto_texts)
+        
+        self.auto_update_switch = Gtk.Switch()
+        self.auto_update_switch.set_valign(Gtk.Align.CENTER)
+        self.auto_update_switch.set_active(self._load_auto_update())
+        self.auto_update_switch.connect("state-set", self.on_auto_update_toggled)
+        auto_card.append(self.auto_update_switch)
+        
+        content.append(auto_card)
+        
         actions_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         actions_box.set_halign(Gtk.Align.CENTER)
         
@@ -1008,6 +972,39 @@ class PackageInstaller(Adw.ApplicationWindow):
         content.append(updates_list_container)
         
         return updates_box
+
+    def _load_auto_update(self) -> bool:
+        """Lee la preferencia 'auto_update' de la configuración (activa por defecto)."""
+        try:
+            for path in (
+                os.path.expanduser("~/.config/appinstall/config.json"),
+                "/etc/appinstall/config.json",
+            ):
+                if os.path.exists(path):
+                    with open(path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                        if "auto_update" in data:
+                            return bool(data["auto_update"])
+        except Exception as e:
+            print(f"Error reading auto_update configuration: {e}")
+        return True
+
+    def on_auto_update_toggled(self, switch, state):
+        """Persiste el estado del interruptor de actualizaciones automáticas."""
+        try:
+            path = os.path.expanduser("~/.config/appinstall/config.json")
+            data = {}
+            if os.path.exists(path):
+                with open(path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+            data["auto_update"] = bool(state)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"Error saving auto_update configuration: {e}")
+            switch.set_active(not state)  # revertir el interruptor
+        return True
 
     def trigger_updates_check(self):
         self.updates_spinner.start()
