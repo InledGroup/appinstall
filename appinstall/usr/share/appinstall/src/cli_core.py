@@ -290,24 +290,14 @@ def _generate_search_variations(query: str) -> List[str]:
     return list(dict.fromkeys(variations))
 
 
-def _run_cmd(cmd, timeout=120):
-    """Execute an external command and stream its output live.
-    
-    Args:
-        cmd: List of command arguments (passed to subprocess.Popen).
-        timeout: Maximum wall-clock seconds before the process is killed (default 120).
-    
-    Returns:
-        True if the process exited with code 0, False otherwise.
-    
-    Behaviour:
-    - stdout and stderr are merged (stderr=STDOUT) and printed line-by-line as they arrive.
-    - On TimeoutExpired, the process is killed and an error is printed to stderr.
-    - Any other exception (e.g. FileNotFoundError) is caught and printed.
-    """
+def _run_cmd(cmd, timeout=300):
+    """Execute an external command and stream its output live."""
     try:
+        if sys.stdin.isatty() and sys.stdout.isatty():
+            res = subprocess.run(cmd, timeout=timeout)
+            return res.returncode == 0
         proc = subprocess.Popen(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            cmd, stdin=sys.stdin, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
             universal_newlines=True
         )
         for line in proc.stdout:
@@ -315,7 +305,8 @@ def _run_cmd(cmd, timeout=120):
         proc.wait(timeout=timeout)
         return proc.returncode == 0
     except subprocess.TimeoutExpired:
-        proc.kill()
+        if 'proc' in locals():
+            proc.kill()
         print(_c('red', "Timed out."), file=sys.stderr)
         return False
     except Exception as e:
