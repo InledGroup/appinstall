@@ -112,6 +112,9 @@ def create_app_icon_widget(icon_path_or_url_or_name: str, size: int = 44, fallba
     if not icon_path_or_url_or_name:
         img = Gtk.Image.new_from_icon_name(fallback)
         img.set_pixel_size(size)
+        img.set_size_request(size, size)
+        img.set_halign(Gtk.Align.CENTER)
+        img.set_valign(Gtk.Align.CENTER)
         return img
 
     path = icon_path_or_url_or_name
@@ -128,12 +131,17 @@ def create_app_icon_widget(icon_path_or_url_or_name: str, size: int = 44, fallba
                 pic.set_size_request(size, size)
                 pic.set_content_fit(Gtk.ContentFit.CONTAIN)
                 pic.set_can_shrink(True)
+                pic.set_halign(Gtk.Align.CENTER)
+                pic.set_valign(Gtk.Align.CENTER)
                 return pic
             except Exception:
                 pass
         try:
             img = Gtk.Image.new_from_file(path)
             img.set_pixel_size(size)
+            img.set_size_request(size, size)
+            img.set_halign(Gtk.Align.CENTER)
+            img.set_valign(Gtk.Align.CENTER)
             return img
         except Exception:
             pass
@@ -141,7 +149,11 @@ def create_app_icon_widget(icon_path_or_url_or_name: str, size: int = 44, fallba
     # Symbolic or named theme icon
     img = Gtk.Image.new_from_icon_name(path if path else fallback)
     img.set_pixel_size(size)
+    img.set_size_request(size, size)
+    img.set_halign(Gtk.Align.CENTER)
+    img.set_valign(Gtk.Align.CENTER)
     return img
+
 
 def get_cached_screenshot(screenshot_url: str, prefix: str) -> str:
     """Descarga una imagen de demo/screenshot (PNG, JPG, WebP, SVG, GIF) y la almacena en caché."""
