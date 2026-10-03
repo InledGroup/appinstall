@@ -246,19 +246,16 @@ class GnomeExtensionsWidget(Gtk.Box):
             self.installed_listbox.append(empty_row)
 
     def create_installed_row(self, ext):
-        row = Adw.ActionRow()
+        row = Adw.ExpanderRow()
         row.set_title(ext["name"])
-        
-        # Subtitle with description or UUID
-        sub = ext["description"] if ext["description"] else ext["uuid"]
-        row.set_subtitle(sub)
+        row.set_subtitle(ext["uuid"])
 
         # Prefix Icon
         icon = Gtk.Image.new_from_icon_name("application-x-addon-symbolic")
         icon.set_pixel_size(24)
         row.add_prefix(icon)
 
-        # Version & Type Badges
+        # Header Badges (Version & Type)
         badge_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         badge_box.set_valign(Gtk.Align.CENTER)
 
@@ -275,36 +272,127 @@ class GnomeExtensionsWidget(Gtk.Box):
 
         row.add_suffix(badge_box)
 
-        # Actions Box
-        actions_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        actions_box.set_valign(Gtk.Align.CENTER)
-
-        # Settings Button (if has preferences)
-        if ext["has_prefs"]:
-            prefs_btn = Gtk.Button(icon_name="emblem-system-symbolic")
-            prefs_btn.set_tooltip_text(_("Configuración"))
-            prefs_btn.add_css_class("flat")
-            prefs_btn.connect("clicked", lambda b, u=ext["uuid"]: subprocess.Popen(["gnome-extensions", "prefs", u]))
-            actions_box.append(prefs_btn)
-
-        # Uninstall Button (user extensions only)
-        if ext["type"] == "user":
-            del_btn = Gtk.Button(icon_name="user-trash-symbolic")
-            del_btn.set_tooltip_text(_("Desinstalar extensión"))
-            del_btn.add_css_class("flat")
-            del_btn.connect("clicked", self._on_uninstall_extension, ext["uuid"])
-            actions_box.append(del_btn)
-
-        # Enable/Disable Switch
+        # Enable/Disable Switch on the header row
         switch = Gtk.Switch()
         switch.set_valign(Gtk.Align.CENTER)
         is_enabled = (ext["state"] == "ENABLED")
         switch.set_active(is_enabled)
         switch.connect("state-set", self._on_extension_toggle, ext["uuid"])
-        actions_box.append(switch)
+        row.add_suffix(switch)
 
-        row.add_suffix(actions_box)
+        # --- EXPANDED DETAILS ---
+        details_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        details_box.set_margin_top(12)
+        details_box.set_margin_bottom(12)
+        details_box.set_margin_start(16)
+        details_box.set_margin_end(16)
+
+        # Full Description
+        if ext.get("description"):
+            desc_lbl = Gtk.Label(label=ext["description"], xalign=0)
+            desc_lbl.add_css_class("subtitle-label")
+            desc_lbl.set_wrap(True)
+            details_box.append(desc_lbl)
+
+        # Metadata info grid
+        info_grid = Gtk.Grid()
+        info_grid.set_column_spacing(16)
+        info_grid.set_row_spacing(6)
+
+        uuid_title = Gtk.Label(label=_("Identificador:"), xalign=0)
+        uuid_title.add_css_class("caption")
+        uuid_val = Gtk.Label(label=ext["uuid"], xalign=0)
+        uuid_val.set_selectable(True)
+        info_grid.attach(uuid_title, 0, 0, 1, 1)
+        info_grid.attach(uuid_val, 1, 0, 1, 1)
+
+        state_title = Gtk.Label(label=_("Estado:"), xalign=0)
+        state_title.add_css_class("caption")
+        state_val = Gtk.Label(label=ext.get("state", "DESCONOCIDO"), xalign=0)
+        info_grid.attach(state_title, 0, 1, 1, 1)
+        info_grid.attach(state_val, 1, 1, 1, 1)
+
+        details_box.append(info_grid)
+
+        # Error / Diagnosis message box (hidden by default)
+        error_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        error_box.add_css_class("card")
+        error_box.set_visible(False)
+        error_lbl = Gtk.Label(label="", xalign=0)
+        error_lbl.set_wrap(True)
+        error_lbl.set_selectable(True)
+        error_box.append(error_lbl)
+        details_box.append(error_box)
+
+        # Bottom Action buttons row with descriptive text
+        actions_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        actions_row.set_margin_top(6)
+        actions_row.set_valign(Gtk.Align.CENTER)
+
+        # 1. Preferences button
+        if ext["has_prefs"]:
+            prefs_btn = Gtk.Button()
+            prefs_hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            prefs_hbox.append(Gtk.Image.new_from_icon_name("emblem-system-symbolic"))
+            prefs_hbox.append(Gtk.Label(label=_("Configuración")))
+            prefs_btn.set_child(prefs_hbox)
+            prefs_btn.add_css_class("secondary-button")
+            prefs_btn.connect("clicked", lambda b, u=ext["uuid"]: subprocess.Popen(["gnome-extensions", "prefs", u]))
+            actions_row.append(prefs_btn)
+
+        # 2. Diagnosis & errors button
+        diag_btn = Gtk.Button()
+        diag_hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        diag_hbox.append(Gtk.Image.new_from_icon_name("dialog-information-symbolic"))
+        diag_hbox.append(Gtk.Label(label=_("Ver errores y diagnóstico")))
+        diag_btn.set_child(diag_hbox)
+        diag_btn.add_css_class("flat")
+        diag_btn.connect("clicked", self._on_show_extension_diagnosis, ext["uuid"], error_box, error_lbl)
+        actions_row.append(diag_btn)
+
+        # Spacer
+        spacer = Gtk.Box()
+        spacer.set_hexpand(True)
+        actions_row.append(spacer)
+
+        # 3. Uninstall button (user extensions only)
+        if ext["type"] == "user":
+            del_btn = Gtk.Button()
+            del_hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            del_hbox.append(Gtk.Image.new_from_icon_name("user-trash-symbolic"))
+            del_hbox.append(Gtk.Label(label=_("Desinstalar extensión")))
+            del_btn.set_child(del_hbox)
+            del_btn.add_css_class("destructive-button")
+            del_btn.connect("clicked", self._on_uninstall_extension, ext["uuid"])
+            actions_row.append(del_btn)
+
+        details_box.append(actions_row)
+
+        content_row = Adw.ActionRow()
+        content_row.set_child(details_box)
+        row.add_row(content_row)
+
         return row
+
+    def _on_show_extension_diagnosis(self, button, uuid, error_box, error_lbl):
+        def worker():
+            info_text = ""
+            try:
+                res = subprocess.run(["gnome-extensions", "info", uuid], capture_output=True, text=True, timeout=5)
+                if res.returncode == 0:
+                    info_text = res.stdout.strip()
+                else:
+                    info_text = res.stderr.strip() or _("No se pudo obtener información de la extensión.")
+            except Exception as e:
+                info_text = f"Error: {e}"
+
+            GLib.idle_add(self._update_diagnosis_ui, error_box, error_lbl, info_text)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _update_diagnosis_ui(self, error_box, error_lbl, info_text):
+        error_lbl.set_text(info_text)
+        error_box.set_visible(not error_box.get_visible())
 
     def _on_extension_toggle(self, switch, state, uuid):
         def worker():
@@ -483,7 +571,7 @@ class GnomeExtensionsWidget(Gtk.Box):
         desc_lbl = Gtk.Label(label=ext.get("description", ""), xalign=0)
         desc_lbl.add_css_class("subtitle-label")
         desc_lbl.set_wrap(True)
-        desc_lbl.set_max_lines(2)
+        desc_lbl.set_lines(2)
         desc_lbl.set_ellipsize(Pango.EllipsizeMode.END)
         desc_lbl.set_vexpand(True)
         card.append(desc_lbl)

@@ -250,7 +250,7 @@ class PulsarStoreWidget(Gtk.Box):
         desc_lbl = Gtk.Label(label=pkg.get("description", ""), xalign=0)
         desc_lbl.add_css_class("subtitle-label")
         desc_lbl.set_wrap(True)
-        desc_lbl.set_max_lines(2)
+        desc_lbl.set_lines(2)
         desc_lbl.set_ellipsize(Pango.EllipsizeMode.END)
         desc_lbl.set_vexpand(True)
         card.append(desc_lbl)

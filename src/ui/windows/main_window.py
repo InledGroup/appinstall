@@ -427,15 +427,6 @@ class PackageInstaller(Adw.ApplicationWindow):
         self.pulsar_highlights_section_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         pulsar_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         
-        pulsar_sec_icon = Gtk.Image()
-        pulsar_svg = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "pulsar-store.svg")
-        if os.path.exists(pulsar_svg):
-            pulsar_sec_icon.set_from_file(pulsar_svg)
-        else:
-            pulsar_sec_icon.set_from_icon_name("emblem-favorite-symbolic")
-        pulsar_sec_icon.set_pixel_size(22)
-        pulsar_header.append(pulsar_sec_icon)
-
         pulsar_title = Gtk.Label(label=_("Destacados de Pulsar Store"), xalign=0)
         pulsar_title.add_css_class("store-section-title")
         pulsar_title.set_hexpand(True)
@@ -460,9 +451,6 @@ class PackageInstaller(Adw.ApplicationWindow):
         if is_gnome_desktop():
             self.gnome_highlights_section_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
             gnome_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-            gnome_icon = Gtk.Image.new_from_icon_name("application-x-addon-symbolic")
-            gnome_icon.set_pixel_size(22)
-            gnome_header.append(gnome_icon)
 
             gnome_title = Gtk.Label(label=_("Extensiones GNOME destacadas"), xalign=0)
             gnome_title.add_css_class("store-section-title")
@@ -849,7 +837,7 @@ class PackageInstaller(Adw.ApplicationWindow):
         desc_lbl = Gtk.Label(label=app_data.get('desc', ''), xalign=0)
         desc_lbl.add_css_class("subtitle-label")
         desc_lbl.set_wrap(True)
-        desc_lbl.set_max_lines(2)
+        desc_lbl.set_lines(2)
         desc_lbl.set_ellipsize(Pango.EllipsizeMode.END)
         desc_lbl.set_vexpand(True)
         card.append(desc_lbl)
