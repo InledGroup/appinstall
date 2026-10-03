@@ -335,9 +335,9 @@ class PackageDetailsWidget(Gtk.Box):
             
             scrolled_shots = Gtk.ScrolledWindow()
             scrolled_shots.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.NEVER)
-            scrolled_shots.set_min_content_height(220)
+            scrolled_shots.set_min_content_height(340)
             
-            shots_hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+            shots_hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16)
             scrolled_shots.set_child(shots_hbox)
             
             import gi
@@ -348,9 +348,10 @@ class PackageDetailsWidget(Gtk.Box):
                 if os.path.exists(path):
                     widget = None
                     try:
-                        pix = GdkPixbuf.Pixbuf.new_from_file_at_scale(path, 420, 240, True)
+                        pix = GdkPixbuf.Pixbuf.new_from_file_at_scale(path, 640, 360, True)
                         tex = Gdk.Texture.new_for_pixbuf(pix)
                         img = Gtk.Image.new_from_paintable(tex)
+                        img.set_size_request(pix.get_width(), pix.get_height())
                         img.add_css_class("screenshot-image")
                         widget = img
                     except Exception:
@@ -358,7 +359,7 @@ class PackageDetailsWidget(Gtk.Box):
                             pic = Gtk.Picture.new_for_filename(path)
                             pic.set_content_fit(Gtk.ContentFit.CONTAIN)
                             pic.set_can_shrink(True)
-                            pic.set_size_request(340, 200)
+                            pic.set_size_request(560, 320)
                             pic.add_css_class("screenshot-image")
                             widget = pic
                         except Exception:

@@ -251,9 +251,20 @@ class PulsarStoreAdapter(PackageManager):
         pkg_id = pkg.get("id", package)
         version = pkg.get("version", "")
 
-        # 1. Flatpak package
+        # 1. Flatpak package / Native distribution package
         if pkg_type == "flatpak":
-            if download_url and (download_url.endswith(".flatpakref") or download_url.endswith(".flatpak")):
+            formats = pkg.get("formats", {}) or {}
+            # If native arch package exists and we are on Arch, install natively with pacman
+            if shutil.which("pacman") and formats.get("arch"):
+                arch_url = formats.get("arch")
+                cmd = f"tmpfile=$(mktemp --suffix=.pkg.tar.zst) && curl -sSL '{arch_url}' -o \"$tmpfile\" && pkexec pacman -U --noconfirm \"$tmpfile\" && rm -f \"$tmpfile\""
+                return ["sh", "-c", cmd]
+            # If deb package exists and on Debian/Ubuntu, install natively
+            elif shutil.which("dpkg") and formats.get("deb"):
+                deb_url = formats.get("deb")
+                cmd = f"tmpfile=$(mktemp --suffix=.deb) && curl -sSL '{deb_url}' -o \"$tmpfile\" && (pkexec dpkg -i \"$tmpfile\" || pkexec apt-get install -f -y) && rm -f \"$tmpfile\""
+                return ["sh", "-c", cmd]
+            elif download_url and (download_url.endswith(".flatpakref") or download_url.endswith(".flatpak")):
                 return ["flatpak", "install", "-y", download_url]
             else:
                 return ["flatpak", "install", "-y", pkg_id]
@@ -343,7 +354,7 @@ class PulsarStoreAdapter(PackageManager):
 
         # 3. Sayri Skill
         elif pkg_type == "sayri_skill":
-            target_dir = os.path.expanduser(f"~/.local/share/sayri/skills/{pkg_id}")
+            target_dir = os.path.expanduser(f"~/.config/sayri/skills/{pkg_id}")
             if download_url:
                 cmd = (
                     f"mkdir -p '{target_dir}' && "
@@ -357,7 +368,7 @@ class PulsarStoreAdapter(PackageManager):
 
         # 4. Sayri Plugin
         elif pkg_type == "sayri_plugin":
-            target_dir = os.path.expanduser(f"~/.local/share/sayri/plugins/{pkg_id}")
+            target_dir = os.path.expanduser(f"~/.config/sayri/plugins/{pkg_id}")
             if download_url:
                 cmd = (
                     f"mkdir -p '{target_dir}' && "
@@ -401,28 +412,30 @@ class PulsarStoreAdapter(PackageManager):
         pkg_type = pkg.get("type", "") if pkg else ""
         pkg_id = pkg.get("id", package) if pkg else package
 
-        if pkg_type == "flatpak":
-            return ["flatpak", "uninstall", "-y", pkg_id]
-        elif pkg_type == "gnome_extension":
-            return ["gnome-extensions", "uninstall", pkg_id]
+        if pkg_type == "gnome_extension":
+            user_dir = os.path.expanduser(f"~/.local/share/gnome-shell/extensions/{pkg_id}")
+            cmd = f"(gnome-extensions uninstall '{pkg_id}' || true) && rm -rf '{user_dir}'"
+            return ["sh", "-c", cmd]
+
         elif pkg_type == "sayri_skill":
-            target_dir = os.path.expanduser(f"~/.local/share/sayri/skills/{pkg_id}")
-            return ["sh", "-c", f"rm -rf '{target_dir}'"]
+            cfg_dir = os.path.expanduser(f"~/.config/sayri/skills/{pkg_id}")
+            local_dir = os.path.expanduser(f"~/.local/share/sayri/skills/{pkg_id}")
+            return ["sh", "-c", f"rm -rf '{cfg_dir}' '{local_dir}'"]
+
         elif pkg_type == "sayri_plugin":
-            target_dir = os.path.expanduser(f"~/.local/share/sayri/plugins/{pkg_id}")
-            return ["sh", "-c", f"rm -rf '{target_dir}'"]
+            cfg_dir = os.path.expanduser(f"~/.config/sayri/plugins/{pkg_id}")
+            local_dir = os.path.expanduser(f"~/.local/share/sayri/plugins/{pkg_id}")
+            return ["sh", "-c", f"rm -rf '{cfg_dir}' '{local_dir}'"]
 
-        # Default fallback checks
-        ext_dir = os.path.expanduser(f"~/.local/share/gnome-shell/extensions/{pkg_id}")
-        skill_dir = os.path.expanduser(f"~/.local/share/sayri/skills/{pkg_id}")
-        plugin_dir = os.path.expanduser(f"~/.local/share/sayri/plugins/{pkg_id}")
-
-        if os.path.isdir(ext_dir):
-            return ["gnome-extensions", "uninstall", pkg_id]
-        elif os.path.isdir(skill_dir):
-            return ["sh", "-c", f"rm -rf '{skill_dir}'"]
-        elif os.path.isdir(plugin_dir):
-            return ["sh", "-c", f"rm -rf '{plugin_dir}'"]
+        # Flatpak / Native package
+        if shutil.which("pacman"):
+            res = subprocess.run(["pacman", "-Qi", pkg_id], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if res.returncode == 0:
+                return ["pkexec", "pacman", "-R", "--noconfirm", pkg_id]
+        if shutil.which("dpkg-query"):
+            res = subprocess.run(["dpkg-query", "-W", "-f=${Status}", pkg_id], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+            if b"install ok installed" in res.stdout:
+                return ["pkexec", "apt-get", "remove", "-y", pkg_id]
 
         return ["flatpak", "uninstall", "-y", pkg_id]
 
@@ -442,23 +455,32 @@ class PulsarStoreAdapter(PackageManager):
                     return True
             except Exception:
                 pass
+            if shutil.which("pacman"):
+                res = subprocess.run(["pacman", "-Qi", pkg_id], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                if res.returncode == 0:
+                    return True
+            if shutil.which("dpkg-query"):
+                res = subprocess.run(["dpkg-query", "-W", "-f=${Status}", pkg_id], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+                if b"install ok installed" in res.stdout:
+                    return True
         elif pkg_type == "gnome_extension":
             user_dir = os.path.expanduser(f"~/.local/share/gnome-shell/extensions/{pkg_id}")
             sys_dir = f"/usr/share/gnome-shell/extensions/{pkg_id}"
-            if os.path.isdir(user_dir) or os.path.isdir(sys_dir):
+            if (os.path.isdir(user_dir) and os.path.exists(os.path.join(user_dir, "metadata.json"))) or (os.path.isdir(sys_dir) and os.path.exists(os.path.join(sys_dir, "metadata.json"))):
                 return True
         elif pkg_type == "sayri_skill":
-            user_dir = os.path.expanduser(f"~/.local/share/sayri/skills/{pkg_id}")
-            if os.path.isdir(user_dir):
-                return True
+            for base in ["~/.config/sayri/skills", "~/.local/share/sayri/skills", "/usr/share/sayri/skills"]:
+                s_dir = os.path.expanduser(f"{base}/{pkg_id}")
+                if os.path.isdir(s_dir):
+                    return True
         elif pkg_type == "sayri_plugin":
-            user_dir = os.path.expanduser(f"~/.local/share/sayri/plugins/{pkg_id}")
-            if os.path.isdir(user_dir):
-                return True
+            for base in ["~/.config/sayri/plugins", "~/.local/share/sayri/plugins", "/usr/share/sayri/plugins"]:
+                p_dir = os.path.expanduser(f"{base}/{pkg_id}")
+                if os.path.isdir(p_dir):
+                    return True
 
-        # Check installed database as secondary source
-        db = _load_installed_db()
-        return pkg_id in db
+        return False
+
 
     # ── Package info ────────────────────────────────────────────────────────
 
