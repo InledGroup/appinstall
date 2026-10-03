@@ -121,16 +121,14 @@ def create_app_icon_widget(icon_path_or_url_or_name: str, size: int = 44, fallba
     widget = None
     if path and os.path.isfile(path):
         try:
-            pic = Gtk.Picture.new_for_filename(path)
-            pic.set_content_fit(Gtk.ContentFit.CONTAIN)
-            pic.set_can_shrink(True)
-            pic.set_size_request(size, size)
-            widget = pic
+            pix = GdkPixbuf.Pixbuf.new_from_file_at_scale(path, size, size, True)
+            tex = Gdk.Texture.new_for_pixbuf(pix)
+            img = Gtk.Image.new_from_paintable(tex)
+            img.set_pixel_size(size)
+            widget = img
         except Exception:
             try:
-                pix = GdkPixbuf.Pixbuf.new_from_file_at_scale(path, size, size, True)
-                tex = Gdk.Texture.new_for_pixbuf(pix)
-                img = Gtk.Image.new_from_paintable(tex)
+                img = Gtk.Image.new_from_file(path)
                 img.set_pixel_size(size)
                 widget = img
             except Exception:

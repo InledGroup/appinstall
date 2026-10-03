@@ -1473,6 +1473,7 @@ class PackageInstaller(Adw.ApplicationWindow):
         if not identifier:
             return
             
+        self.file_path = identifier
         self.status_label.set_text(_("Obteniendo información de la aplicación..."))
         self.progress_dialog = ProgressWindow(self, _("Analizando paquete..."), skip_callback=self.on_skip_analysis_clicked)
         self.progress_dialog.present()
@@ -1508,13 +1509,13 @@ class PackageInstaller(Adw.ApplicationWindow):
                             if shutil.which('brew'):
                                 is_installed = subprocess.run(['brew', 'list', name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
                         elif source == 'pulsar':
-                            pkg_id = info.get('pulsar_id') or name
+                            pkg_id = info.get('pulsar_id') or (identifier.replace('pulsar:', '', 1) if identifier.startswith('pulsar:') else name)
                             is_installed = self.info_service.pulsar_adapter.is_package_installed(pkg_id)
                         elif source in ['gnome-ext', 'gnome-extension']:
-                            uuid = info.get('uuid') or name
+                            uuid = info.get('uuid') or (identifier.replace('gnome-ext:', '', 1).replace('gnome-extension:', '', 1) if identifier else name)
                             user_dir = os.path.expanduser(f"~/.local/share/gnome-shell/extensions/{uuid}")
                             sys_dir = f"/usr/share/gnome-shell/extensions/{uuid}"
-                            is_installed = os.path.isdir(user_dir) or os.path.isdir(sys_dir)
+                            is_installed = (os.path.isdir(user_dir) and os.path.exists(os.path.join(user_dir, "metadata.json"))) or (os.path.isdir(sys_dir) and os.path.exists(os.path.join(sys_dir, "metadata.json")))
                         else:
                             # Paquete nativo de la distribución
                             if shutil.which('pacman'):
@@ -1528,6 +1529,7 @@ class PackageInstaller(Adw.ApplicationWindow):
                         print(f"Error checking if package is installed: {e}")
                         
                     info['is_installed'] = is_installed
+                    info['identifier'] = identifier
                     
                 GLib.idle_add(self._present_details_window, info)
             except Exception as e:
@@ -1558,11 +1560,12 @@ class PackageInstaller(Adw.ApplicationWindow):
         if prev_view not in ['menu', 'search_results']:
             prev_view = 'menu'
         self.details_prev_view = prev_view
-            
+        
+        target_id = info.get('identifier') or self.file_path
         self.details_widget_instance = PackageDetailsWidget(
             self, 
             info, 
-            on_install_callback=lambda: self.on_install_clicked(None),
+            on_install_callback=lambda tid=target_id: self.install_package_by_identifier(tid),
             on_uninstall_callback=lambda: self.uninstall_package_from_details(info.get('pulsar_id') or info.get('uuid') or info.get('name'), info.get('source')),
             back_callback=self.on_details_back_clicked
         )
@@ -1572,6 +1575,10 @@ class PackageInstaller(Adw.ApplicationWindow):
         self.details_title_label.set_text(info.get('name', ''))
         self.header_stack.set_visible(True)
         self.header_stack.set_visible_child_name("details")
+
+    def install_package_by_identifier(self, identifier):
+        self.file_path = identifier
+        self.on_install_clicked(None)
 
     def on_details_back_clicked(self, btn=None):
         self.header_stack.set_visible(True)

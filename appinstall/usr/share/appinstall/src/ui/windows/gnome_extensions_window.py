@@ -674,17 +674,31 @@ class GnomeExtensionsWidget(Gtk.Box):
                         dl_url = f"https://extensions.gnome.org/download-extension/{real_uuid}.shell-extension.zip?version_tag={tag_pk}"
 
                         # Download zip
+                        import zipfile
                         zip_path = f"/tmp/{real_uuid}.zip"
                         dl_req = urllib.request.Request(dl_url, headers={"User-Agent": "AppInstall/1.0"})
                         with urllib.request.urlopen(dl_req, timeout=20) as dl_resp:
                             with open(zip_path, "wb") as zf:
                                 zf.write(dl_resp.read())
 
-                        # Install via gnome-extensions CLI
-                        res = subprocess.run(["gnome-extensions", "install", "--force", zip_path], capture_output=True)
-                        if res.returncode == 0:
-                            subprocess.run(["gnome-extensions", "enable", real_uuid], capture_output=True)
-                            success = True
+                        target_uuid = real_uuid
+                        try:
+                            with zipfile.ZipFile(zip_path, "r") as zf:
+                                if "metadata.json" in zf.namelist():
+                                    meta_data = json.loads(zf.read("metadata.json").decode("utf-8"))
+                                    if meta_data.get("uuid"):
+                                        target_uuid = meta_data.get("uuid")
+                        except Exception:
+                            pass
+
+                        dest_dir = os.path.expanduser(f"~/.local/share/gnome-shell/extensions/{target_uuid}")
+                        os.makedirs(dest_dir, exist_ok=True)
+                        with zipfile.ZipFile(zip_path, "r") as zf:
+                            zf.extractall(dest_dir)
+
+                        subprocess.run(["gnome-extensions", "install", "--force", zip_path], capture_output=True)
+                        subprocess.run(["gnome-extensions", "enable", target_uuid], capture_output=True)
+                        success = True
                         if os.path.exists(zip_path):
                             os.remove(zip_path)
             except Exception as e:

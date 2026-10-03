@@ -340,22 +340,39 @@ class PackageDetailsWidget(Gtk.Box):
             shots_hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
             scrolled_shots.set_child(shots_hbox)
             
+            import gi
+            gi.require_version('GdkPixbuf', '2.0')
+            from gi.repository import GdkPixbuf
+
             for path in cached_screenshots:
                 if os.path.exists(path):
-                    img = Gtk.Picture.new_for_filename(path)
-                    img.set_content_fit(Gtk.ContentFit.CONTAIN)
-                    img.set_can_shrink(True)
-                    img.set_size_request(340, 200)
-                    img.add_css_class("screenshot-image")
+                    widget = None
+                    try:
+                        pix = GdkPixbuf.Pixbuf.new_from_file_at_scale(path, 420, 240, True)
+                        tex = Gdk.Texture.new_for_pixbuf(pix)
+                        img = Gtk.Image.new_from_paintable(tex)
+                        img.add_css_class("screenshot-image")
+                        widget = img
+                    except Exception:
+                        try:
+                            pic = Gtk.Picture.new_for_filename(path)
+                            pic.set_content_fit(Gtk.ContentFit.CONTAIN)
+                            pic.set_can_shrink(True)
+                            pic.set_size_request(340, 200)
+                            pic.add_css_class("screenshot-image")
+                            widget = pic
+                        except Exception:
+                            pass
                     
-                    click_gesture = Gtk.GestureClick()
-                    click_gesture.connect("released", lambda gesture, n_press, x, y, p=path: self.on_screenshot_clicked(p))
-                    img.add_controller(click_gesture)
-                    
-                    img_box = Gtk.Box()
-                    img_box.add_css_class("screenshot-container")
-                    img_box.append(img)
-                    shots_hbox.append(img_box)
+                    if widget:
+                        click_gesture = Gtk.GestureClick()
+                        click_gesture.connect("released", lambda gesture, n_press, x, y, p=path: self.on_screenshot_clicked(p))
+                        widget.add_controller(click_gesture)
+                        
+                        img_box = Gtk.Box()
+                        img_box.add_css_class("screenshot-container")
+                        img_box.append(widget)
+                        shots_hbox.append(img_box)
                     
             screenshots_card.append(scrolled_shots)
             main_box.append(screenshots_card)
