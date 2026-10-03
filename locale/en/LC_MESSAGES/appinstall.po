@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-18 16:55+0200\n"
+"POT-Creation-Date: 2026-10-03 22:43+0200\n"
 "PO-Revision-Date: 2026-01-17 12:49+0100\n"
 "Last-Translator: Jaime Gonzalez Herraiz <CONTACTO@INLED.ES>\n"
 "Language-Team: EN <LL@li.org>\n"
@@ -16,68 +16,67 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: src/application/install_service.py:188
-msgid "El sistema se ha actualizado correctamente."
-msgstr "The system was successfully upgraded."
-
-#: src/application/daemon_service.py:158
+#: appinstall/src/application/daemon_service.py:181
+#: appinstall/src/application/daemon_service.py:186
 msgid "Pulsar OS - Actualizaciones"
 msgstr "Pulsar OS - Updates"
 
-#: src/application/daemon_service.py:159
-msgid "El sistema y las aplicaciones se han actualizado automáticamente con éxito."
-msgstr "The system and applications have been automatically updated successfully."
+#: appinstall/src/application/daemon_service.py:182
+msgid "Las aplicaciones se han actualizado automáticamente con éxito."
+msgstr "Applications have been automatically updated successfully."
+"The system and applications have been automatically updated successfully."
 
-#: src/ui/windows/main_window.py:930
-msgid "Actualizaciones automáticas"
-msgstr "Automatic updates"
+#: appinstall/src/application/daemon_service.py:187
+#, python-brace-format
+msgid "Hay {} actualizaciones del sistema disponibles para instalar."
+msgstr "There are {} system updates available to install."
 
-#: src/ui/windows/main_window.py:933
-msgid "Instala automáticamente en segundo plano las actualizaciones del sistema y de las aplicaciones."
-msgstr "Automatically installs system and application updates in the background."
+#: appinstall/src/application/install_service.py:229
+msgid "El sistema se ha actualizado correctamente."
+msgstr "The system was successfully upgraded."
 
-#: src/application/install_service.py:192
+#: appinstall/src/application/install_service.py:233
 #, python-brace-format
 msgid "AppImage instalado como {}. Se ha creado un acceso directo."
 msgstr "AppImage installed as {}. A shortcut has been created."
 
-#: src/application/install_service.py:194
+#: appinstall/src/application/install_service.py:235
 msgid "¡Web App creada correctamente! Ya la tienes disponible en tu menú."
 msgstr "Web App created successfully! It's now available in your menu."
 
-#: src/application/install_service.py:196
+#: appinstall/src/application/install_service.py:237
 msgid "He instalado todo bien, ¡disfrútala!"
 msgstr "I installed everything correctly, enjoy it!"
 
-#: src/application/install_service.py:200
+#: appinstall/src/application/install_service.py:241
 #, python-brace-format
 msgid "Vaya, he encontrado un error al instalar: {}"
 msgstr "Oops, I found an error installing: {}"
 
-#: src/application/install_service.py:202
+#: appinstall/src/application/install_service.py:243
 #, python-brace-format
 msgid "Error en la instalación: {}"
 msgstr "Installation error: {}"
 
-#: src/application/install_service.py:214
+#: appinstall/src/application/install_service.py:255
 msgid "He arreglado las dependencias"
 msgstr "I fixed the dependencies"
 
-#: src/application/install_service.py:216
+#: appinstall/src/application/install_service.py:257
 #, python-brace-format
 msgid "Vaya, un error al corregir dependencias: {}"
 msgstr "Oops, an error fixing dependencies: {}"
 
-#: src/application/install_service.py:218
+#: appinstall/src/application/install_service.py:259
 #, python-brace-format
 msgid "Error al corregir dependencias: {}"
 msgstr "Error fixing dependencies: {}"
 
-#: src/ui/components/update_dialog.py:8
+#: appinstall/src/ui/components/update_dialog.py:8
 msgid "Actualización disponible"
 msgstr "Update available"
 
-#: src/ui/components/update_dialog.py:9
+#: appinstall/src/ui/components/update_dialog.py:9
 #, python-brace-format
 msgid ""
 "Versión actual: {}\n"
@@ -86,130 +85,134 @@ msgstr ""
 "Current version: {}\n"
 "New version: {}"
 
-#: src/ui/components/update_dialog.py:10
+#: appinstall/src/ui/components/update_dialog.py:10
 msgid "Recordar más tarde"
 msgstr "Remind me later"
 
-#: src/ui/components/update_dialog.py:11
+#: appinstall/src/ui/components/update_dialog.py:11
 msgid "Actualizar ahora"
 msgstr "Update now"
 
-#: src/ui/windows/antivirus_window.py:19
+#: appinstall/src/ui/windows/antivirus_window.py:19
 msgid "Análisis de virus"
 msgstr "Virus scan"
 
-#: src/ui/windows/antivirus_window.py:47
+#: appinstall/src/ui/windows/antivirus_window.py:47
 msgid "Puedo analizar tu sistema en busca de virus."
 msgstr "I can scan your system for viruses."
 
-#: src/ui/windows/antivirus_window.py:52
+#: appinstall/src/ui/windows/antivirus_window.py:52
 msgid "Protege tu sistema con análisis antivirus"
 msgstr "Protect your system with antivirus scanning"
 
-#: src/ui/windows/antivirus_window.py:59
+#: appinstall/src/ui/windows/antivirus_window.py:59
 msgid "Estado del antivirus"
 msgstr "Antivirus status"
 
-#: src/ui/windows/antivirus_window.py:63
+#: appinstall/src/ui/windows/antivirus_window.py:63
 msgid "Verificando ClamAV..."
 msgstr "Checking ClamAV..."
 
-#: src/ui/windows/antivirus_window.py:71 src/ui/windows/antivirus_window.py:278
+#: appinstall/src/ui/windows/antivirus_window.py:71
+#: appinstall/src/ui/windows/antivirus_window.py:278
 msgid "Instalar ClamAV"
 msgstr "Install ClamAV"
 
-#: src/ui/windows/antivirus_window.py:83
+#: appinstall/src/ui/windows/antivirus_window.py:83
 msgid "Configuración del análisis"
 msgstr "Scan configuration"
 
-#: src/ui/windows/antivirus_window.py:88
+#: appinstall/src/ui/windows/antivirus_window.py:88
 msgid "Tipo de análisis:"
 msgstr "Scan type:"
 
-#: src/ui/windows/antivirus_window.py:97
+#: appinstall/src/ui/windows/antivirus_window.py:97
 msgid "Análisis rápido"
 msgstr "Quick scan"
 
-#: src/ui/windows/antivirus_window.py:100
+#: appinstall/src/ui/windows/antivirus_window.py:100
 msgid "Carpetas importantes del usuario (~, /tmp, /var/tmp)"
 msgstr "Important user folders (~, /tmp, /var/tmp)"
 
-#: src/ui/windows/antivirus_window.py:111
+#: appinstall/src/ui/windows/antivirus_window.py:111
 msgid "Análisis completo"
 msgstr "Full scan"
 
-#: src/ui/windows/antivirus_window.py:114
+#: appinstall/src/ui/windows/antivirus_window.py:114
 msgid "Todo el sistema (puedo estar bastante rato trabajando)"
 msgstr "Entire system (I might be working for a while)"
 
-#: src/ui/windows/antivirus_window.py:125
+#: appinstall/src/ui/windows/antivirus_window.py:125
 msgid "Análisis personalizado"
 msgstr "Custom scan"
 
-#: src/ui/windows/antivirus_window.py:128
+#: appinstall/src/ui/windows/antivirus_window.py:128
 msgid "Selecciona los directorios que quieres que analice"
 msgstr "Select the directories you want me to scan"
 
-#: src/ui/windows/antivirus_window.py:137
+#: appinstall/src/ui/windows/antivirus_window.py:137
 msgid "Ruta del directorio a analizar..."
 msgstr "Path of directory to scan..."
 
-#: src/ui/windows/antivirus_window.py:153 src/ui/windows/cleanup_window.py:98
+#: appinstall/src/ui/windows/antivirus_window.py:153
+#: appinstall/src/ui/windows/cleanup_window.py:98
 msgid "Opciones avanzadas"
 msgstr "Advanced options"
 
-#: src/ui/windows/antivirus_window.py:162
+#: appinstall/src/ui/windows/antivirus_window.py:162
 msgid "Actualizar definiciones antes del análisis"
 msgstr "Update definitions before scanning"
 
-#: src/ui/windows/antivirus_window.py:165
+#: appinstall/src/ui/windows/antivirus_window.py:165
 msgid "Descargar las últimas actualizaciones de definiciones de virus"
 msgstr "Download the latest virus definition updates"
 
-#: src/ui/windows/antivirus_window.py:175
+#: appinstall/src/ui/windows/antivirus_window.py:175
 msgid "Análisis profundo"
 msgstr "Deep scan"
 
-#: src/ui/windows/antivirus_window.py:178
+#: appinstall/src/ui/windows/antivirus_window.py:178
 msgid "Incluir archivos comprimidos y análisis heurístico"
 msgstr "Include compressed files and heuristic analysis"
 
-#: src/ui/windows/antivirus_window.py:193
+#: appinstall/src/ui/windows/antivirus_window.py:193
 msgid "Actualizar"
 msgstr "Update"
 
-#: src/ui/windows/antivirus_window.py:204
+#: appinstall/src/ui/windows/antivirus_window.py:204
 msgid "Iniciar análisis"
 msgstr "Start scan"
 
-#: src/ui/windows/antivirus_window.py:217
+#: appinstall/src/ui/windows/antivirus_window.py:217
 msgid "Listo para iniciar análisis"
 msgstr "Ready to start analysis"
 
-#: src/ui/windows/antivirus_window.py:223
+#: appinstall/src/ui/windows/antivirus_window.py:223
 msgid "Resultados del análisis"
 msgstr "Analysis results"
 
-#: src/ui/windows/antivirus_window.py:260
+#: appinstall/src/ui/windows/antivirus_window.py:260
 msgid "Seleccionar directorio para análisis"
 msgstr "Select directory for analysis"
 
-#: src/ui/windows/antivirus_window.py:263
+#: appinstall/src/ui/windows/antivirus_window.py:263
 msgid "Seleccionar"
 msgstr "Select"
 
-#: src/ui/windows/antivirus_window.py:264
-#: src/ui/windows/antivirus_window.py:281
-#: src/ui/windows/appimage_config_window.py:91
-#: src/ui/windows/appimage_config_window.py:113
-#: src/ui/windows/cleanup_window.py:215 src/ui/windows/main_window.py:1203
-#: src/ui/windows/main_window.py:1410 src/ui/windows/main_window.py:1907
-#: src/ui/windows/pwa_config_window.py:103
-#: src/ui/windows/pwa_config_window.py:179
+#: appinstall/src/ui/windows/antivirus_window.py:264
+#: appinstall/src/ui/windows/antivirus_window.py:281
+#: appinstall/src/ui/windows/appimage_config_window.py:91
+#: appinstall/src/ui/windows/appimage_config_window.py:113
+#: appinstall/src/ui/windows/cleanup_window.py:215
+#: appinstall/src/ui/windows/main_window.py:1482
+#: appinstall/src/ui/windows/main_window.py:1711
+#: appinstall/src/ui/windows/main_window.py:2224
+#: appinstall/src/ui/windows/pwa_config_window.py:103
+#: appinstall/src/ui/windows/pwa_config_window.py:179
 msgid "Cancelar"
 msgstr "Cancel"
 
-#: src/ui/windows/antivirus_window.py:279
+#: appinstall/src/ui/windows/antivirus_window.py:279
 msgid ""
 "¿Quieres instalar ClamAV y sus definiciones de virus?\n"
 "\n"
@@ -219,188 +222,191 @@ msgstr ""
 "\n"
 "This may take several minutes and requires an internet connection."
 
-#: src/ui/windows/antivirus_window.py:282 src/ui/windows/main_window.py:526
-#: src/ui/windows/main_window.py:1411
+#: appinstall/src/ui/windows/antivirus_window.py:282
+#: appinstall/src/ui/windows/main_window.py:586
+#: appinstall/src/ui/windows/main_window.py:1712
+#: appinstall/src/ui/windows/gnome_extensions_window.py:609
 msgid "Instalar"
 msgstr "Install"
 
-#: src/ui/windows/antivirus_window.py:295
-#: src/ui/windows/antivirus_window.py:297
+#: appinstall/src/ui/windows/antivirus_window.py:295
+#: appinstall/src/ui/windows/antivirus_window.py:297
 msgid "Instalando ClamAV..."
 msgstr "Installing ClamAV..."
 
-#: src/ui/windows/antivirus_window.py:320
+#: appinstall/src/ui/windows/antivirus_window.py:320
 msgid "ClamAV instalado correctamente"
 msgstr "ClamAV installed successfully"
 
-#: src/ui/windows/antivirus_window.py:331
+#: appinstall/src/ui/windows/antivirus_window.py:331
 msgid "Actualizando definiciones de virus..."
 msgstr "Updating virus definitions..."
 
-#: src/ui/windows/antivirus_window.py:333
+#: appinstall/src/ui/windows/antivirus_window.py:333
 msgid "Actualizando definiciones..."
 msgstr "Updating definitions..."
 
-#: src/ui/windows/antivirus_window.py:351
+#: appinstall/src/ui/windows/antivirus_window.py:351
 msgid "Definiciones actualizadas correctamente"
 msgstr "Definitions updated successfully"
 
-#: src/ui/windows/antivirus_window.py:374
+#: appinstall/src/ui/windows/antivirus_window.py:374
 msgid "Iniciando análisis antivirus..."
 msgstr "Starting antivirus scan..."
 
-#: src/ui/windows/antivirus_window.py:377
+#: appinstall/src/ui/windows/antivirus_window.py:377
 msgid "Analizando virus..."
 msgstr "Analyzing for viruses..."
 
-#: src/ui/windows/antivirus_window.py:425
+#: appinstall/src/ui/windows/antivirus_window.py:425
 msgid "⚠️ ¡Cuidado!"
 msgstr "⚠️ Warning!"
 
-#: src/ui/windows/antivirus_window.py:428
+#: appinstall/src/ui/windows/antivirus_window.py:428
 msgid "Ignorar"
 msgstr "Ignore"
 
-#: src/ui/windows/antivirus_window.py:429
+#: appinstall/src/ui/windows/antivirus_window.py:429
 msgid "Poner en cuarentena"
 msgstr "Quarantine"
 
-#: src/ui/windows/antivirus_window.py:430
+#: appinstall/src/ui/windows/antivirus_window.py:430
 msgid "Eliminar amenazas"
 msgstr "Remove threats"
 
-#: src/ui/windows/appimage_config_window.py:9
-#: src/ui/windows/appimage_config_window.py:32
+#: appinstall/src/ui/windows/appimage_config_window.py:9
+#: appinstall/src/ui/windows/appimage_config_window.py:32
 msgid "Configurar AppImage"
 msgstr "Configure AppImage"
 
-#: src/ui/windows/appimage_config_window.py:49
+#: appinstall/src/ui/windows/appimage_config_window.py:49
 msgid "¿Cómo quieres llamar a la app?"
 msgstr "What do you want to call the app?"
 
-#: src/ui/windows/appimage_config_window.py:54
+#: appinstall/src/ui/windows/appimage_config_window.py:54
 msgid "Escribe el nombre de la aplicación..."
 msgstr "Write the name of the application..."
 
-#: src/ui/windows/appimage_config_window.py:61
+#: appinstall/src/ui/windows/appimage_config_window.py:61
 msgid "Ponle un icono chulo"
 msgstr "Give it a cool icon"
 
-#: src/ui/windows/appimage_config_window.py:71
+#: appinstall/src/ui/windows/appimage_config_window.py:71
 msgid "Icono por defecto"
 msgstr "Default icon"
 
-#: src/ui/windows/appimage_config_window.py:79
+#: appinstall/src/ui/windows/appimage_config_window.py:79
 msgid "Seleccionar icono..."
 msgstr "Select icon..."
 
-#: src/ui/windows/appimage_config_window.py:100
+#: appinstall/src/ui/windows/appimage_config_window.py:100
 msgid "¡Instalar!"
 msgstr "Install!"
 
-#: src/ui/windows/appimage_config_window.py:109
+#: appinstall/src/ui/windows/appimage_config_window.py:109
 msgid "Seleccionar icono para la aplicación"
 msgstr "Select icon for the application"
 
-#: src/ui/windows/appimage_config_window.py:112
-#: src/ui/windows/main_window.py:1202 src/ui/windows/pwa_config_window.py:178
+#: appinstall/src/ui/windows/appimage_config_window.py:112
+#: appinstall/src/ui/windows/main_window.py:1481
+#: appinstall/src/ui/windows/pwa_config_window.py:178
 msgid "Abrir"
 msgstr "Open"
 
-#: src/ui/windows/appimage_config_window.py:116
+#: appinstall/src/ui/windows/appimage_config_window.py:116
 msgid "Archivos de imagen"
 msgstr "Image files"
 
-#: src/ui/windows/cleanup_window.py:18
+#: appinstall/src/ui/windows/cleanup_window.py:18
 msgid "Limpiar sistema"
 msgstr "Clean system"
 
-#: src/ui/windows/cleanup_window.py:46
+#: appinstall/src/ui/windows/cleanup_window.py:46
 msgid "Limpieza del sistema"
 msgstr "System cleanup"
 
-#: src/ui/windows/cleanup_window.py:51
+#: appinstall/src/ui/windows/cleanup_window.py:51
 msgid "Dime qué quieres que limpie y te dejo el sistema reluciente"
 msgstr "Tell me what you want me to clean and I'll leave your system shining"
 
-#: src/ui/windows/cleanup_window.py:59
+#: appinstall/src/ui/windows/cleanup_window.py:59
 msgid "Directorios a limpiar"
 msgstr "Directories to clean"
 
-#: src/ui/windows/cleanup_window.py:65
+#: appinstall/src/ui/windows/cleanup_window.py:65
 msgid "Caché de aplicaciones del usuario"
 msgstr "User application cache"
 
-#: src/ui/windows/cleanup_window.py:66
+#: appinstall/src/ui/windows/cleanup_window.py:66
 msgid "Papelera del usuario"
 msgstr "User trash"
 
-#: src/ui/windows/cleanup_window.py:67
+#: appinstall/src/ui/windows/cleanup_window.py:67
 msgid "Archivos temporales del sistema"
 msgstr "System temporary files"
 
-#: src/ui/windows/cleanup_window.py:68
+#: appinstall/src/ui/windows/cleanup_window.py:68
 msgid "Miniaturas de imágenes"
 msgstr "Image thumbnails"
 
-#: src/ui/windows/cleanup_window.py:69
+#: appinstall/src/ui/windows/cleanup_window.py:69
 msgid "Archivos temporales variables"
 msgstr "Variable temporary files"
 
-#: src/ui/windows/cleanup_window.py:70
+#: appinstall/src/ui/windows/cleanup_window.py:70
 msgid "Logs de aplicaciones"
 msgstr "Application logs"
 
-#: src/ui/windows/cleanup_window.py:71
+#: appinstall/src/ui/windows/cleanup_window.py:71
 msgid "Logs del sistema (requiere privilegios)"
 msgstr "System logs (requires privileges)"
 
-#: src/ui/windows/cleanup_window.py:72
+#: appinstall/src/ui/windows/cleanup_window.py:72
 msgid "Lista de archivos recientes"
 msgstr "Recently used files list"
 
-#: src/ui/windows/cleanup_window.py:108
+#: appinstall/src/ui/windows/cleanup_window.py:108
 msgid "Eliminar paquetes huérfanos"
 msgstr "Remove orphan packages"
 
-#: src/ui/windows/cleanup_window.py:111
+#: appinstall/src/ui/windows/cleanup_window.py:111
 msgid "Paquetes que ya no son necesarios"
 msgstr "Packages that are no longer needed"
 
-#: src/ui/windows/cleanup_window.py:123
+#: appinstall/src/ui/windows/cleanup_window.py:123
 msgid "Limpiar caché de paquetes"
 msgstr "Clean package cache"
 
-#: src/ui/windows/cleanup_window.py:126
+#: appinstall/src/ui/windows/cleanup_window.py:126
 msgid "Archivos de instalación descargados"
 msgstr "Downloaded installation files"
 
-#: src/ui/windows/cleanup_window.py:142
+#: appinstall/src/ui/windows/cleanup_window.py:142
 msgid "Analizar"
 msgstr "Analyze"
 
-#: src/ui/windows/cleanup_window.py:153
+#: appinstall/src/ui/windows/cleanup_window.py:153
 msgid "Limpiar ahora"
 msgstr "Clean now"
 
-#: src/ui/windows/cleanup_window.py:169
+#: appinstall/src/ui/windows/cleanup_window.py:169
 msgid "Selecciona las opciones y presiona 'Analizar'"
 msgstr "Select options and press 'Analyze'"
 
-#: src/ui/windows/cleanup_window.py:180
+#: appinstall/src/ui/windows/cleanup_window.py:180
 msgid "Analizando archivos..."
 msgstr "Analyzing files..."
 
-#: src/ui/windows/cleanup_window.py:198
+#: appinstall/src/ui/windows/cleanup_window.py:198
 #, python-brace-format
 msgid "Análisis completo. Se pueden liberar: {}"
 msgstr "Analysis complete. Can free: {}"
 
-#: src/ui/windows/cleanup_window.py:212
+#: appinstall/src/ui/windows/cleanup_window.py:212
 msgid "Autorízame y yo limpio el sistema"
 msgstr "Authorize me and I'll clean the system"
 
-#: src/ui/windows/cleanup_window.py:213
+#: appinstall/src/ui/windows/cleanup_window.py:213
 #, python-brace-format
 msgid ""
 "Voy a limpiar el sistema.\n"
@@ -415,24 +421,25 @@ msgstr ""
 "\n"
 "Please note that this action cannot be undone."
 
-#: src/ui/windows/cleanup_window.py:216
+#: appinstall/src/ui/windows/cleanup_window.py:216
 msgid "Limpiar"
 msgstr "Clean"
 
-#: src/ui/windows/cleanup_window.py:236 src/ui/windows/cleanup_window.py:238
+#: appinstall/src/ui/windows/cleanup_window.py:236
+#: appinstall/src/ui/windows/cleanup_window.py:238
 msgid "Limpiando archivos..."
 msgstr "Cleaning files..."
 
-#: src/ui/windows/cleanup_window.py:256
+#: appinstall/src/ui/windows/cleanup_window.py:256
 #, python-brace-format
 msgid "Limpieza completada. Espacio liberado: {}"
 msgstr "Cleanup completed. Space freed: {}"
 
-#: src/ui/windows/cleanup_window.py:259
+#: appinstall/src/ui/windows/cleanup_window.py:259
 msgid "¡Ya he terminado!"
 msgstr "I'm done!"
 
-#: src/ui/windows/cleanup_window.py:260
+#: appinstall/src/ui/windows/cleanup_window.py:260
 #, python-brace-format
 msgid ""
 "He dejado impoluto tu Linux.\n"
@@ -443,23 +450,24 @@ msgstr ""
 "\n"
 "I freed {} that were taking up space unnecessarily."
 
-#: src/ui/windows/cleanup_window.py:262 src/ui/windows/cleanup_window.py:273
-#: src/ui/windows/installed_apps_window.py:570
-#: src/ui/windows/installed_apps_window.py:596
-#: src/ui/windows/main_window.py:1634
+#: appinstall/src/ui/windows/cleanup_window.py:262
+#: appinstall/src/ui/windows/cleanup_window.py:273
+#: appinstall/src/ui/windows/installed_apps_window.py:570
+#: appinstall/src/ui/windows/installed_apps_window.py:596
+#: appinstall/src/ui/windows/main_window.py:1943
 msgid "OK"
 msgstr "OK"
 
-#: src/ui/windows/cleanup_window.py:267
+#: appinstall/src/ui/windows/cleanup_window.py:267
 #, python-brace-format
 msgid "Error en la limpieza: {}"
 msgstr "Cleaning error: {}"
 
-#: src/ui/windows/cleanup_window.py:270
+#: appinstall/src/ui/windows/cleanup_window.py:270
 msgid "Error en la limpieza"
 msgstr "Cleaning error"
 
-#: src/ui/windows/cleanup_window.py:271
+#: appinstall/src/ui/windows/cleanup_window.py:271
 #, python-brace-format
 msgid ""
 "Ocurrió un error durante la limpieza:\n"
@@ -470,115 +478,116 @@ msgstr ""
 "\n"
 "{}"
 
-#: src/ui/windows/installed_apps_window.py:23
+#: appinstall/src/ui/windows/installed_apps_window.py:23
 msgid "Aplicaciones instaladas"
 msgstr "Installed applications"
 
-#: src/ui/windows/installed_apps_window.py:45
+#: appinstall/src/ui/windows/installed_apps_window.py:45
 msgid "Buscar aplicaciones..."
 msgstr "Search applications..."
 
-#: src/ui/windows/installed_apps_window.py:83
-#: src/ui/windows/installed_apps_window.py:151
+#: appinstall/src/ui/windows/installed_apps_window.py:83
+#: appinstall/src/ui/windows/installed_apps_window.py:151
 msgid "Cargando aplicaciones..."
 msgstr "Loading applications..."
 
-#: src/ui/windows/installed_apps_window.py:114
+#: appinstall/src/ui/windows/installed_apps_window.py:114
 msgid "No he encontrado nada que coincida"
 msgstr "I found nothing that matches"
 
-#: src/ui/windows/installed_apps_window.py:374
+#: appinstall/src/ui/windows/installed_apps_window.py:374
 msgid "AppImage"
 msgstr "AppImage"
 
-#: src/ui/windows/installed_apps_window.py:376
+#: appinstall/src/ui/windows/installed_apps_window.py:376
 msgid "PWA (Web App)"
 msgstr "PWA (Web App)"
 
-#: src/ui/windows/installed_apps_window.py:378
+#: appinstall/src/ui/windows/installed_apps_window.py:378
 msgid "Paquete Homebrew"
 msgstr "Homebrew Package"
 
-#: src/ui/windows/installed_apps_window.py:380
-#: src/ui/windows/main_window.py:1887
+#: appinstall/src/ui/windows/installed_apps_window.py:380
+#: appinstall/src/ui/windows/main_window.py:2204
 msgid "Flatpak (Flathub)"
 msgstr "Flatpak (Flathub)"
 
-#: src/ui/windows/installed_apps_window.py:382
+#: appinstall/src/ui/windows/installed_apps_window.py:382
 msgid "Paquete Snap"
 msgstr "Snap package"
 
-#: src/ui/windows/installed_apps_window.py:384
+#: appinstall/src/ui/windows/installed_apps_window.py:384
 msgid "Paquete AUR"
 msgstr "AUR package"
 
-#: src/ui/windows/installed_apps_window.py:386
+#: appinstall/src/ui/windows/installed_apps_window.py:386
 msgid "Paquete del sistema"
 msgstr "System package"
 
-#: src/ui/windows/installed_apps_window.py:395
-#: src/ui/windows/package_details_window.py:158
+#: appinstall/src/ui/windows/installed_apps_window.py:395
+#: appinstall/src/ui/windows/package_details_window.py:158
+#: appinstall/src/ui/windows/gnome_extensions_window.py:378
 msgid "Desinstalar"
 msgstr "Uninstall"
 
-#: src/ui/windows/installed_apps_window.py:419
+#: appinstall/src/ui/windows/installed_apps_window.py:419
 msgid "No he podido encontrar aplicaciones instaladas en tu sistema"
 msgstr "I couldn't find installed applications on your system"
 
-#: src/ui/windows/installed_apps_window.py:461
+#: appinstall/src/ui/windows/installed_apps_window.py:461
 #, python-brace-format
 msgid "¿Deseas desinstalar {}? (AppImage)"
 msgstr "Do you want to uninstall {}? (AppImage)"
 
-#: src/ui/windows/installed_apps_window.py:463
+#: appinstall/src/ui/windows/installed_apps_window.py:463
 #, python-brace-format
 msgid "¿Deseas desinstalar {}? (Web App)"
 msgstr "Do you want to uninstall {}? (Web App)"
 
-#: src/ui/windows/installed_apps_window.py:465
+#: appinstall/src/ui/windows/installed_apps_window.py:465
 #, python-brace-format
 msgid "¿Deseas desinstalar {}? (Homebrew)"
 msgstr "Do you want to uninstall {}? (Homebrew)"
 
-#: src/ui/windows/installed_apps_window.py:467
+#: appinstall/src/ui/windows/installed_apps_window.py:467
 #, python-brace-format
 msgid "¿Deseas desinstalar {}? (Flatpak)"
 msgstr "Do you want to uninstall {}? (Flatpak)"
 
-#: src/ui/windows/installed_apps_window.py:469
+#: appinstall/src/ui/windows/installed_apps_window.py:469
 #, python-brace-format
 msgid "¿Deseas desinstalar {}? (Snap)"
 msgstr "Do you want to uninstall {}? (Snap)"
 
-#: src/ui/windows/installed_apps_window.py:471
+#: appinstall/src/ui/windows/installed_apps_window.py:471
 #, python-brace-format
 msgid "¿Deseas desinstalar {}? (AUR)"
 msgstr "Do you want to uninstall {}? (AUR)"
 
-#: src/ui/windows/installed_apps_window.py:473
+#: appinstall/src/ui/windows/installed_apps_window.py:473
 #, python-brace-format
 msgid "¿Deseas desinstalar {}?"
 msgstr "Do you want to uninstall {}?"
 
-#: src/ui/windows/installed_apps_window.py:476
+#: appinstall/src/ui/windows/installed_apps_window.py:476
 msgid "Confirmación"
 msgstr "Confirmation"
 
-#: src/ui/windows/installed_apps_window.py:479
+#: appinstall/src/ui/windows/installed_apps_window.py:479
 msgid "No"
 msgstr "No"
 
-#: src/ui/windows/installed_apps_window.py:480
+#: appinstall/src/ui/windows/installed_apps_window.py:480
 msgid "Sí"
 msgstr "Yes"
 
-#: src/ui/windows/installed_apps_window.py:505
-#: src/ui/windows/installed_apps_window.py:507
+#: appinstall/src/ui/windows/installed_apps_window.py:505
+#: appinstall/src/ui/windows/installed_apps_window.py:507
 #, python-brace-format
 msgid "Desinstalando {}..."
 msgstr "Uninstalling {}..."
 
-#: src/ui/windows/installed_apps_window.py:552
+#: appinstall/src/ui/windows/installed_apps_window.py:552
 #, python-brace-format
 msgid ""
 "{} ha sido desinstalado correctamente. Recuerda borrar los archivos que haya "
@@ -587,279 +596,349 @@ msgstr ""
 "{} has been uninstalled successfully. Remember to delete files created by "
 "the application."
 
-#: src/ui/windows/installed_apps_window.py:554
+#: appinstall/src/ui/windows/installed_apps_window.py:554
 #, python-brace-format
 msgid "La Web App {} ha sido eliminada correctamente."
 msgstr "The Web App {} has been successfully removed."
 
-#: src/ui/windows/installed_apps_window.py:556
+#: appinstall/src/ui/windows/installed_apps_window.py:556
 #, python-brace-format
 msgid "{} ha sido desinstalado de Homebrew correctamente."
 msgstr "{} has been uninstalled from Homebrew successfully."
 
-#: src/ui/windows/installed_apps_window.py:558
+#: appinstall/src/ui/windows/installed_apps_window.py:558
 #, python-brace-format
 msgid "{} ha sido desinstalado de Flatpak correctamente."
 msgstr "{} has been uninstalled from Flatpak successfully."
 
-#: src/ui/windows/installed_apps_window.py:560
+#: appinstall/src/ui/windows/installed_apps_window.py:560
 #, python-brace-format
 msgid "{} ha sido desinstalado de Snap correctamente."
 msgstr "{} has been uninstalled from Snap successfully."
 
-#: src/ui/windows/installed_apps_window.py:562
+#: appinstall/src/ui/windows/installed_apps_window.py:562
 #, python-brace-format
 msgid "{} ha sido desinstalado de AUR correctamente."
 msgstr "{} has been uninstalled from AUR successfully."
 
-#: src/ui/windows/installed_apps_window.py:564
+#: appinstall/src/ui/windows/installed_apps_window.py:564
 #, python-brace-format
 msgid "{} ha sido desinstalado correctamente."
 msgstr "{} has been uninstalled successfully."
 
-#: src/ui/windows/installed_apps_window.py:567
-#: src/ui/windows/installed_apps_window.py:572
+#: appinstall/src/ui/windows/installed_apps_window.py:567
+#: appinstall/src/ui/windows/installed_apps_window.py:572
 msgid "Desinstalación completada"
 msgstr "Uninstallation completed"
 
-#: src/ui/windows/installed_apps_window.py:578
+#: appinstall/src/ui/windows/installed_apps_window.py:578
 #, python-brace-format
 msgid "Error al desinstalar AppImage - {}."
 msgstr "Error uninstalling AppImage - {}."
 
-#: src/ui/windows/installed_apps_window.py:580
+#: appinstall/src/ui/windows/installed_apps_window.py:580
 #, python-brace-format
 msgid "Error al eliminar la Web App {}."
 msgstr "Error removing the Web App {}."
 
-#: src/ui/windows/installed_apps_window.py:582
+#: appinstall/src/ui/windows/installed_apps_window.py:582
 #, python-brace-format
 msgid "Error al desinstalar {} de Homebrew."
 msgstr "Error uninstalling {} from Homebrew."
 
-#: src/ui/windows/installed_apps_window.py:584
+#: appinstall/src/ui/windows/installed_apps_window.py:584
 #, python-brace-format
 msgid "Error al desinstalar {} de Flatpak."
 msgstr "Error uninstalling {} from Flatpak."
 
-#: src/ui/windows/installed_apps_window.py:586
+#: appinstall/src/ui/windows/installed_apps_window.py:586
 #, python-brace-format
 msgid "Error al desinstalar {} de Snap."
 msgstr "Error uninstalling {} from Snap."
 
-#: src/ui/windows/installed_apps_window.py:588
+#: appinstall/src/ui/windows/installed_apps_window.py:588
 #, python-brace-format
 msgid "Error al desinstalar {} de AUR."
 msgstr "Error uninstalling {} from AUR."
 
-#: src/ui/windows/installed_apps_window.py:590
+#: appinstall/src/ui/windows/installed_apps_window.py:590
 #, python-brace-format
 msgid "Error al desinstalar {}."
 msgstr "Error uninstalling {}."
 
-#: src/ui/windows/installed_apps_window.py:593
+#: appinstall/src/ui/windows/installed_apps_window.py:593
 msgid "Error en la desinstalación"
 msgstr "Uninstallation error"
 
-#: src/ui/windows/installed_apps_window.py:598
+#: appinstall/src/ui/windows/installed_apps_window.py:598
 msgid "Uy... ha habido un error cuando estaba desinstalándote la app"
 msgstr "Oops... there was an error while uninstalling the app"
 
-#: src/ui/windows/main_window.py:153
+#: appinstall/src/ui/windows/main_window.py:156
 msgid "Buscar..."
 msgstr "Search..."
 
-#: src/ui/windows/main_window.py:169
+#: appinstall/src/ui/windows/main_window.py:172
 msgid "Buscar / Tienda"
 msgstr "Search / Store"
 
-#: src/ui/windows/main_window.py:170
+#: appinstall/src/ui/windows/main_window.py:182
+#: appinstall/src/ui/windows/pulsar_store_window.py:32
+msgid "Pulsar Store"
+msgstr "Pulsar Store"
+
+#: appinstall/src/ui/windows/main_window.py:185
+#: appinstall/src/ui/windows/gnome_extensions_window.py:48
+msgid "Extensiones GNOME"
+msgstr "GNOME Extensions"
+
+#: appinstall/src/ui/windows/main_window.py:186
 msgid "Mis Aplicaciones"
 msgstr "My Applications"
 
-#: src/ui/windows/main_window.py:171 src/ui/windows/main_window.py:952
+#: appinstall/src/ui/windows/main_window.py:187
+#: appinstall/src/ui/windows/main_window.py:1084
 msgid "Actualizaciones"
 msgstr "Updates"
 
-#: src/ui/windows/main_window.py:172
+#: appinstall/src/ui/windows/main_window.py:188
 msgid "Limpiar Sistema"
 msgstr "Clean System"
 
-#: src/ui/windows/main_window.py:173
+#: appinstall/src/ui/windows/main_window.py:189
 msgid "Análisis de Virus"
 msgstr "Virus Analysis"
 
-#: src/ui/windows/main_window.py:199
+#: appinstall/src/ui/windows/main_window.py:215
 #, python-brace-format
 msgid "Versión {}"
 msgstr "Version {}"
 
-#: src/ui/windows/main_window.py:204
+#: appinstall/src/ui/windows/main_window.py:220
 msgid "Menú"
 msgstr "Menu"
 
-#: src/ui/windows/main_window.py:211
+#: appinstall/src/ui/windows/main_window.py:227
 msgid "Acerca de App Install"
 msgstr "About App Install"
 
-#: src/ui/windows/main_window.py:212
+#: appinstall/src/ui/windows/main_window.py:228
 msgid "Reportar un error"
 msgstr "Report an issue"
 
-#: src/ui/windows/main_window.py:213
+#: appinstall/src/ui/windows/main_window.py:229
 msgid "Buscar actualizaciones"
 msgstr "Check for updates"
 
-#: src/ui/windows/main_window.py:214
+#: appinstall/src/ui/windows/main_window.py:230
 msgid "Prioridad de búsqueda..."
 msgstr "Search priority..."
 
-#: src/ui/windows/main_window.py:240
+#: appinstall/src/ui/windows/main_window.py:256
 msgid "Resultados de búsqueda"
 msgstr "Search results"
 
-#: src/ui/windows/main_window.py:381
+#: appinstall/src/ui/windows/main_window.py:413
 msgid "No se han podido cargar las aplicaciones sugeridas"
 msgstr "Suggested apps could not be loaded"
 
-#: src/ui/windows/main_window.py:385
+#: appinstall/src/ui/windows/main_window.py:417
 msgid "Sin conexión a internet solo puedes instalar paquetes locales."
 msgstr "Without an internet connection you can only install local packages."
 
-#: src/ui/windows/main_window.py:397
+#: appinstall/src/ui/windows/main_window.py:430
+msgid "Destacados de Pulsar Store"
+msgstr "Pulsar Store"
+
+#: appinstall/src/ui/windows/main_window.py:435
+msgid "Ver catálogo"
+msgstr "View catalog"
+
+#: appinstall/src/ui/windows/main_window.py:455
+msgid "Extensiones GNOME destacadas"
+msgstr "Featured GNOME Extensions"
+
+#: appinstall/src/ui/windows/main_window.py:460
+msgid "Explorar todas"
+msgstr "Explore all"
+
+#: appinstall/src/ui/windows/main_window.py:478
 msgid "Apps imprescindibles"
 msgstr "Essential Apps"
 
-#: src/ui/windows/main_window.py:418
+#: appinstall/src/ui/windows/main_window.py:499
 msgid "Lo mejor de la semana"
 msgstr "Weekly Best"
 
-#: src/ui/windows/main_window.py:439
+#: appinstall/src/ui/windows/main_window.py:520
 msgid "Top apps gratis"
 msgstr "Top Free Apps"
 
-#: src/ui/windows/main_window.py:462
-msgid "Pulsar Store"
-msgstr "Pulsar Store"
-
-#: src/ui/windows/main_window.py:492
+#: appinstall/src/ui/windows/main_window.py:552
 msgid "¿Tienes un archivo de paquete local?"
 msgstr "Do you have a local package file?"
 
-#: src/ui/windows/main_window.py:496
+#: appinstall/src/ui/windows/main_window.py:556
 msgid ""
 "Instala archivos .deb, .rpm, .pkg.tar.zst o PWAs directamente en tu sistema."
 msgstr "Install .deb, .rpm, .pkg.tar.zst or PWAs directly in your system."
 
-#: src/ui/windows/main_window.py:504
+#: appinstall/src/ui/windows/main_window.py:564
 msgid "Seleccionar archivo..."
 msgstr "Select file..."
 
-#: src/ui/windows/main_window.py:508
+#: appinstall/src/ui/windows/main_window.py:568
 msgid "Crear PWA..."
 msgstr "Create PWA..."
 
-#: src/ui/windows/main_window.py:521
+#: appinstall/src/ui/windows/main_window.py:581
 msgid "Aún no has seleccionado ningún archivo"
 msgstr "You haven't selected any file yet"
 
-#: src/ui/windows/main_window.py:531
+#: appinstall/src/ui/windows/main_window.py:591
 msgid "Corregir dependencias"
 msgstr "Fix dependencies"
 
-#: src/ui/windows/main_window.py:545
+#: appinstall/src/ui/windows/main_window.py:605
 msgid "Listo para empezar"
 msgstr "Ready to start"
 
-#: src/ui/windows/main_window.py:809
-#: src/ui/windows/package_details_window.py:162
-msgid "Obtener"
-msgstr "Get"
+#: appinstall/src/ui/windows/main_window.py:827
+msgid "Extensión"
+msgstr "Extension"
 
-#: src/ui/windows/main_window.py:860 src/ui/windows/main_window.py:923
-#: src/ui/windows/main_window.py:1795
+#: appinstall/src/ui/windows/main_window.py:847
+#: appinstall/src/ui/windows/main_window.py:990
+#: appinstall/src/ui/windows/main_window.py:1053
+#: appinstall/src/ui/windows/main_window.py:2110
 msgid "Ver"
 msgstr "View"
 
-#: src/ui/windows/main_window.py:976 src/ui/windows/main_window.py:1015
+#: appinstall/src/ui/windows/main_window.py:847
+msgid "Explorar"
+msgstr "Explore"
+
+#: appinstall/src/ui/windows/main_window.py:939
+#: appinstall/src/ui/windows/package_details_window.py:162
+#: appinstall/src/ui/windows/pulsar_store_window.py:273
+msgid "Obtener"
+msgstr "Get"
+
+#: appinstall/src/ui/windows/main_window.py:1108
+#: appinstall/src/ui/windows/main_window.py:1205
 msgid "Comprobando actualizaciones..."
 msgstr "Checking for updates..."
 
-#: src/ui/windows/main_window.py:989
+#: appinstall/src/ui/windows/main_window.py:1124
+msgid "Actualizaciones automáticas"
+msgstr "Automatic updates"
+
+#: appinstall/src/ui/windows/main_window.py:1127
+msgid ""
+"Instala automáticamente en segundo plano las actualizaciones del sistema y "
+"de las aplicaciones."
+msgstr ""
+"Automatically installs system and application updates in the background."
+
+#: appinstall/src/ui/windows/main_window.py:1146
 msgid "Comprobar ahora"
 msgstr "Check now"
 
-#: src/ui/windows/main_window.py:993
+#: appinstall/src/ui/windows/main_window.py:1150
 msgid "Actualizar todo"
 msgstr "Upgrade all"
 
-#: src/ui/windows/main_window.py:1093
+#: appinstall/src/ui/windows/main_window.py:1362
 msgid "El sistema está actualizado"
 msgstr "The system is up to date"
 
-#: src/ui/windows/main_window.py:1097
+#: appinstall/src/ui/windows/main_window.py:1366
 #, python-brace-format
 msgid "Tienes {} actualizaciones disponibles"
 msgstr "You have {} updates available"
 
-#: src/ui/windows/main_window.py:1101
+#: appinstall/src/ui/windows/main_window.py:1370
 #, python-brace-format
 msgid "Nueva versión disponible: {} (actual: {})"
 msgstr "New version available: {} (current: {})"
 
-#: src/ui/windows/main_window.py:1104
+#: appinstall/src/ui/windows/main_window.py:1373
+#, python-brace-format
+msgid "Pulsar Store: versión {} disponible (actual: {})"
+msgstr "Pulsar Store: version {} available (current: {})"
+
+#: appinstall/src/ui/windows/main_window.py:1376
+#, python-brace-format
+msgid "Extensión GNOME: versión {} disponible (actual: {})"
+msgstr "GNOME Extension: version {} available (current: {})"
+
+#: appinstall/src/ui/windows/main_window.py:1379
+msgid "Actualización disponible en Flathub"
+msgstr "Update available"
+
+#: appinstall/src/ui/windows/main_window.py:1382
 msgid "Actualización disponible de los repositorios del sistema"
 msgstr "Update available from system repositories"
 
-#: src/ui/windows/main_window.py:1107
+#: appinstall/src/ui/windows/main_window.py:1385
 #, python-brace-format
 msgid "Y {} actualizaciones más..."
 msgstr "And {} more updates..."
 
-#: src/ui/windows/main_window.py:1139
+#: appinstall/src/ui/windows/main_window.py:1418
 msgid "Error al comprobar actualizaciones"
 msgstr "Error checking for updates"
 
-#: src/ui/windows/main_window.py:1187 src/ui/windows/main_window.py:1213
+#: appinstall/src/ui/windows/main_window.py:1466
+#: appinstall/src/ui/windows/main_window.py:1492
 #, python-brace-format
 msgid "Archivo seleccionado: {}"
 msgstr "Selected file: {}"
 
-#: src/ui/windows/main_window.py:1190 src/ui/windows/main_window.py:1216
+#: appinstall/src/ui/windows/main_window.py:1469
+#: appinstall/src/ui/windows/main_window.py:1495
 #, python-brace-format
 msgid "Estoy listo para instalar: {}"
 msgstr "Ready to install: {}"
 
-#: src/ui/windows/main_window.py:1199
+#: appinstall/src/ui/windows/main_window.py:1478
 msgid "Seleccionar paquete"
 msgstr "Select package"
 
-#: src/ui/windows/main_window.py:1231
+#: appinstall/src/ui/windows/main_window.py:1510
 msgid "Obteniendo información de la aplicación..."
 msgstr "Getting application information..."
 
-#: src/ui/windows/main_window.py:1232
+#: appinstall/src/ui/windows/main_window.py:1511
 msgid "Analizando paquete..."
 msgstr "Analyzing package..."
 
-#: src/ui/windows/main_window.py:1290
+#: appinstall/src/ui/windows/main_window.py:1577
 msgid "No he podido obtener detalles del paquete"
 msgstr "Could not get package details"
 
-#: src/ui/windows/main_window.py:1297
+#: appinstall/src/ui/windows/main_window.py:1584
 msgid "Detalles de la aplicación cargados"
 msgstr "Application details loaded"
 
-#: src/ui/windows/main_window.py:1355
+#: appinstall/src/ui/windows/main_window.py:1623
+msgid "Desinstalando extensión..."
+msgstr "Uninstalling {}..."
+
+#: appinstall/src/ui/windows/main_window.py:1630
+msgid "Desinstalando paquete..."
+msgstr "Analyzing package..."
+
+#: appinstall/src/ui/windows/main_window.py:1656
 msgid "Análisis omitido, instalando..."
 msgstr "Analysis skipped, installing..."
 
-#: src/ui/windows/main_window.py:1396
+#: appinstall/src/ui/windows/main_window.py:1697
 #, python-brace-format
 msgid "Instalar desde AUR: {}"
 msgstr "Install from AUR: {}"
 
-#: src/ui/windows/main_window.py:1397
+#: appinstall/src/ui/windows/main_window.py:1698
 msgid ""
 "Este paquete se compilará e instalará desde el Arch User Repository. Revisa "
 "el PKGBUILD: cualquier archivo se ejecuta con tus permisos."
@@ -867,185 +946,194 @@ msgstr ""
 "This package will be compiled and installed from the Arch User Repository. "
 "Review the PKGBUILD: any file runs with your permissions."
 
-#: src/ui/windows/main_window.py:1424
+#: appinstall/src/ui/windows/main_window.py:1725
 msgid "Formato de paquete no soportado por App Install"
 msgstr "Package format not supported by App Install"
 
-#: src/ui/windows/main_window.py:1428 src/ui/windows/main_window.py:1431
-#: src/ui/windows/main_window.py:1472
+#: appinstall/src/ui/windows/main_window.py:1729
+#: appinstall/src/ui/windows/main_window.py:1732
+#: appinstall/src/ui/windows/main_window.py:1781
+#: appinstall/src/ui/windows/gnome_extensions_window.py:624
 msgid "Instalando..."
 msgstr "Installing..."
 
-#: src/ui/windows/main_window.py:1437 src/ui/windows/main_window.py:1440
+#: appinstall/src/ui/windows/main_window.py:1738
+#: appinstall/src/ui/windows/main_window.py:1741
 msgid "Corregir errores"
 msgstr "Fix errors"
 
-#: src/ui/windows/main_window.py:1449 src/ui/windows/main_window.py:1452
+#: appinstall/src/ui/windows/main_window.py:1750
+#: appinstall/src/ui/windows/main_window.py:1753
 msgid "Actualizando el sistema..."
 msgstr "Upgrading the system..."
 
-#: src/ui/windows/main_window.py:1475
+#: appinstall/src/ui/windows/main_window.py:1784
 #, python-brace-format
 msgid "Instalando {}..."
 msgstr "Installing {}..."
 
-#: src/ui/windows/main_window.py:1482
+#: appinstall/src/ui/windows/main_window.py:1791
 msgid "Creando PWA..."
 msgstr "Creating PWA..."
 
-#: src/ui/windows/main_window.py:1485
+#: appinstall/src/ui/windows/main_window.py:1794
 #, python-brace-format
 msgid "Creando PWA {}..."
 msgstr "Creating PWA {}..."
 
-#: src/ui/windows/main_window.py:1524
+#: appinstall/src/ui/windows/main_window.py:1833
 msgid "¡Un error en la instalación!"
 msgstr "An installation error!"
 
-#: src/ui/windows/main_window.py:1529
+#: appinstall/src/ui/windows/main_window.py:1838
 msgid "He terminado la instalación"
 msgstr "I finished the installation"
 
-#: src/ui/windows/main_window.py:1542
+#: appinstall/src/ui/windows/main_window.py:1851
 msgid "¡Un error al corregir las dependencias!"
 msgstr "An error fixing dependencies!"
 
-#: src/ui/windows/main_window.py:1547
+#: appinstall/src/ui/windows/main_window.py:1856
 msgid "He corregido las dependencias"
 msgstr "I fixed the dependencies"
 
-#: src/ui/windows/main_window.py:1563
+#: appinstall/src/ui/windows/main_window.py:1872
 msgid "¡Un error al actualizar el sistema!"
 msgstr "An error occurred while upgrading the system!"
 
-#: src/ui/windows/main_window.py:1568
+#: appinstall/src/ui/windows/main_window.py:1877
 msgid "He terminado de actualizar el sistema"
 msgstr "System upgrade completed"
 
-#: src/ui/windows/main_window.py:1606
+#: appinstall/src/ui/windows/main_window.py:1915
 msgid "Estoy comprobando las actualizaciones"
 msgstr "I'm checking for updates"
 
-#: src/ui/windows/main_window.py:1621 src/ui/windows/main_window.py:1627
+#: appinstall/src/ui/windows/main_window.py:1930
+#: appinstall/src/ui/windows/main_window.py:1936
 msgid "Estoy actualizado :)"
 msgstr "I'm up to date :)"
 
-#: src/ui/windows/main_window.py:1622
+#: appinstall/src/ui/windows/main_window.py:1931
 #, python-brace-format
 msgid "Bien hecho, estoy actualizado a la última versión ({})."
 msgstr "Well done, I am updated to the latest version ({})."
 
-#: src/ui/windows/main_window.py:1624
+#: appinstall/src/ui/windows/main_window.py:1933
 msgid "Aceptar"
 msgstr "OK"
 
-#: src/ui/windows/main_window.py:1631
+#: appinstall/src/ui/windows/main_window.py:1940
 msgid "He encontrado un error"
 msgstr "I found an error"
 
-#: src/ui/windows/main_window.py:1632
+#: appinstall/src/ui/windows/main_window.py:1941
 msgid ""
 "Vaya, no he podido comprobar las actualizaciones. ¿Estás conectado a "
 "internet?"
 msgstr "Oops, I couldn't check for updates. Are you connected to the internet?"
 
-#: src/ui/windows/main_window.py:1700
+#: appinstall/src/ui/windows/main_window.py:2009
 msgid "Fórmula de Homebrew"
 msgstr "Homebrew Formula"
 
-#: src/ui/windows/main_window.py:1770
+#: appinstall/src/ui/windows/main_window.py:2079
 msgid "Nativo"
 msgstr "Native"
 
-#: src/ui/windows/main_window.py:1835
+#: appinstall/src/ui/windows/main_window.py:2088
+msgid "Extensión GNOME"
+msgstr "GNOME Extension"
+
+#: appinstall/src/ui/windows/main_window.py:2152
 msgid "Instalador de paquetes gráfico para Linux."
 msgstr "Graphical package installer for Linux."
 
-#: src/ui/windows/main_window.py:1860
+#: appinstall/src/ui/windows/main_window.py:2177
 msgid "Prioridad de Búsqueda"
 msgstr "Search priority"
 
-#: src/ui/windows/main_window.py:1874
+#: appinstall/src/ui/windows/main_window.py:2191
 msgid "Elige qué origen de paquetes prefieres ver primero en las búsquedas:"
 msgstr "Choose which package source you prefer to see first in searches:"
 
-#: src/ui/windows/main_window.py:1883
+#: appinstall/src/ui/windows/main_window.py:2200
 msgid "Nativo (Sistema: APT/DNF/Pacman)"
 msgstr "Native (System: APT/DNF/Pacman)"
 
-#: src/ui/windows/main_window.py:1892
+#: appinstall/src/ui/windows/main_window.py:2209
 msgid "Snap Store"
 msgstr "Snap Store"
 
-#: src/ui/windows/main_window.py:1897
+#: appinstall/src/ui/windows/main_window.py:2214
 msgid "AUR (Arch User Repository)"
 msgstr "AUR (Arch User Repository)"
 
-#: src/ui/windows/main_window.py:1911
+#: appinstall/src/ui/windows/main_window.py:2228
 msgid "Guardar"
 msgstr "Save"
 
-#: src/ui/windows/package_details_window.py:146
+#: appinstall/src/ui/windows/package_details_window.py:146
 msgid "Autor verificado"
 msgstr "Verified developer"
 
-#: src/ui/windows/package_details_window.py:221
+#: appinstall/src/ui/windows/package_details_window.py:221
 msgid "NATIVO"
 msgstr "NATIVE"
 
-#: src/ui/windows/package_details_window.py:230
+#: appinstall/src/ui/windows/package_details_window.py:230
 msgid "Descarga"
 msgstr "Download"
 
-#: src/ui/windows/package_details_window.py:237
+#: appinstall/src/ui/windows/package_details_window.py:237
 msgid "Desarrollador"
 msgstr "Developer"
 
-#: src/ui/windows/package_details_window.py:245
+#: appinstall/src/ui/windows/package_details_window.py:245
 msgid "Verificado"
 msgstr "Verified"
 
-#: src/ui/windows/package_details_window.py:257
+#: appinstall/src/ui/windows/package_details_window.py:257
 msgid "Capturas de pantalla"
 msgstr "Screenshots"
 
-#: src/ui/windows/package_details_window.py:292
+#: appinstall/src/ui/windows/package_details_window.py:292
 msgid "Información"
 msgstr "Information"
 
-#: src/ui/windows/package_details_window.py:309
+#: appinstall/src/ui/windows/package_details_window.py:309
 msgid "README"
 msgstr "README"
 
-#: src/ui/windows/package_details_window.py:323
+#: appinstall/src/ui/windows/package_details_window.py:323
 msgid "Cargando README..."
 msgstr "Loading README..."
 
-#: src/ui/windows/package_details_window.py:371
+#: appinstall/src/ui/windows/package_details_window.py:371
 msgid "Detalles técnicos"
 msgstr "Technical Details"
 
-#: src/ui/windows/package_details_window.py:380
+#: appinstall/src/ui/windows/package_details_window.py:380
 msgid "Tamaño instalado"
 msgstr "Installed size"
 
-#: src/ui/windows/package_details_window.py:388
+#: appinstall/src/ui/windows/package_details_window.py:388
 msgid "Formato"
 msgstr "Format"
 
-#: src/ui/windows/package_details_window.py:401
+#: appinstall/src/ui/windows/package_details_window.py:401
 msgid "Ninguna"
 msgstr "None"
 
-#: src/ui/windows/package_details_window.py:407
+#: appinstall/src/ui/windows/package_details_window.py:407
 msgid "Dependencias"
 msgstr "Dependencies"
 
-#: src/ui/windows/package_details_window.py:419
+#: appinstall/src/ui/windows/package_details_window.py:419
 msgid "PKGBUILD"
 msgstr "PKGBUILD"
 
-#: src/ui/windows/package_details_window.py:423
+#: appinstall/src/ui/windows/package_details_window.py:423
 msgid ""
 "Este paquete se compila desde el AUR. Revisa el PKGBUILD antes de "
 "instalarlo: cualquier archivo se ejecuta con tus permisos."
@@ -1053,58 +1141,174 @@ msgstr ""
 "This package is compiled from the AUR. Review the PKGBUILD before installing "
 "it: any file runs with your permissions."
 
-#: src/ui/windows/package_details_window.py:460
+#: appinstall/src/ui/windows/package_details_window.py:460
 msgid "Captura de pantalla"
 msgstr "Screenshot"
 
-#: src/ui/windows/progress_window.py:28
+#: appinstall/src/ui/windows/progress_window.py:28
 msgid "Operación en curso"
 msgstr "Operation in progress"
 
-#: src/ui/windows/progress_window.py:69
+#: appinstall/src/ui/windows/progress_window.py:69
 msgid "Instalar directamente"
 msgstr "Install directly"
 
-#: src/ui/windows/progress_window.py:82 src/ui/windows/progress_window.py:121
+#: appinstall/src/ui/windows/progress_window.py:82
+#: appinstall/src/ui/windows/progress_window.py:121
 msgid "Mostrar registro"
 msgstr "Show log"
 
-#: src/ui/windows/progress_window.py:119
+#: appinstall/src/ui/windows/progress_window.py:119
 msgid "Ocultar registro"
 msgstr "Hide log"
 
-#: src/ui/windows/pwa_config_window.py:11
+#: appinstall/src/ui/windows/pwa_config_window.py:11
 msgid "Crear PWA (Web App)"
 msgstr "Create PWA (Web App)"
 
-#: src/ui/windows/pwa_config_window.py:28
+#: appinstall/src/ui/windows/pwa_config_window.py:28
 msgid "Crear PWA"
 msgstr "Create PWA"
 
-#: src/ui/windows/pwa_config_window.py:45
+#: appinstall/src/ui/windows/pwa_config_window.py:45
 msgid "Introduce la URL de la web"
 msgstr "Enter the website URL"
 
-#: src/ui/windows/pwa_config_window.py:51
+#: appinstall/src/ui/windows/pwa_config_window.py:51
 msgid "https://ejemplo.com"
 msgstr "https://example.com"
 
-#: src/ui/windows/pwa_config_window.py:69
+#: appinstall/src/ui/windows/pwa_config_window.py:69
 msgid "Nombre de la aplicación"
 msgstr "Application name"
 
-#: src/ui/windows/pwa_config_window.py:78
+#: appinstall/src/ui/windows/pwa_config_window.py:78
 msgid "Icono"
 msgstr "Icon"
 
-#: src/ui/windows/pwa_config_window.py:87
+#: appinstall/src/ui/windows/pwa_config_window.py:87
 msgid "Cambiar icono..."
 msgstr "Change icon..."
 
-#: src/ui/windows/pwa_config_window.py:112
+#: appinstall/src/ui/windows/pwa_config_window.py:112
 msgid "¡Crear PWA!"
 msgstr "Create PWA!"
 
-#: src/ui/windows/pwa_config_window.py:175
+#: appinstall/src/ui/windows/pwa_config_window.py:175
 msgid "Seleccionar icono para la PWA"
 msgstr "Select icon for the PWA"
+
+#: appinstall/src/ui/windows/pulsar_store_window.py:34
+msgid "Explora aplicaciones, extensiones y módulos del ecosistema Pulsar OS"
+msgstr "Explore applications, extensions, and modules from the Pulsar OS ecosystem"
+
+#: appinstall/src/ui/windows/pulsar_store_window.py:42
+msgid "Actualizar catálogo"
+msgstr "Upgrade all"
+
+#: appinstall/src/ui/windows/pulsar_store_window.py:59
+msgid "Todos"
+msgstr "All"
+
+#: appinstall/src/ui/windows/pulsar_store_window.py:60
+msgid "Aplicaciones"
+msgstr "My Applications"
+
+#: appinstall/src/ui/windows/pulsar_store_window.py:61
+msgid "Extensiones"
+msgstr "Extensions"
+
+#: appinstall/src/ui/windows/pulsar_store_window.py:62
+msgid "Skills"
+msgstr "Skills"
+
+#: appinstall/src/ui/windows/pulsar_store_window.py:63
+msgid "Plugins"
+msgstr "Plugins"
+
+#: appinstall/src/ui/windows/pulsar_store_window.py:79
+msgid "Buscar en Pulsar Store..."
+msgstr "Pulsar Store"
+
+#: appinstall/src/ui/windows/pulsar_store_window.py:112
+msgid "Cargando catálogo de Pulsar Store..."
+msgstr "Loading Pulsar Store catalog..."
+
+#: appinstall/src/ui/windows/pulsar_store_window.py:180
+msgid "No se han encontrado elementos en esta categoría."
+msgstr "No items found in this category."
+
+#: appinstall/src/ui/windows/pulsar_store_window.py:269
+msgid "Instalado"
+msgstr "Install"
+
+#: appinstall/src/ui/windows/gnome_extensions_window.py:50
+msgid ""
+"Administra extensiones del sistema y descubre novedades en "
+"extensions.gnome.org"
+msgstr "Manage system extensions and discover new ones at extensions.gnome.org"
+
+#: appinstall/src/ui/windows/gnome_extensions_window.py:62
+msgid "Instaladas"
+msgstr "Install"
+
+#: appinstall/src/ui/windows/gnome_extensions_window.py:69
+msgid "Explorar EGO"
+msgstr "Explore EGO"
+
+#: appinstall/src/ui/windows/gnome_extensions_window.py:78
+msgid "Recargar"
+msgstr "Download"
+
+#: appinstall/src/ui/windows/gnome_extensions_window.py:128
+msgid "Filtrar extensiones instaladas..."
+msgstr "Installed applications"
+
+#: appinstall/src/ui/windows/gnome_extensions_window.py:248
+msgid "No se encontraron extensiones instaladas."
+msgstr "I couldn't find installed applications on your system"
+
+#: appinstall/src/ui/windows/gnome_extensions_window.py:307
+msgid "Identificador:"
+msgstr "Verified"
+
+#: appinstall/src/ui/windows/gnome_extensions_window.py:314
+msgid "Estado:"
+msgstr "Status:"
+
+#: appinstall/src/ui/windows/gnome_extensions_window.py:342
+msgid "Configuración"
+msgstr "Confirmation"
+
+#: appinstall/src/ui/windows/gnome_extensions_window.py:352
+msgid "Diagnóstico"
+msgstr "Diagnostics"
+
+#: appinstall/src/ui/windows/gnome_extensions_window.py:362
+msgid "Ver detalles"
+msgstr "View details"
+
+#: appinstall/src/ui/windows/gnome_extensions_window.py:400
+msgid "No se pudo obtener información de la extensión."
+msgstr "Getting application information..."
+
+#: appinstall/src/ui/windows/gnome_extensions_window.py:437
+msgid "Buscar en extensions.gnome.org..."
+msgstr "Search on extensions.gnome.org..."
+
+#: appinstall/src/ui/windows/gnome_extensions_window.py:469
+msgid "Buscando en extensions.gnome.org..."
+msgstr "Searching on extensions.gnome.org..."
+
+#: appinstall/src/ui/windows/gnome_extensions_window.py:525
+msgid "No se encontraron extensiones en extensions.gnome.org."
+msgstr "No extensions found on extensions.gnome.org."
+
+#: appinstall/src/ui/windows/gnome_extensions_window.py:605
+#: appinstall/src/ui/windows/gnome_extensions_window.py:667
+msgid "Instalada"
+msgstr "Install"
+
+#: appinstall/src/ui/windows/gnome_extensions_window.py:673
+msgid "Reintentar"
+msgstr "Retry"

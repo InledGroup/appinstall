@@ -70,6 +70,10 @@ X-SwiftInstall={install_type}
         elif file_path.startswith('pulsar:'):
             pkg_name = file_path.replace('pulsar:', '', 1)
             return self.pulsar_adapter.install(pkg_name)
+        elif file_path.startswith('gnome-ext:') or file_path.startswith('gnome-extension:'):
+            prefix = 'gnome-ext:' if file_path.startswith('gnome-ext:') else 'gnome-extension:'
+            uuid = file_path.replace(prefix, '', 1)
+            return self.get_gnome_extension_install_command(uuid)
 
         file_extension = os.path.splitext(file_path)[1].lower()
         is_brew_file = HAS_BREW and file_extension == '.rb'
@@ -142,6 +146,43 @@ X-SwiftInstall={install_type}
             'pkexec', 'bash', '-c',
             f"cp '{icon_path}' '{target_icon_path}' && echo '{escaped_content}' > '{desktop_path}'"
         ]
+
+    def get_gnome_extension_install_command(self, uuid: str):
+        py_script = (
+            "import urllib.request, json, subprocess, os, sys\n"
+            f"uuid = '{uuid}'\n"
+            "try:\n"
+            "    req = urllib.request.Request(f'https://extensions.gnome.org/extension-query/?search={uuid}', headers={'User-Agent': 'AppInstall/1.0'})\n"
+            "    with urllib.request.urlopen(req, timeout=10) as r:\n"
+            "        data = json.loads(r.read().decode('utf-8'))\n"
+            "    exts = data.get('extensions', [])\n"
+            "    if not exts:\n"
+            "        sys.exit(1)\n"
+            "    ext = next((e for e in exts if e.get('uuid') == uuid), exts[0])\n"
+            "    pk = ext.get('pk')\n"
+            "    info_req = urllib.request.Request(f'https://extensions.gnome.org/extension-info/?pk={pk}', headers={'User-Agent': 'AppInstall/1.0'})\n"
+            "    with urllib.request.urlopen(info_req, timeout=10) as r:\n"
+            "        info = json.loads(r.read().decode('utf-8'))\n"
+            "    shell_map = info.get('shell_version_map', {})\n"
+            "    if not shell_map:\n"
+            "        sys.exit(1)\n"
+            "    latest = list(shell_map.values())[-1]\n"
+            "    tag_pk = latest.get('pk') if isinstance(latest, dict) else latest\n"
+            "    dl_url = f'https://extensions.gnome.org/download-extension/{uuid}.shell-extension.zip?version_tag={tag_pk}'\n"
+            "    tmp_zip = f'/tmp/{uuid}.zip'\n"
+            "    dl_req = urllib.request.Request(dl_url, headers={'User-Agent': 'AppInstall/1.0'})\n"
+            "    with urllib.request.urlopen(dl_req, timeout=20) as r:\n"
+            "        with open(tmp_zip, 'wb') as f:\n"
+            "            f.write(r.read())\n"
+            "    subprocess.run(['gnome-extensions', 'install', '--force', tmp_zip], check=True)\n"
+            "    subprocess.run(['gnome-extensions', 'enable', uuid], check=False)\n"
+            "    if os.path.exists(tmp_zip): os.remove(tmp_zip)\n"
+            "    print(f'Extensión {uuid} instalada con éxito.')\n"
+            "except Exception as e:\n"
+            "    print(f'Error al instalar extensión: {e}')\n"
+            "    sys.exit(1)\n"
+        )
+        return ["python3", "-c", py_script]
 
     def _prepare_env(self):
         # English: Copy current environment and configure privilege escalation to use pkexec (graphical sudo)

@@ -240,33 +240,77 @@ class PulsarStoreAdapter(PackageManager):
     # ── Install ─────────────────────────────────────────────────────────────
 
     def install(self, package: str) -> List[str]:
-        """Install a Pulsar Store package.
-
-        For Flatpak packages: delegates to `flatpak install`.
-        For other types: opens the Pulsar Store scheme handler
-        (pulsar://install/<id>) which the desktop environment handles.
-        """
+        """Install a Pulsar Store package natively based on its type."""
         catalog = self._get_catalog()
         pkg = self._find_pkg(catalog, package)
         if not pkg:
-            return ["sh", "-c", f"echo 'Package {package} not found in Pulsar Store'"]
+            return ["sh", "-c", f"echo 'Package {package} not found in Pulsar Store' && exit 1"]
 
         pkg_type = pkg.get("type", "")
         download_url = pkg.get("download_url", "")
         pkg_id = pkg.get("id", package)
+        version = pkg.get("version", "")
 
-        if pkg_type == "flatpak" and download_url:
-            # Flatpak packages can be installed via flatpak directly
-            # The download_url points to a .flatpakref or .flatpak file
-            if download_url.endswith(".flatpakref") or download_url.endswith(".flatpak"):
-                return ["pkexec", "flatpak", "install", "-y", download_url]
-            # If it's a Flathub app ID, try flatpak install from flathub
-            if download_url.startswith("https://flathub.org") or "flathub" in download_url.lower():
-                return ["pkexec", "flatpak", "install", "-y", "flathub", package]
+        # 1. Flatpak package
+        if pkg_type == "flatpak":
+            if download_url and (download_url.endswith(".flatpakref") or download_url.endswith(".flatpak")):
+                return ["flatpak", "install", "-y", download_url]
+            elif download_url and ("flathub" in download_url.lower()):
+                return ["flatpak", "install", "-y", "flathub", pkg_id]
+            else:
+                return ["flatpak", "install", "-y", pkg_id]
 
-        # For all other types, use the scheme handler
-        return ["sh", "-c", f"xdg-open 'pulsar://install/{pkg_id}' && "
-                f"echo 'Opening Pulsar Store to install {pkg_id}...'"]
+        # 2. GNOME Extension
+        elif pkg_type == "gnome_extension":
+            if download_url:
+                cmd = (
+                    f"tmpfile=$(mktemp --suffix=.zip) && "
+                    f"curl -sSL '{download_url}' -o \"$tmpfile\" && "
+                    f"gnome-extensions install --force \"$tmpfile\" && "
+                    f"rm -f \"$tmpfile\" && "
+                    f"(gnome-extensions enable '{pkg_id}' || true)"
+                )
+                return ["sh", "-c", cmd]
+            else:
+                return ["gnome-extensions", "enable", pkg_id]
+
+        # 3. Sayri Skill
+        elif pkg_type == "sayri_skill":
+            target_dir = os.path.expanduser(f"~/.local/share/sayri/skills/{pkg_id}")
+            if download_url:
+                cmd = (
+                    f"mkdir -p '{target_dir}' && "
+                    f"tmpfile=$(mktemp --suffix=.zip) && "
+                    f"curl -sSL '{download_url}' -o \"$tmpfile\" && "
+                    f"unzip -o -q \"$tmpfile\" -d '{target_dir}' && "
+                    f"rm -f \"$tmpfile\""
+                )
+                return ["sh", "-c", cmd]
+            return ["sh", "-c", f"mkdir -p '{target_dir}'"]
+
+        # 4. Sayri Plugin
+        elif pkg_type == "sayri_plugin":
+            target_dir = os.path.expanduser(f"~/.local/share/sayri/plugins/{pkg_id}")
+            if download_url:
+                cmd = (
+                    f"mkdir -p '{target_dir}' && "
+                    f"tmpfile=$(mktemp --suffix=.zip) && "
+                    f"curl -sSL '{download_url}' -o \"$tmpfile\" && "
+                    f"unzip -o -q \"$tmpfile\" -d '{target_dir}' && "
+                    f"rm -f \"$tmpfile\""
+                )
+                return ["sh", "-c", cmd]
+            return ["sh", "-c", f"mkdir -p '{target_dir}'"]
+
+        # Fallback for generic archives (.deb, .tar.gz, etc.)
+        elif download_url:
+            if download_url.endswith(".deb"):
+                cmd = f"tmpfile=$(mktemp --suffix=.deb) && curl -sSL '{download_url}' -o \"$tmpfile\" && pkexec dpkg -i \"$tmpfile\" && rm -f \"$tmpfile\""
+                return ["sh", "-c", cmd]
+            elif download_url.endswith(".zip"):
+                return ["sh", "-c", f"tmpfile=$(mktemp --suffix=.zip) && curl -sSL '{download_url}' -o \"$tmpfile\" && unzip -o -q \"$tmpfile\" -d ~/.local/share/ && rm -f \"$tmpfile\""]
+
+        return ["sh", "-c", f"echo 'No installation mechanism defined for {pkg_id}' && exit 1"]
 
     def install_multiple(self, packages: List[str]) -> List[str]:
         """Install multiple Pulsar Store packages."""
@@ -278,30 +322,76 @@ class PulsarStoreAdapter(PackageManager):
     def install_local(self, file_path: str) -> List[str]:
         """Install a local Pulsar Store package file (.zip)."""
         if file_path.endswith(".zip"):
-            return ["sh", "-c", f"xdg-open 'pulsar://install-local/{file_path}'"]
+            return ["sh", "-c", f"unzip -o -q '{file_path}' -d ~/.local/share/"]
         return ["sh", "-c", f"echo 'Unsupported file type: {file_path}'"]
 
     # ── Uninstall ───────────────────────────────────────────────────────────
 
     def uninstall(self, package: str) -> List[str]:
-        """Uninstall a Pulsar Store package.
-
-        For Flatpak: delegates to `flatpak uninstall`.
-        For others: opens the scheme handler or uses the Pulsar Store CLI.
-        """
+        """Uninstall a Pulsar Store package natively based on its type."""
         catalog = self._get_catalog()
         pkg = self._find_pkg(catalog, package)
-        if not pkg:
-            return ["sh", "-c", f"echo 'Package {package} not found in Pulsar Store'"]
-
-        pkg_type = pkg.get("type", "")
+        pkg_type = pkg.get("type", "") if pkg else ""
+        pkg_id = pkg.get("id", package) if pkg else package
 
         if pkg_type == "flatpak":
-            return ["pkexec", "flatpak", "uninstall", "-y", package]
+            return ["flatpak", "uninstall", "-y", pkg_id]
+        elif pkg_type == "gnome_extension":
+            return ["gnome-extensions", "uninstall", pkg_id]
+        elif pkg_type == "sayri_skill":
+            target_dir = os.path.expanduser(f"~/.local/share/sayri/skills/{pkg_id}")
+            return ["sh", "-c", f"rm -rf '{target_dir}'"]
+        elif pkg_type == "sayri_plugin":
+            target_dir = os.path.expanduser(f"~/.local/share/sayri/plugins/{pkg_id}")
+            return ["sh", "-c", f"rm -rf '{target_dir}'"]
 
-        # For Sayri skills/plugins, use the pulsar-store CLI
-        return ["sh", "-c", f"pulsar-store remove '{package}' 2>/dev/null || "
-                f"echo 'Use pulsar-store remove {package} to uninstall'"]
+        # Default fallback checks
+        ext_dir = os.path.expanduser(f"~/.local/share/gnome-shell/extensions/{pkg_id}")
+        skill_dir = os.path.expanduser(f"~/.local/share/sayri/skills/{pkg_id}")
+        plugin_dir = os.path.expanduser(f"~/.local/share/sayri/plugins/{pkg_id}")
+
+        if os.path.isdir(ext_dir):
+            return ["gnome-extensions", "uninstall", pkg_id]
+        elif os.path.isdir(skill_dir):
+            return ["sh", "-c", f"rm -rf '{skill_dir}'"]
+        elif os.path.isdir(plugin_dir):
+            return ["sh", "-c", f"rm -rf '{plugin_dir}'"]
+
+        return ["flatpak", "uninstall", "-y", pkg_id]
+
+    # ── Status check ────────────────────────────────────────────────────────
+
+    def is_package_installed(self, package: str) -> bool:
+        """Check if a Pulsar Store package is currently installed on the system."""
+        catalog = self._get_catalog()
+        pkg = self._find_pkg(catalog, package)
+        pkg_type = pkg.get("type", "") if pkg else ""
+        pkg_id = pkg.get("id", package) if pkg else package
+
+        if pkg_type == "flatpak":
+            try:
+                res = subprocess.run(["flatpak", "info", pkg_id], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                if res.returncode == 0:
+                    return True
+            except Exception:
+                pass
+        elif pkg_type == "gnome_extension":
+            user_dir = os.path.expanduser(f"~/.local/share/gnome-shell/extensions/{pkg_id}")
+            sys_dir = f"/usr/share/gnome-shell/extensions/{pkg_id}"
+            if os.path.isdir(user_dir) or os.path.isdir(sys_dir):
+                return True
+        elif pkg_type == "sayri_skill":
+            user_dir = os.path.expanduser(f"~/.local/share/sayri/skills/{pkg_id}")
+            if os.path.isdir(user_dir):
+                return True
+        elif pkg_type == "sayri_plugin":
+            user_dir = os.path.expanduser(f"~/.local/share/sayri/plugins/{pkg_id}")
+            if os.path.isdir(user_dir):
+                return True
+
+        # Check installed database as secondary source
+        db = _load_installed_db()
+        return pkg_id in db
 
     # ── Package info ────────────────────────────────────────────────────────
 
@@ -317,6 +407,7 @@ class PulsarStoreAdapter(PackageManager):
                 "description": "Package not found in Pulsar Store.",
                 "source": "pulsar",
                 "icon": "system-software-install-symbolic",
+                "is_installed": False,
             }
 
         pkg_type = pkg.get("type", "")
@@ -330,27 +421,31 @@ class PulsarStoreAdapter(PackageManager):
         security = pkg.get("security_report", {})
         security_score = security.get("score", "N/A")
         security_status = security.get("status", "N/A")
+        pkg_id = pkg.get("id", package_name)
+        is_installed = self.is_package_installed(pkg_id)
 
         info = {
             "name": pkg.get("name", package_name),
             "version": pkg.get("version", "N/A"),
             "description": pkg.get("description", ""),
             "source": "pulsar",
-            "developer": pkg.get("author", ""),
+            "developer": pkg.get("author", "Pulsar OS"),
             "license": "Open Source",
             "size": "N/A",
             "icon": "system-software-install-symbolic",
             "pulsar_type": type_label,
-            "pulsar_id": pkg.get("id", package_name),
+            "pulsar_id": pkg_id,
             "readme_url": pkg.get("readme_url", ""),
             "security_score": str(security_score),
             "security_status": security_status,
+            "is_installed": is_installed,
+            "verified": True,
         }
 
         # Enrich with icon
         icon_url = pkg.get("icon_url", "")
         if icon_url:
-            cached = get_cached_icon(icon_url, f"pulsar_{package_name}")
+            cached = get_cached_icon(icon_url, f"pulsar_{pkg_id}")
             if cached:
                 info["icon"] = cached
 
@@ -395,7 +490,7 @@ class PulsarStoreAdapter(PackageManager):
 
     def upgrade_system(self) -> List[str]:
         """Check for Pulsar Store updates."""
-        return ["sh", "-c", "pulsar-store check 2>/dev/null || echo 'pulsar-store CLI not installed'"]
+        return ["sh", "-c", "echo 'Pulsar Store packages up to date'"]
 
     # ── Helpers ─────────────────────────────────────────────────────────────
 

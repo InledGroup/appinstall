@@ -57,13 +57,18 @@ class GnomeExtensionsWidget(Gtk.Box):
         # Tab Switcher Buttons (Installed vs EGO Store)
         tab_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
         tab_box.add_css_class("linked")
+        tab_box.set_valign(Gtk.Align.CENTER)
 
         self.tab_installed_btn = Gtk.Button(label=_("Instaladas"))
         self.tab_installed_btn.add_css_class("suggested-action")
+        self.tab_installed_btn.add_css_class("compact-tab-btn")
+        self.tab_installed_btn.set_valign(Gtk.Align.CENTER)
         self.tab_installed_btn.connect("clicked", lambda b: self.switch_tab("installed"))
         tab_box.append(self.tab_installed_btn)
 
         self.tab_ego_btn = Gtk.Button(label=_("Explorar EGO"))
+        self.tab_ego_btn.add_css_class("compact-tab-btn")
+        self.tab_ego_btn.set_valign(Gtk.Align.CENTER)
         self.tab_ego_btn.connect("clicked", lambda b: self.switch_tab("ego"))
         tab_box.append(self.tab_ego_btn)
 
@@ -344,11 +349,21 @@ class GnomeExtensionsWidget(Gtk.Box):
         diag_btn = Gtk.Button()
         diag_hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         diag_hbox.append(Gtk.Image.new_from_icon_name("dialog-information-symbolic"))
-        diag_hbox.append(Gtk.Label(label=_("Ver errores y diagnóstico")))
+        diag_hbox.append(Gtk.Label(label=_("Diagnóstico")))
         diag_btn.set_child(diag_hbox)
         diag_btn.add_css_class("flat")
         diag_btn.connect("clicked", self._on_show_extension_diagnosis, ext["uuid"], error_box, error_lbl)
         actions_row.append(diag_btn)
+
+        # 2.5 Details button
+        details_btn = Gtk.Button()
+        det_hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        det_hbox.append(Gtk.Image.new_from_icon_name("document-properties-symbolic"))
+        det_hbox.append(Gtk.Label(label=_("Ver detalles")))
+        details_btn.set_child(det_hbox)
+        details_btn.add_css_class("flat")
+        details_btn.connect("clicked", lambda b, u=ext["uuid"]: self.main_window.show_package_details(f"gnome-ext:{u}", is_local=False))
+        actions_row.append(details_btn)
 
         # Spacer
         spacer = Gtk.Box()
@@ -360,7 +375,7 @@ class GnomeExtensionsWidget(Gtk.Box):
             del_btn = Gtk.Button()
             del_hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
             del_hbox.append(Gtk.Image.new_from_icon_name("user-trash-symbolic"))
-            del_hbox.append(Gtk.Label(label=_("Desinstalar extensión")))
+            del_hbox.append(Gtk.Label(label=_("Desinstalar")))
             del_btn.set_child(del_hbox)
             del_btn.add_css_class("destructive-button")
             del_btn.connect("clicked", self._on_uninstall_extension, ext["uuid"])
@@ -597,6 +612,11 @@ class GnomeExtensionsWidget(Gtk.Box):
 
         action_row.append(inst_btn)
         card.append(action_row)
+
+        # Make card clickable to view details
+        gesture = Gtk.GestureClick()
+        gesture.connect("released", lambda g, n, x, y: self.main_window.show_package_details(f"gnome-ext:{ext.get('uuid')}", is_local=False))
+        card.add_controller(gesture)
 
         return card
 

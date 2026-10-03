@@ -264,22 +264,27 @@ class PulsarStoreWidget(Gtk.Box):
         ver_lbl.set_hexpand(True)
         action_row.append(ver_lbl)
 
-        install_btn = Gtk.Button(label=_("Obtener"))
-        install_btn.add_css_class("app-card-button")
-        install_btn.connect("clicked", self._on_install_clicked, pkg)
+        is_installed = self.adapter.is_package_installed(pkg_id)
+        if is_installed:
+            install_btn = Gtk.Button(label=_("Instalado"))
+            install_btn.add_css_class("app-card-button-secondary")
+            install_btn.connect("clicked", lambda b, p=pkg: self.main_window.show_package_details(f"pulsar:{p.get('id')}", is_local=False))
+        else:
+            install_btn = Gtk.Button(label=_("Obtener"))
+            install_btn.add_css_class("app-card-button")
+            install_btn.connect("clicked", self._on_install_clicked, pkg)
         action_row.append(install_btn)
 
         card.append(action_row)
+
+        # Make card clickable to open package details
+        gesture = Gtk.GestureClick()
+        gesture.connect("released", lambda g, n, x, y, p=pkg: self.main_window.show_package_details(f"pulsar:{p.get('id')}", is_local=False))
+        card.add_controller(gesture)
+
         return card
 
     def _on_install_clicked(self, button, pkg):
         pkg_id = pkg.get("id", "")
-        pkg_type = pkg.get("type", "")
-        
-        if pkg_type == "flatpak":
-            self.main_window.install_package(pkg_id, source="flatpak")
-        elif pkg_type == "gnome_extension":
-            # Direct GNOME extension install or scheme open
-            safe_open_url(f"pulsar://install/{pkg_id}")
-        else:
-            safe_open_url(f"pulsar://install/{pkg_id}")
+        self.main_window.file_path = f"pulsar:{pkg_id}"
+        self.main_window.on_install_clicked(None)

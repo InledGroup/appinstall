@@ -389,6 +389,13 @@ def load_css():
         color: #787878;
     }
 
+    .compact-tab-btn {
+        padding: 4px 14px;
+        min-height: 28px;
+        font-size: 0.85rem;
+        border-radius: 6px;
+    }
+
     .readme-view {
         font-size: 0.95rem;
         line-height: 1.6;
