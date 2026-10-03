@@ -131,7 +131,8 @@ class DaemonService:
         # Debian / Ubuntu / Pulsar OS APT
         if shutil.which("apt-get"):
             try:
-                subprocess.run(["apt-get", "update", "-qq"], capture_output=True, timeout=120)
+                if os.geteuid() == 0:
+                    subprocess.run(["apt-get", "update", "-qq"], capture_output=True, timeout=120)
                 check = subprocess.run(["apt", "list", "--upgradable"], capture_output=True, text=True, timeout=60)
                 lines = [l for l in check.stdout.strip().splitlines() if "/" in l and "Listing..." not in l]
                 if lines:
@@ -143,7 +144,8 @@ class DaemonService:
         # Arch Linux / Pacman
         if shutil.which("pacman"):
             try:
-                subprocess.run(["pkexec", "pacman", "-Sy"], capture_output=True, timeout=120)
+                if os.geteuid() == 0:
+                    subprocess.run(["pacman", "-Sy"], capture_output=True, timeout=120)
                 check = subprocess.run(["pacman", "-Qu"], capture_output=True, text=True, timeout=60)
                 lines = [l for l in check.stdout.strip().splitlines() if l.strip()]
                 if lines:

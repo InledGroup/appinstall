@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3584e4"/>
+      <stop offset="50%" stop-color="#9141ac"/>
+      <stop offset="100%" stop-color="#e01b24"/>
+    </linearGradient>
+    <linearGradient id="bagGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f0f2f5"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000000" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+
+  <!-- Background rounded rectangle -->
+  <rect x="8" y="8" width="112" height="112" rx="26" fill="url(#bgGrad)" filter="url(#shadow)"/>
+
+  <!-- Shopping bag body -->
+  <path d="M 36 44 C 36 40 40 38 44 38 L 84 38 C 88 38 92 40 92 44 L 96 94 C 96 98 92 102 88 102 L 40 102 C 36 102 32 98 32 94 Z" fill="url(#bagGrad)" filter="url(#shadow)"/>
+
+  <!-- Bag handle -->
+  <path d="M 48 42 C 48 30 52 24 64 24 C 76 24 80 30 80 42" fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="round"/>
+
+  <!-- Pulsar 4-point star in center -->
+  <path d="M 64 54 C 64 63 67 67 76 67 C 67 67 64 71 64 80 C 64 71 61 67 52 67 C 61 67 64 63 64 54 Z" fill="url(#bgGrad)"/>
+</svg>

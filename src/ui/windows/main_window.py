@@ -170,7 +170,17 @@ class PackageInstaller(Adw.ApplicationWindow):
         
         # Add Navigation Rows
         self.add_sidebar_row(self.sidebar_list, "store", _("Buscar / Tienda"), "system-search-symbolic")
-        self.add_sidebar_row(self.sidebar_list, "pulsar_store", _("Pulsar Store"), "emblem-favorite-symbolic")
+        
+        pulsar_store_icon = "emblem-favorite-symbolic"
+        for icon_cand in [
+            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "pulsar-store.svg"),
+            "/usr/share/icons/hicolor/scalable/apps/pulsar-store.svg"
+        ]:
+            if os.path.exists(icon_cand):
+                pulsar_store_icon = icon_cand
+                break
+        self.add_sidebar_row(self.sidebar_list, "pulsar_store", _("Pulsar Store"), pulsar_store_icon)
+        
         if is_gnome_desktop():
             self.add_sidebar_row(self.sidebar_list, "gnome_extensions", _("Extensiones GNOME"), "application-x-addon-symbolic")
         self.add_sidebar_row(self.sidebar_list, "installed", _("Mis Aplicaciones"), "system-software-install-symbolic")
@@ -332,7 +342,10 @@ class PackageInstaller(Adw.ApplicationWindow):
         box.set_margin_start(12)
         box.set_margin_end(12)
         
-        icon = Gtk.Image.new_from_icon_name(icon_name)
+        if icon_name.endswith(".svg") or icon_name.endswith(".png") or os.path.exists(icon_name):
+            icon = Gtk.Image.new_from_file(icon_name)
+        else:
+            icon = Gtk.Image.new_from_icon_name(icon_name)
         icon.set_pixel_size(18)
         box.append(icon)
         
@@ -410,6 +423,67 @@ class PackageInstaller(Adw.ApplicationWindow):
         self.offline_banner.set_visible(False)
         self.main_box.append(self.offline_banner)
         
+        # 0. Destacados de Pulsar Store Section
+        self.pulsar_highlights_section_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        pulsar_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        
+        pulsar_sec_icon = Gtk.Image()
+        pulsar_svg = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "pulsar-store.svg")
+        if os.path.exists(pulsar_svg):
+            pulsar_sec_icon.set_from_file(pulsar_svg)
+        else:
+            pulsar_sec_icon.set_from_icon_name("emblem-favorite-symbolic")
+        pulsar_sec_icon.set_pixel_size(22)
+        pulsar_header.append(pulsar_sec_icon)
+
+        pulsar_title = Gtk.Label(label=_("Destacados de Pulsar Store"), xalign=0)
+        pulsar_title.add_css_class("store-section-title")
+        pulsar_title.set_hexpand(True)
+        pulsar_header.append(pulsar_title)
+
+        ver_pulsar_btn = Gtk.Button(label=_("Ver catálogo"))
+        ver_pulsar_btn.add_css_class("flat")
+        ver_pulsar_btn.connect("clicked", lambda b: self.navigate_to_page("pulsar_store"))
+        pulsar_header.append(ver_pulsar_btn)
+        self.pulsar_highlights_section_box.append(pulsar_header)
+
+        scrolled_pulsar = Gtk.ScrolledWindow()
+        scrolled_pulsar.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.NEVER)
+        self.pulsar_highlights_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=14)
+        self.pulsar_highlights_box.set_margin_top(4)
+        self.pulsar_highlights_box.set_margin_bottom(8)
+        scrolled_pulsar.set_child(self.pulsar_highlights_box)
+        self.pulsar_highlights_section_box.append(scrolled_pulsar)
+        self.main_box.append(self.pulsar_highlights_section_box)
+
+        # 0.5 GNOME Extensions Section (if GNOME desktop)
+        if is_gnome_desktop():
+            self.gnome_highlights_section_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+            gnome_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            gnome_icon = Gtk.Image.new_from_icon_name("application-x-addon-symbolic")
+            gnome_icon.set_pixel_size(22)
+            gnome_header.append(gnome_icon)
+
+            gnome_title = Gtk.Label(label=_("Extensiones GNOME destacadas"), xalign=0)
+            gnome_title.add_css_class("store-section-title")
+            gnome_title.set_hexpand(True)
+            gnome_header.append(gnome_title)
+
+            ver_gnome_btn = Gtk.Button(label=_("Explorar todas"))
+            ver_gnome_btn.add_css_class("flat")
+            ver_gnome_btn.connect("clicked", lambda b: self.navigate_to_page("gnome_extensions"))
+            gnome_header.append(ver_gnome_btn)
+            self.gnome_highlights_section_box.append(gnome_header)
+
+            scrolled_gnome = Gtk.ScrolledWindow()
+            scrolled_gnome.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.NEVER)
+            self.gnome_highlights_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=14)
+            self.gnome_highlights_box.set_margin_top(4)
+            self.gnome_highlights_box.set_margin_bottom(8)
+            scrolled_gnome.set_child(self.gnome_highlights_box)
+            self.gnome_highlights_section_box.append(scrolled_gnome)
+            self.main_box.append(self.gnome_highlights_section_box)
+
         # 1. Apps imprescindibles Section (from Flathub)
         self.popular_section_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         popular_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
@@ -613,6 +687,17 @@ class PackageInstaller(Adw.ApplicationWindow):
             if len(text) >= 3:
                 self.perform_package_search(text)
 
+    def navigate_to_page(self, page_name):
+        row = None
+        for i in range(10):
+            r = self.sidebar_list.get_row_at_index(i)
+            if r and getattr(r, 'target_page', None) == page_name:
+                row = r
+                break
+        if row:
+            self.sidebar_list.select_row(row)
+            self.content_stack.set_visible_child_name(page_name)
+
     def load_store_recommendations(self):
         def _fetch():
             if not self.search_service:
@@ -630,15 +715,23 @@ class PackageInstaller(Adw.ApplicationWindow):
 
                 # Fetch trending apps (12)
                 trending = self.search_service.get_trending_apps(limit=12)
+
+                # Fetch Pulsar Store highlights (6)
+                pulsar_highlights = self.search_service.get_pulsar_store_highlights(limit=6)
+
+                # Fetch GNOME Extensions highlights (6) if on GNOME
+                gnome_highlights = self.search_service.get_gnome_extensions_highlights(limit=6) if is_gnome_desktop() else []
             except Exception as e:
                 print(f"Error loading store recommendations: {e}")
                 popular_all = []
                 trending = []
+                pulsar_highlights = []
+                gnome_highlights = []
 
-            if not popular_all and not trending:
+            if not popular_all and not trending and not pulsar_highlights:
                 GLib.idle_add(self.show_offline_banner)
             else:
-                GLib.idle_add(self.populate_recommendations, popular, trending, top_free)
+                GLib.idle_add(self.populate_recommendations, popular, trending, top_free, pulsar_highlights, gnome_highlights)
 
         threading.Thread(target=_fetch, daemon=True).start()
 
@@ -670,10 +763,18 @@ class PackageInstaller(Adw.ApplicationWindow):
         if hasattr(self, 'offline_banner'):
             self.offline_banner.set_visible(True)
 
-    def populate_recommendations(self, popular, trending, top_free):
+    def populate_recommendations(self, popular, trending, top_free, pulsar_highlights=None, gnome_highlights=None):
         # Stop and remove spinners if they exist
         self._stop_recommendation_spinners()
             
+        # Populate Pulsar Store highlights
+        if pulsar_highlights and hasattr(self, 'pulsar_highlights_box'):
+            self._fill_horizontal_cards(self.pulsar_highlights_box, pulsar_highlights)
+
+        # Populate GNOME Extensions highlights
+        if gnome_highlights and hasattr(self, 'gnome_highlights_box'):
+            self._fill_horizontal_cards(self.gnome_highlights_box, gnome_highlights)
+
         # Populate popular (Mac App Store ranked two-column list, 1..N)
         self._fill_ranked_columns(self.popular_grid, popular[:12])
         
@@ -682,6 +783,88 @@ class PackageInstaller(Adw.ApplicationWindow):
         
         # Populate top free (Mac App Store ranked two-column list, 1..N)
         self._fill_ranked_columns(self.top_free_horizontal_box, top_free[:6])
+
+    def _fill_horizontal_cards(self, container, items):
+        child = container.get_first_child()
+        while child:
+            container.remove(child)
+            child = container.get_first_child()
+
+        for item in items:
+            card = self.create_highlight_card(item)
+            container.append(card)
+
+    def create_highlight_card(self, app_data):
+        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        card.add_css_class("card")
+        card.set_size_request(240, -1)
+        card.set_hexpand(False)
+
+        top_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+
+        icon_path = app_data.get('icon', '')
+        if icon_path and os.path.exists(icon_path):
+            icon = Gtk.Image.new_from_file(icon_path)
+        elif icon_path and icon_path.startswith('http'):
+            try:
+                from src.utils.system import get_cached_icon
+                cached = get_cached_icon(icon_path, app_data.get('name', 'app'))
+                if cached and os.path.exists(cached):
+                    icon = Gtk.Image.new_from_file(cached)
+                else:
+                    icon = Gtk.Image.new_from_icon_name("system-software-install-symbolic")
+            except Exception:
+                icon = Gtk.Image.new_from_icon_name("system-software-install-symbolic")
+        else:
+            icon = Gtk.Image.new_from_icon_name(icon_path if icon_path else "system-software-install-symbolic")
+        icon.set_pixel_size(44)
+        icon.add_css_class("app-card-icon")
+        top_row.append(icon)
+
+        title_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        title_box.set_hexpand(True)
+        title_box.set_valign(Gtk.Align.CENTER)
+
+        name_lbl = Gtk.Label(label=app_data.get('display_name', app_data.get('name', '')), xalign=0)
+        name_lbl.add_css_class("app-card-title")
+        name_lbl.set_ellipsize(Pango.EllipsizeMode.END)
+        title_box.append(name_lbl)
+
+        source = app_data.get('source', '')
+        if source == 'pulsar':
+            sub_text = app_data.get('type', 'Pulsar').replace('_', ' ').capitalize()
+        elif source == 'gnome-extension':
+            sub_text = _("Extensión")
+        else:
+            sub_text = app_data.get('desc', '')
+
+        sub_lbl = Gtk.Label(label=sub_text, xalign=0)
+        sub_lbl.add_css_class("app-card-subtitle")
+        sub_lbl.set_ellipsize(Pango.EllipsizeMode.END)
+        title_box.append(sub_lbl)
+
+        top_row.append(title_box)
+        card.append(top_row)
+
+        desc_lbl = Gtk.Label(label=app_data.get('desc', ''), xalign=0)
+        desc_lbl.add_css_class("subtitle-label")
+        desc_lbl.set_wrap(True)
+        desc_lbl.set_max_lines(2)
+        desc_lbl.set_ellipsize(Pango.EllipsizeMode.END)
+        desc_lbl.set_vexpand(True)
+        card.append(desc_lbl)
+
+        btn = Gtk.Button(label=_("Ver") if source != 'gnome-extension' else _("Explorar"))
+        btn.add_css_class("app-card-button")
+        btn.set_halign(Gtk.Align.END)
+        btn.connect("clicked", lambda b: self.on_recommendation_clicked(app_data))
+        card.append(btn)
+
+        click_gesture = Gtk.GestureClick()
+        click_gesture.connect("released", lambda g, n, x, y: self.on_recommendation_clicked(app_data))
+        card.add_controller(click_gesture)
+
+        return card
 
     def _fill_ranked_columns(self, container, apps):
         """English: Fill a container with a Mac App Store style ranked
@@ -893,7 +1076,14 @@ class PackageInstaller(Adw.ApplicationWindow):
     def on_recommendation_clicked(self, app_data):
         pkg_name = app_data['name']
         source = app_data.get('source', '')
-        if source == 'flatpak':
+        if source == 'gnome-extension':
+            self.navigate_to_page("gnome_extensions")
+            if hasattr(self, 'gnome_extensions_widget'):
+                self.gnome_extensions_widget.switch_tab("ego")
+                self.gnome_extensions_widget.ego_search_entry.set_text(pkg_name)
+                self.gnome_extensions_widget.search_ego(pkg_name)
+            return
+        elif source == 'flatpak':
             pkg_name = f"flatpak:{pkg_name}"
         elif source == 'pulsar':
             pkg_name = f"pulsar:{pkg_name}"
@@ -1787,6 +1977,12 @@ class PackageInstaller(Adw.ApplicationWindow):
             elif source == 'flatpak':
                 source_label = "Flatpak"
                 badge_class = "badge-flatpak"
+            elif source == 'pulsar':
+                source_label = "Pulsar Store"
+                badge_class = "badge-pulsar"
+            elif source == 'gnome-extension':
+                source_label = _("Extensión GNOME")
+                badge_class = "badge-generic"
             elif source == 'snap':
                 source_label = "Snap"
                 badge_class = "badge-snap"
@@ -1821,7 +2017,14 @@ class PackageInstaller(Adw.ApplicationWindow):
 
     def on_search_result_activated(self, listbox, row):
         pkg_name = row.pkg_name
-        if row.source == 'brew':
+        if row.source == 'gnome-extension':
+            self.navigate_to_page("gnome_extensions")
+            if hasattr(self, 'gnome_extensions_widget'):
+                self.gnome_extensions_widget.switch_tab("ego")
+                self.gnome_extensions_widget.ego_search_entry.set_text(pkg_name)
+                self.gnome_extensions_widget.search_ego(pkg_name)
+            return
+        elif row.source == 'brew':
             pkg_name = f"brew:{pkg_name}"
         elif row.source == 'flatpak':
             pkg_name = f"flatpak:{pkg_name}"

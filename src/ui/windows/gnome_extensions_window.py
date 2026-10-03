@@ -13,10 +13,14 @@ def is_gnome_desktop() -> bool:
     """Check if currently running within a GNOME desktop environment."""
     desktop = os.environ.get("XDG_CURRENT_DESKTOP", "").upper()
     session = os.environ.get("DESKTOP_SESSION", "").upper()
-    if "GNOME" in desktop or "GNOME" in session or "PULSAR" in desktop:
+    if any(k in desktop for k in ["GNOME", "PULSAR", "UBUNTU", "PANTHEON"]) or any(k in session for k in ["GNOME", "PULSAR", "UBUNTU", "PANTHEON"]):
         return True
-    if shutil.which("gnome-extensions") is not None:
-        return True
+    try:
+        res = subprocess.run(["pgrep", "-x", "gnome-shell"], capture_output=True)
+        if res.returncode == 0:
+            return True
+    except Exception:
+        pass
     return False
 
 class GnomeExtensionsWidget(Gtk.Box):
@@ -51,7 +55,7 @@ class GnomeExtensionsWidget(Gtk.Box):
         header_box.append(title_box)
 
         # Tab Switcher Buttons (Installed vs EGO Store)
-        tab_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        tab_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
         tab_box.add_css_class("linked")
 
         self.tab_installed_btn = Gtk.Button(label=_("Instaladas"))
@@ -143,47 +147,57 @@ class GnomeExtensionsWidget(Gtk.Box):
         threading.Thread(target=worker, daemon=True).start()
 
     def _query_installed_extensions(self):
-        exts = []
-        if not shutil.which("gnome-extensions"):
-            return exts
+        exts_map = {}
+        
+        # 1. Query enabled extensions
+        enabled_uuids = set()
+        if shutil.which("gnome-extensions"):
+            try:
+                res = subprocess.run(["gnome-extensions", "list", "--enabled"], capture_output=True, text=True, timeout=5)
+                if res.returncode == 0:
+                    for line in res.stdout.splitlines():
+                        line = line.strip()
+                        if line:
+                            enabled_uuids.add(line)
+            except Exception:
+                pass
 
-        try:
-            res = subprocess.run(["gnome-extensions", "list", "--details"], capture_output=True, text=True, timeout=10)
-            if res.returncode == 0:
-                blocks = res.stdout.strip().split("\n\n")
-                for block in blocks:
-                    if not block.strip():
+        # 2. Search extension paths (user paths first so they take precedence)
+        search_dirs = [
+            (os.path.expanduser("~/.local/share/gnome-shell/extensions"), "user"),
+            ("/usr/share/gnome-shell/extensions", "system"),
+            ("/usr/local/share/gnome-shell/extensions", "system")
+        ]
+
+        for base_dir, ext_type in search_dirs:
+            if not os.path.isdir(base_dir):
+                continue
+            for entry in os.listdir(base_dir):
+                ext_dir = os.path.join(base_dir, entry)
+                if not os.path.isdir(ext_dir):
+                    continue
+                meta_path = os.path.join(ext_dir, "metadata.json")
+                if not os.path.isfile(meta_path):
+                    continue
+                
+                try:
+                    with open(meta_path, "r", encoding="utf-8", errors="ignore") as f:
+                        meta = json.load(f)
+                    
+                    uuid = meta.get("uuid", entry)
+                    if uuid in exts_map:
                         continue
-                    lines = block.strip().split("\n")
-                    uuid = lines[0].strip()
-                    name = uuid
-                    desc = ""
-                    state = "DISABLED"
-                    version = ""
-                    ext_type = "user"
-                    has_prefs = False
 
-                    for line in lines[1:]:
-                        line_s = line.strip()
-                        if line_s.startswith("Name:"):
-                            name = line_s.split("Name:", 1)[1].strip()
-                        elif line_s.startswith("Description:"):
-                            desc = line_s.split("Description:", 1)[1].strip()
-                        elif line_s.startswith("State:"):
-                            state = line_s.split("State:", 1)[1].strip()
-                        elif line_s.startswith("Version:"):
-                            version = line_s.split("Version:", 1)[1].strip()
-                        elif line_s.startswith("Path:"):
-                            path_str = line_s.split("Path:", 1)[1].strip()
-                            if path_str.startswith("/usr/share"):
-                                ext_type = "system"
+                    name = meta.get("name", uuid)
+                    desc = meta.get("description", "")
+                    version = str(meta.get("version", ""))
+                    has_prefs = (
+                        os.path.exists(os.path.join(ext_dir, "prefs.js")) or 
+                        os.path.exists(os.path.join(ext_dir, "prefs.ui"))
+                    )
+                    state = "ENABLED" if uuid in enabled_uuids else "DISABLED"
 
-                    # Check if preferences exist
-                    prefs_path = os.path.expanduser(f"~/.local/share/gnome-shell/extensions/{uuid}/prefs.js")
-                    sys_prefs = f"/usr/share/gnome-shell/extensions/{uuid}/prefs.js"
-                    has_prefs = os.path.exists(prefs_path) or os.path.exists(sys_prefs)
-
-                    exts.append({
+                    exts_map[uuid] = {
                         "uuid": uuid,
                         "name": name,
                         "description": desc,
@@ -191,11 +205,11 @@ class GnomeExtensionsWidget(Gtk.Box):
                         "version": version,
                         "type": ext_type,
                         "has_prefs": has_prefs
-                    })
-        except Exception as e:
-            print(f"Error querying gnome extensions: {e}")
+                    }
+                except Exception as e:
+                    print(f"Error reading extension metadata {meta_path}: {e}")
 
-        return sorted(exts, key=lambda x: x["name"].lower())
+        return sorted(exts_map.values(), key=lambda x: x["name"].lower())
 
     def _on_installed_loaded(self, exts):
         self.installed_extensions = exts

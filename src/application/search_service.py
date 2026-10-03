@@ -81,6 +81,11 @@ class SearchService:
         # 6. Homebrew (si está disponible)
         if self.brew_adapter.is_available():
             tasks.append(("brew", lambda: self.brew_adapter.search(query)))
+
+        # 7. GNOME Extensions (si el entorno es GNOME)
+        from src.utils.system import is_gnome_desktop
+        if is_gnome_desktop():
+            tasks.append(("gnome-extension", lambda: self._search_gnome_extensions(query)))
             
         # Ejecutar búsquedas en paralelo con ThreadPoolExecutor
         with concurrent.futures.ThreadPoolExecutor(max_workers=len(tasks)) as executor:
@@ -107,6 +112,87 @@ class SearchService:
                 return len(self.priority_order)
                 
         results.sort(key=get_sort_key)
+        return results
+
+    def _search_gnome_extensions(self, query: str) -> List[Dict[str, str]]:
+        import urllib.request
+        import urllib.parse
+        from src.utils.system import get_cached_icon
+        
+        results = []
+        try:
+            url = f"https://extensions.gnome.org/extension-query/?search={urllib.parse.quote(query)}&n_per_page=8"
+            req = urllib.request.Request(url, headers={"User-Agent": "AppInstall/1.0"})
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                data = json.loads(resp.read().decode())
+                for ext in data.get("extensions", []):
+                    uuid = ext.get("uuid", "")
+                    icon_rel = ext.get("icon", "")
+                    icon_path = ""
+                    if icon_rel and not icon_rel.endswith("plugin.png"):
+                        full_icon_url = f"https://extensions.gnome.org{icon_rel}" if icon_rel.startswith("/") else icon_rel
+                        icon_path = get_cached_icon(full_icon_url, f"ego_{ext.get('pk', '0')}")
+                    
+                    results.append({
+                        "name": uuid,
+                        "display_name": ext.get("name", uuid),
+                        "desc": ext.get("description", ""),
+                        "source": "gnome-extension",
+                        "icon": icon_path if icon_path else "application-x-addon-symbolic",
+                        "ego_pk": ext.get("pk"),
+                        "uuid": uuid,
+                        "version": ext.get("version", "")
+                    })
+        except Exception as e:
+            print(f"Error querying GNOME extensions in SearchService: {e}")
+        return results
+
+    def get_pulsar_store_highlights(self, limit=6) -> List[Dict[str, str]]:
+        catalog = self.pulsar_adapter._get_catalog()
+        highlights = []
+        for pkg in catalog[:limit]:
+            pkg_id = pkg.get("id", "")
+            icon_url = pkg.get("icon_url", "")
+            from src.utils.system import get_cached_icon
+            icon_path = get_cached_icon(icon_url, f"pulsar_{pkg_id}") if icon_url else ""
+            highlights.append({
+                "name": pkg_id,
+                "display_name": pkg.get("name", pkg_id),
+                "desc": pkg.get("summary") or pkg.get("description", ""),
+                "source": "pulsar",
+                "icon": icon_path if icon_path else "system-software-install-symbolic",
+                "version": pkg.get("version", "1.0"),
+                "type": pkg.get("type", "")
+            })
+        return highlights
+
+    def get_gnome_extensions_highlights(self, limit=6) -> List[Dict[str, str]]:
+        import urllib.request
+        from src.utils.system import get_cached_icon
+        results = []
+        try:
+            url = f"https://extensions.gnome.org/extension-query/?sort=downloads&n_per_page={limit}"
+            req = urllib.request.Request(url, headers={"User-Agent": "AppInstall/1.0"})
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                data = json.loads(resp.read().decode())
+                for ext in data.get("extensions", []):
+                    uuid = ext.get("uuid", "")
+                    icon_rel = ext.get("icon", "")
+                    icon_path = ""
+                    if icon_rel and not icon_rel.endswith("plugin.png"):
+                        full_icon_url = f"https://extensions.gnome.org{icon_rel}" if icon_rel.startswith("/") else icon_rel
+                        icon_path = get_cached_icon(full_icon_url, f"ego_{ext.get('pk', '0')}")
+                    results.append({
+                        "name": uuid,
+                        "display_name": ext.get("name", uuid),
+                        "desc": ext.get("description", ""),
+                        "source": "gnome-extension",
+                        "icon": icon_path if icon_path else "application-x-addon-symbolic",
+                        "ego_pk": ext.get("pk"),
+                        "uuid": uuid
+                    })
+        except Exception as e:
+            print(f"Error fetching GNOME extensions highlights: {e}")
         return results
 
     def get_popular_apps(self, limit=12) -> List[Dict[str, str]]:

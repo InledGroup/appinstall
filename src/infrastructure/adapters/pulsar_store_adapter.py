@@ -18,12 +18,16 @@ import subprocess
 import shutil
 import tempfile
 import hashlib
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 from src.domain.ports import PackageManager
 from src.utils.system import get_cached_icon
 
-# ── Catalog URL & local cache ───────────────────────────────────────────────
-CATALOG_URL = "https://store-os.inled.es/schema/index.json"
+# ── Catalog URLs & local cache ───────────────────────────────────────────────
+CATALOG_URLS = [
+    "https://store-os.inled.es/schema/index.json",
+    "https://raw.githubusercontent.com/Inled-Pulsar-OS/store/main/schema/index.json",
+    "https://pulsar-store.pages.dev/schema/index.json",
+]
 CACHE_DIR = os.path.expanduser("~/.cache/appinstall/pulsar-store")
 CATALOG_CACHE = os.path.join(CACHE_DIR, "index.json")
 INSTALLED_DB = os.path.join(CACHE_DIR, "installed.json")
@@ -66,6 +70,30 @@ class PulsarStoreAdapter(PackageManager):
 
     # ── Catalog fetching ────────────────────────────────────────────────────
 
+    def _normalize_items(self, raw_data: Any) -> List[dict]:
+        if not isinstance(raw_data, dict):
+            return []
+        pkgs = raw_data.get("packages") or raw_data.get("items") or []
+        normalized = []
+        for p in pkgs:
+            if not isinstance(p, dict):
+                continue
+            item = dict(p)
+            if not item.get("summary") and item.get("description"):
+                item["summary"] = item["description"].split(". ")[0] + "."
+            
+            # Normalize icon URL
+            icon_url = item.get("icon_url", "")
+            pkg_id = item.get("id", "")
+            if not icon_url and pkg_id:
+                item["icon_url"] = f"https://raw.githubusercontent.com/Inled-Pulsar-OS/store/main/assets/icons/{pkg_id}.png"
+            elif icon_url and not (icon_url.startswith("http://") or icon_url.startswith("https://")):
+                clean_path = icon_url.lstrip("/")
+                item["icon_url"] = f"https://raw.githubusercontent.com/Inled-Pulsar-OS/store/main/{clean_path}"
+
+            normalized.append(item)
+        return normalized
+
     def _fetch_catalog(self, force: bool = False) -> List[dict]:
         """Download and cache the Pulsar Store catalog.
 
@@ -73,7 +101,7 @@ class PulsarStoreAdapter(PackageManager):
         Uses a local file cache with TTL to avoid hammering the server.
         """
         import time
-        import requests
+        import urllib.request
 
         _ensure_cache_dir()
 
@@ -82,33 +110,51 @@ class PulsarStoreAdapter(PackageManager):
             age = time.time() - os.path.getmtime(CATALOG_CACHE)
             if age < CACHE_TTL_SECONDS:
                 try:
-                    with open(CATALOG_CACHE, "r") as f:
+                    with open(CATALOG_CACHE, "r", encoding="utf-8") as f:
                         data = json.load(f)
-                    return data.get("packages", [])
+                    items = self._normalize_items(data)
+                    if items:
+                        return items
                 except Exception:
                     pass
 
-        # Fetch fresh catalog
-        try:
-            headers = {"User-Agent": "pkm-pulsar-store/1.0"}
-            r = requests.get(CATALOG_URL, headers=headers, timeout=10)
-            if r.status_code == 200:
-                data = r.json()
-                # Write to cache
-                with open(CATALOG_CACHE, "w") as f:
-                    json.dump(data, f, indent=2)
-                return data.get("packages", [])
-        except Exception as e:
-            print(f"Pulsar Store catalog fetch error: {e}")
+        # Try fetching from CATALOG_URLS
+        for url in CATALOG_URLS:
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": "AppInstall-PulsarStore/1.0"})
+                with urllib.request.urlopen(req, timeout=6) as resp:
+                    if resp.status == 200:
+                        data = json.loads(resp.read().decode("utf-8"))
+                        items = self._normalize_items(data)
+                        if items:
+                            with open(CATALOG_CACHE, "w", encoding="utf-8") as f:
+                                json.dump(data, f, indent=2)
+                            return items
+            except Exception as e:
+                print(f"Pulsar Store catalog fetch error ({url}): {e}")
 
-        # Fallback: try stale cache
+        # Fallback 1: try stale cache
         if os.path.exists(CATALOG_CACHE):
             try:
-                with open(CATALOG_CACHE, "r") as f:
+                with open(CATALOG_CACHE, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                return data.get("packages", [])
+                items = self._normalize_items(data)
+                if items:
+                    return items
             except Exception:
                 pass
+
+        # Fallback 2: bundled catalog if installed
+        for bundled in ("/usr/share/pulsar-store/catalog.json", "/usr/share/appinstall/catalog.json"):
+            if os.path.exists(bundled):
+                try:
+                    with open(bundled, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                    items = self._normalize_items(data)
+                    if items:
+                        return items
+                except Exception:
+                    pass
 
         return []
 

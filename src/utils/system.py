@@ -100,3 +100,17 @@ def get_cached_icon(icon_url: str, package_id: str) -> str:
         
     return ""
 
+def is_gnome_desktop() -> bool:
+    """Check if currently running within a GNOME desktop environment."""
+    desktop = os.environ.get("XDG_CURRENT_DESKTOP", "").upper()
+    session = os.environ.get("DESKTOP_SESSION", "").upper()
+    if any(k in desktop for k in ["GNOME", "PULSAR", "UBUNTU", "PANTHEON"]) or any(k in session for k in ["GNOME", "PULSAR", "UBUNTU", "PANTHEON"]):
+        return True
+    try:
+        res = subprocess.run(["pgrep", "-x", "gnome-shell"], capture_output=True)
+        if res.returncode == 0:
+            return True
+    except Exception:
+        pass
+    return False
+
