@@ -122,40 +122,52 @@ class PackageInfoService:
                 exts = data.get('extensions', [])
                 matched = None
                 for e in exts:
-                    if e.get('uuid') == ext_id or str(e.get('pk')) == ext_id:
+                    if e.get('uuid', '').lower() == ext_id.lower() or str(e.get('pk', '')) == str(ext_id):
                         matched = e
                         break
                 if not matched and exts:
                     matched = exts[0]
 
                 if matched:
-                    if not info['description'] or len(matched.get('description', '')) > len(info['description']):
-                        info['description'] = matched.get('description', info['description'])
+                    pk = matched.get('pk')
+                    info_data = matched
+                    try:
+                        info_url = f"https://extensions.gnome.org/extension-info/?pk={pk}"
+                        info_req = urllib.request.Request(info_url, headers={"User-Agent": "AppInstall/1.0"})
+                        with urllib.request.urlopen(info_req, timeout=5) as info_resp:
+                            info_data = json.loads(info_resp.read().decode('utf-8'))
+                    except Exception:
+                        pass
+
+                    desc = info_data.get('description') or matched.get('description', '')
+                    if desc and (not info['description'] or len(desc) > len(info['description'])):
+                        info['description'] = desc
                     if not info['name'] or info['name'] == ext_id:
-                        info['name'] = matched.get('name', ext_id)
-                    info['developer'] = matched.get('creator', info['developer'])
+                        info['name'] = info_data.get('name') or matched.get('name', ext_id)
+                    info['developer'] = info_data.get('creator') or matched.get('creator', info['developer'])
                     if not info.get('website'):
-                        info['website'] = f"https://extensions.gnome.org{matched.get('link', '')}"
+                        link = info_data.get('link') or matched.get('link', '')
+                        info['website'] = f"https://extensions.gnome.org{link}" if link else ""
                     
                     # Downloads count
-                    dls = matched.get('downloads', 0)
+                    dls = info_data.get('downloads') or matched.get('downloads', 0)
                     if dls:
                         info['downloads'] = dls
 
                     # Icon (supports SVG, GIF, PNG, WebP)
                     from src.utils.system import get_cached_icon, get_cached_screenshot
-                    icon_rel = matched.get('icon', '')
+                    icon_rel = info_data.get('icon') or matched.get('icon', '')
                     if icon_rel and not icon_rel.endswith('plugin.png'):
                         full_icon_url = f"https://extensions.gnome.org{icon_rel}" if icon_rel.startswith('/') else icon_rel
-                        cached = get_cached_icon(full_icon_url, f"ego_{matched.get('pk', ext_id)}")
+                        cached = get_cached_icon(full_icon_url, f"ego_{pk or ext_id}")
                         if cached and os.path.exists(cached):
                             info['icon'] = cached
 
-                    # Demo Screenshot / Image
-                    screenshot_rel = matched.get('screenshot', '')
+                    # Demo Screenshot / Image (get latest screenshot)
+                    screenshot_rel = info_data.get('screenshot') or matched.get('screenshot', '')
                     if screenshot_rel:
                         full_shot_url = f"https://extensions.gnome.org{screenshot_rel}" if screenshot_rel.startswith('/') else screenshot_rel
-                        cached_shot = get_cached_screenshot(full_shot_url, f"ego_shot_{matched.get('pk', ext_id)}")
+                        cached_shot = get_cached_screenshot(full_shot_url, f"ego_shot_{pk or ext_id}")
                         if cached_shot and os.path.exists(cached_shot):
                             info['cached_screenshots'] = [cached_shot]
         except Exception as e:

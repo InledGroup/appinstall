@@ -75,30 +75,29 @@ def get_cached_icon(icon_url: str, package_id: str) -> str:
     
     safe_filename = "".join([c if c.isalnum() or c in ".-_" else "_" for c in package_id])
     
-    ext = ".png"
-    try:
-        parsed = urllib.parse.urlparse(icon_url)
-        path_ext = os.path.splitext(parsed.path)[1].lower()
-        if path_ext in [".png", ".jpg", ".jpeg", ".svg", ".gif", ".ico", ".webp"]:
-            ext = path_ext
-    except Exception:
-        pass
-        
-    local_path = os.path.join(cache_dir, f"{safe_filename}{ext}")
-    if os.path.exists(local_path) and os.path.getsize(local_path) > 0:
-        return local_path
+    # Check if already cached with any supported extension
+    for candidate_ext in [".png", ".svg", ".gif", ".jpg", ".jpeg", ".webp", ".ico"]:
+        candidate = os.path.join(cache_dir, f"{safe_filename}{candidate_ext}")
+        if os.path.exists(candidate) and os.path.getsize(candidate) > 0:
+            return candidate
         
     try:
-        r = requests.get(icon_url, headers={"User-Agent": "AppInstall/1.0"}, timeout=5)
+        r = requests.get(icon_url, headers={"User-Agent": "AppInstall/1.0"}, timeout=6)
         if r.status_code == 200 and r.content:
             ct = r.headers.get("Content-Type", "").lower()
-            if ("svg" in ct or b"<svg" in r.content[:100].lower()) and not local_path.endswith(".svg"):
-                local_path = os.path.join(cache_dir, f"{safe_filename}.svg")
-            elif ("gif" in ct or r.content.startswith(b"GIF")) and not local_path.endswith(".gif"):
-                local_path = os.path.join(cache_dir, f"{safe_filename}.gif")
-            elif ("webp" in ct or b"WEBP" in r.content[:20]) and not local_path.endswith(".webp"):
-                local_path = os.path.join(cache_dir, f"{safe_filename}.webp")
+            ext = ".png"
+            if "svg" in ct or b"<svg" in r.content[:200].lower():
+                ext = ".svg"
+            elif "gif" in ct or r.content.startswith(b"GIF"):
+                ext = ".gif"
+            elif "webp" in ct or (r.content[:4] == b"RIFF" and r.content[8:12] == b"WEBP"):
+                ext = ".webp"
+            elif "jpeg" in ct or "jpg" in ct or r.content.startswith(b"\xff\xd8\xff"):
+                ext = ".jpg"
+            elif "ico" in ct or r.content.startswith(b"\x00\x00\x01\x00"):
+                ext = ".ico"
 
+            local_path = os.path.join(cache_dir, f"{safe_filename}{ext}")
             with open(local_path, "wb") as f:
                 f.write(r.content)
             return local_path
@@ -122,14 +121,16 @@ def create_app_icon_widget(icon_path_or_url_or_name: str, size: int = 44, fallba
     widget = None
     if path and os.path.isfile(path):
         try:
-            pix = GdkPixbuf.Pixbuf.new_from_file_at_scale(path, size, size, True)
-            tex = Gdk.Texture.new_for_pixbuf(pix)
-            img = Gtk.Image.new_from_paintable(tex)
-            img.set_pixel_size(size)
-            widget = img
+            pic = Gtk.Picture.new_for_filename(path)
+            pic.set_content_fit(Gtk.ContentFit.CONTAIN)
+            pic.set_can_shrink(True)
+            pic.set_size_request(size, size)
+            widget = pic
         except Exception:
             try:
-                img = Gtk.Image.new_from_file(path)
+                pix = GdkPixbuf.Pixbuf.new_from_file_at_scale(path, size, size, True)
+                tex = Gdk.Texture.new_for_pixbuf(pix)
+                img = Gtk.Image.new_from_paintable(tex)
                 img.set_pixel_size(size)
                 widget = img
             except Exception:
@@ -151,8 +152,6 @@ def create_app_icon_widget(icon_path_or_url_or_name: str, size: int = 44, fallba
     box.append(widget)
     return box
 
-
-
 def get_cached_screenshot(screenshot_url: str, prefix: str) -> str:
     """Descarga una imagen de demo/screenshot (PNG, JPG, WebP, SVG, GIF) y la almacena en caché."""
     if not screenshot_url:
@@ -167,30 +166,27 @@ def get_cached_screenshot(screenshot_url: str, prefix: str) -> str:
     url_hash = hashlib.md5(screenshot_url.encode("utf-8")).hexdigest()[:10]
     safe_prefix = "".join([c if c.isalnum() or c in ".-_" else "_" for c in prefix])
     
-    ext = ".jpg"
-    try:
-        parsed = urllib.parse.urlparse(screenshot_url)
-        path_ext = os.path.splitext(parsed.path)[1].lower()
-        if path_ext in [".png", ".jpg", ".jpeg", ".svg", ".gif", ".webp"]:
-            ext = path_ext
-    except Exception:
-        pass
-
-    local_path = os.path.join(cache_dir, f"{safe_prefix}_{url_hash}{ext}")
-    if os.path.exists(local_path) and os.path.getsize(local_path) > 0:
-        return local_path
+    # Check if already cached with any supported extension
+    for candidate_ext in [".gif", ".png", ".jpg", ".jpeg", ".svg", ".webp"]:
+        candidate = os.path.join(cache_dir, f"{safe_prefix}_{url_hash}{candidate_ext}")
+        if os.path.exists(candidate) and os.path.getsize(candidate) > 0:
+            return candidate
 
     try:
-        r = requests.get(screenshot_url, headers={"User-Agent": "AppInstall/1.0"}, timeout=8)
+        r = requests.get(screenshot_url, headers={"User-Agent": "AppInstall/1.0"}, timeout=10)
         if r.status_code == 200 and r.content:
             ct = r.headers.get("Content-Type", "").lower()
-            if "svg" in ct and not local_path.endswith(".svg"):
-                local_path = os.path.join(cache_dir, f"{safe_prefix}_{url_hash}.svg")
-            elif "gif" in ct and not local_path.endswith(".gif"):
-                local_path = os.path.join(cache_dir, f"{safe_prefix}_{url_hash}.gif")
-            elif "png" in ct and not local_path.endswith(".png"):
-                local_path = os.path.join(cache_dir, f"{safe_prefix}_{url_hash}.png")
+            ext = ".jpg"
+            if "svg" in ct or b"<svg" in r.content[:200].lower():
+                ext = ".svg"
+            elif "gif" in ct or r.content.startswith(b"GIF"):
+                ext = ".gif"
+            elif "png" in ct or r.content.startswith(b"\x89PNG\r\n\x1a\n"):
+                ext = ".png"
+            elif "webp" in ct or (r.content[:4] == b"RIFF" and r.content[8:12] == b"WEBP"):
+                ext = ".webp"
 
+            local_path = os.path.join(cache_dir, f"{safe_prefix}_{url_hash}{ext}")
             with open(local_path, "wb") as f:
                 f.write(r.content)
             return local_path

@@ -1791,16 +1791,12 @@ class PackageInstaller(Adw.ApplicationWindow):
         self.progress_bar.set_fraction(1.0)
         self.status_label.set_text(message)
         
+        # Always dismiss the progress window so the alert/error dialog is presented directly on top
+        self._close_progress_dialog()
+
         if is_error:
-            # English: Keep the log window open so the user can inspect the output
-            # Español: Mantener abierta la ventana de registro para que el usuario inspeccione la salida
-            if hasattr(self, 'progress_dialog') and self.progress_dialog:
-                self.progress_dialog.auto_show_log()
             dialog = Adw.AlertDialog(heading=_("¡Un error en la instalación!"), body=message)
         else:
-            if hasattr(self, 'progress_dialog') and self.progress_dialog:
-                self.progress_dialog.close()
-                self.progress_dialog = None
             dialog = Adw.AlertDialog(heading=_("He terminado la instalación"), body=message)
         
         dialog.add_response("ok", "OK")
@@ -1811,14 +1807,11 @@ class PackageInstaller(Adw.ApplicationWindow):
     def on_fix_deps_complete(self, message, is_error=False):
         self.progress_bar.set_fraction(1.0)
         self.status_label.set_text(message)
+        self._close_progress_dialog()
+
         if is_error:
-            if hasattr(self, 'progress_dialog') and self.progress_dialog:
-                self.progress_dialog.auto_show_log()
             dialog = Adw.AlertDialog(heading=_("¡Un error al corregir las dependencias!"), body=message)
         else:
-            if hasattr(self, 'progress_dialog') and self.progress_dialog:
-                self.progress_dialog.close()
-                self.progress_dialog = None
             dialog = Adw.AlertDialog(heading=_("He corregido las dependencias"), body=message)
         
         dialog.add_response("ok", "OK")
@@ -1831,15 +1824,11 @@ class PackageInstaller(Adw.ApplicationWindow):
         # Español: Manejar el diálogo de finalización de actualización del sistema y reinicio de estado
         self.progress_bar.set_fraction(1.0)
         self.status_label.set_text(message)
-        
+        self._close_progress_dialog()
+
         if is_error:
-            if hasattr(self, 'progress_dialog') and self.progress_dialog:
-                self.progress_dialog.auto_show_log()
             dialog = Adw.AlertDialog(heading=_("¡Un error al actualizar el sistema!"), body=message)
         else:
-            if hasattr(self, 'progress_dialog') and self.progress_dialog:
-                self.progress_dialog.close()
-                self.progress_dialog = None
             dialog = Adw.AlertDialog(heading=_("He terminado de actualizar el sistema"), body=message)
         
         dialog.add_response("ok", "OK")
@@ -2015,16 +2004,11 @@ class PackageInstaller(Adw.ApplicationWindow):
             box.set_margin_end(12)
             
             icon_val = res.get('icon', '')
-            if icon_val and os.path.exists(icon_val):
-                icon = Gtk.Image.new_from_file(icon_val)
-            else:
-                icon_name = icon_val
-                if not icon_name or (not theme.has_icon(icon_name) and not os.path.isabs(icon_name)):
-                    icon_name = "package-x-generic-symbolic" if res.get('source') in ['apt', 'dnf', 'pacman'] else "system-software-install-symbolic"
-                icon = Gtk.Image.new_from_icon_name(icon_name)
-            
-            icon.set_pixel_size(32)
-            box.append(icon)
+            source = res.get('source', 'system')
+            fallback_icon = "package-x-generic-symbolic" if source in ['apt', 'dnf', 'pacman'] else "system-software-install-symbolic"
+            from src.utils.system import create_app_icon_widget
+            icon_widget = create_app_icon_widget(icon_val, size=36, fallback=fallback_icon, package_id=res.get('name', 'app'))
+            box.append(icon_widget)
             
             vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
             vbox.set_hexpand(True)

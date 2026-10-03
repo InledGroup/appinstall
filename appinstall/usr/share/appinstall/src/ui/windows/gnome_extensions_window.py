@@ -643,23 +643,50 @@ class GnomeExtensionsWidget(Gtk.Box):
 
                 shell_map = info_data.get("shell_version_map", {})
                 if shell_map:
-                    # Pick latest version tag
-                    latest_tag = list(shell_map.values())[-1]
-                    tag_pk = latest_tag.get("pk") if isinstance(latest_tag, dict) else latest_tag
-                    dl_url = f"https://extensions.gnome.org/download-extension/{uuid}.shell-extension.zip?version_tag={tag_pk}"
+                    real_uuid = info_data.get("uuid", uuid)
+                    def get_shell_version():
+                        try:
+                            out = subprocess.check_output(['gnome-shell', '--version']).decode()
+                            m = re.search(r'(\d+)(?:\.(\d+))?', out)
+                            if m: return m.group(1)
+                        except: pass
+                        return '47'
 
-                    # Download zip
-                    zip_path = f"/tmp/{uuid}.zip"
-                    dl_req = urllib.request.Request(dl_url, headers={"User-Agent": "AppInstall/1.0"})
-                    with urllib.request.urlopen(dl_req, timeout=15) as dl_resp:
-                        with open(zip_path, "wb") as zf:
-                            zf.write(dl_resp.read())
+                    shell_v = get_shell_version()
+                    def parse_ver(v_str):
+                        try:
+                            return tuple(int(p) for p in re.findall(r'\d+', v_str))
+                        except:
+                            return (0,)
 
-                    # Install via gnome-extensions CLI
-                    res = subprocess.run(["gnome-extensions", "install", "--force", zip_path], capture_output=True)
-                    if res.returncode == 0:
-                        subprocess.run(["gnome-extensions", "enable", uuid], capture_output=True)
-                        success = True
+                    sorted_versions = sorted(shell_map.keys(), key=parse_ver)
+                    chosen_tag = shell_map.get(shell_v)
+                    if not chosen_tag:
+                        curr_ver_tuple = parse_ver(shell_v)
+                        compatible = [v for v in sorted_versions if parse_ver(v) <= curr_ver_tuple]
+                        if compatible:
+                            chosen_tag = shell_map[compatible[-1]]
+                        elif sorted_versions:
+                            chosen_tag = shell_map[sorted_versions[-1]]
+
+                    if chosen_tag:
+                        tag_pk = chosen_tag.get("pk") if isinstance(chosen_tag, dict) else chosen_tag
+                        dl_url = f"https://extensions.gnome.org/download-extension/{real_uuid}.shell-extension.zip?version_tag={tag_pk}"
+
+                        # Download zip
+                        zip_path = f"/tmp/{real_uuid}.zip"
+                        dl_req = urllib.request.Request(dl_url, headers={"User-Agent": "AppInstall/1.0"})
+                        with urllib.request.urlopen(dl_req, timeout=20) as dl_resp:
+                            with open(zip_path, "wb") as zf:
+                                zf.write(dl_resp.read())
+
+                        # Install via gnome-extensions CLI
+                        res = subprocess.run(["gnome-extensions", "install", "--force", zip_path], capture_output=True)
+                        if res.returncode == 0:
+                            subprocess.run(["gnome-extensions", "enable", real_uuid], capture_output=True)
+                            success = True
+                        if os.path.exists(zip_path):
+                            os.remove(zip_path)
             except Exception as e:
                 print(f"Error installing EGO extension {uuid}: {e}")
 
