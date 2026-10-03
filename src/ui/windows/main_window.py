@@ -17,6 +17,8 @@ from .pwa_config_window import PWAConfigWindow
 from .appimage_config_window import AppImageConfigWindow
 from .progress_window import ProgressWindow
 from .package_details_window import PackageDetailsWidget
+from .pulsar_store_window import PulsarStoreWidget
+from .gnome_extensions_window import GnomeExtensionsWidget, is_gnome_desktop
 
 class ScrollingTextContainer(Gtk.ScrolledWindow):
     def __init__(self, text, label_class):
@@ -168,6 +170,9 @@ class PackageInstaller(Adw.ApplicationWindow):
         
         # Add Navigation Rows
         self.add_sidebar_row(self.sidebar_list, "store", _("Buscar / Tienda"), "system-search-symbolic")
+        self.add_sidebar_row(self.sidebar_list, "pulsar_store", _("Pulsar Store"), "emblem-favorite-symbolic")
+        if is_gnome_desktop():
+            self.add_sidebar_row(self.sidebar_list, "gnome_extensions", _("Extensiones GNOME"), "application-x-addon-symbolic")
         self.add_sidebar_row(self.sidebar_list, "installed", _("Mis Aplicaciones"), "system-software-install-symbolic")
         self.add_sidebar_row(self.sidebar_list, "updates", _("Actualizaciones"), "software-update-available-symbolic")
         self.add_sidebar_row(self.sidebar_list, "cleanup", _("Limpiar Sistema"), "user-trash-symbolic")
@@ -282,21 +287,30 @@ class PackageInstaller(Adw.ApplicationWindow):
         from src.application.cleanup_service import CleanupService
         from src.application.antivirus_service import AntivirusService
 
-        # 1. Installed Apps Widget
+        # 1. Pulsar Store Widget
+        self.pulsar_store_widget = PulsarStoreWidget(self)
+        self.content_stack.add_named(self.pulsar_store_widget, "pulsar_store")
+
+        # 2. GNOME Extensions Widget (if available)
+        if is_gnome_desktop():
+            self.gnome_extensions_widget = GnomeExtensionsWidget(self)
+            self.content_stack.add_named(self.gnome_extensions_widget, "gnome_extensions")
+
+        # 3. Installed Apps Widget
         uninstall_service = UninstallService(self.pkg_manager)
         self.installed_apps_widget = InstalledAppsWidget(self, self.pkg_manager, uninstall_service)
         self.content_stack.add_named(self.installed_apps_widget, "installed")
 
-        # 2. Updates Widget
+        # 4. Updates Widget
         self.updates_widget = self.setup_updates_widget()
         self.content_stack.add_named(self.updates_widget, "updates")
 
-        # 3. Cleanup Widget
+        # 5. Cleanup Widget
         cleanup_service = CleanupService(self.pkg_manager)
         self.cleanup_widget = SystemCleanupWidget(self, cleanup_service)
         self.content_stack.add_named(self.cleanup_widget, "cleanup")
 
-        # 4. Antivirus Widget
+        # 6. Antivirus Widget
         antivirus_service = AntivirusService(self.pkg_manager)
         self.antivirus_widget = AntivirusWidget(self, antivirus_service)
         self.content_stack.add_named(self.antivirus_widget, "antivirus")
@@ -351,6 +365,10 @@ class PackageInstaller(Adw.ApplicationWindow):
             self.installed_apps_widget.load_installed_apps()
         elif target == "updates":
             self.trigger_updates_check()
+        elif target == "pulsar_store":
+            self.pulsar_store_widget.load_catalog_async()
+        elif target == "gnome_extensions" and hasattr(self, 'gnome_extensions_widget'):
+            self.gnome_extensions_widget.refresh_active_tab()
 
     def setup_store_menus(self):
         # --- Main Menu View (App Store Homepage) ---

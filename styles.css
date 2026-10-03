@@ -1,284 +1,390 @@
-    .header-bar {
-        background-color: transparent;
-        border-bottom: 1px solid alpha(currentColor, 0.1);
-    }
-    
-    .main-window {
-        background-color: @window_bg_color;
-    }
-    
-    .action-button {
-        background-color: @accent_bg_color;
-        color: @accent_fg_color;
-        border-radius: 6px;
-        padding: 8px 16px;
-        border: none;
-    }
-    
-    .action-button:hover {
-        background-color: alpha(@accent_bg_color, 0.85);
-    }
-    
-    .secondary-button {
-        background-color: alpha(currentColor, 0.08);
-        color: @accent_bg_color;
-        border-radius: 6px;
-        padding: 8px 16px;
-        border: 1px solid alpha(currentColor, 0.1);
-    }
-    
-    .secondary-button:hover {
-        background-color: alpha(currentColor, 0.15);
-    }
-    
-    .destructive-button {
-        background-color: alpha(@error_bg_color, 0.15);
-        color: @error_color;
-        border-radius: 6px;
-        padding: 8px 16px;
-        border: none;
-    }
-    
-    .destructive-button:hover {
-        background-color: @error_bg_color;
-        color: @error_fg_color;
-    }
-    
-    .card {
-        background-color: @card_bg_color;
-        border-radius: 12px;
-        padding: 16px;
-        margin: 8px;
-        border: 1px solid alpha(currentColor, 0.08);
-    }
-    
-    .title-label {
-        font-weight: bold;
-        font-size: 16px;
-    }
-    
-    .subtitle-label {
-        color: #5e5c64;
-        font-size: 14px;
-    }
-    
-    .progress-bar trough {
-        background-color: #deddda;
-        border-radius: 4px;
-        min-height: 6px;
-    }
-    
-    .progress-bar progress {
-        background-color: #3584e4;
-        border-radius: 4px;
-        min-height: 6px;
-    }
-    
-    .file-chooser-button {
-        padding: 12px;
-        border-radius: 8px;
-        border: 1px dashed #3584e4;
-        background-color: rgba(53, 132, 228, 0.1);
-    }
-    
-    .file-chooser-button:hover {
-        background-color: rgba(53, 132, 228, 0.2);
-    }
-    
-    .status-label {
-        margin-top: 8px;
-        margin-bottom: 8px;
-    }
-    
-    .list-row {
-        padding: 12px;
-        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-    }
-    
-    .search-entry {
-        margin: 8px;
-        padding: 8px;
-        border-radius: 16px;
-    }
-    
-    .verified-icon {
-        color: #3584e4;
-    }
-    
-    .badge {
-        padding: 4px 8px;
-        border-radius: 10px;
-        font-size: 10px;
-        font-weight: bold;
-    }
-    
-    .badge-system {
-        background-color: rgba(53, 132, 228, 0.15);
-        color: #3584e4;
-    }
-    
-    .badge-flatpak {
-        background-color: rgba(143, 80, 157, 0.15);
-        color: #8f509d;
-    }
-    
-    .badge-snap {
-        background-color: rgba(224, 27, 36, 0.15);
-        color: #e01b24;
-    }
-    
-    .badge-aur {
-        background-color: rgba(18, 140, 204, 0.15);
-        color: #128ccc;
-    }
-    
-    .badge-brew {
-        background-color: rgba(246, 178, 107, 0.15);
-        color: #f6b26b;
-    }
-    
-    .badge-generic {
-        background-color: rgba(120, 120, 120, 0.15);
-        color: #787878;
-    }
-    
-    .sidebar-container {
-        background-color: @theme_bg_color;
-        border-right: 1px solid @theme_shade_color;
-    }
-    
-    .sidebar-row {
-        border-radius: 8px;
-        margin-bottom: 4px;
-        transition: background-color 0.2s;
-    }
-    
-    .sidebar-row:selected {
-        background-color: @accent_bg_color;
-        color: @accent_fg_color;
-        font-weight: bold;
-    }
-    
-    .installed-apps-list {
-        background-color: transparent;
-        border: none;
-        box-shadow: none;
-    }
-    
-    .installed-apps-list row {
-        background-color: transparent;
-        border: none;
-        border-bottom: 1px solid @theme_shade_color;
-    }
-    
-    .installed-apps-list row:hover {
-        background-color: rgba(255, 255, 255, 0.03);
-    }
+/* AppInstall Main Stylesheet */
+.main-window {
+    background-color: @window_bg_color;
+    color: @window_fg_color;
+}
 
-    /* Custom App Store CSS styles */
-    .store-section-title {
-        font-size: 1.4em;
-        font-weight: bold;
-        margin-top: 16px;
-        margin-bottom: 8px;
-    }
-    
-    .store-app-card {
-        padding: 10px 14px;
-        border-radius: 12px;
-        transition: background-color 0.2s;
-    }
-    
-    .store-app-card:hover {
-        background-color: rgba(255, 255, 255, 0.05);
-    }
-    
-    .app-card-icon {
-        border-radius: 12px;
-        border: 1px solid rgba(0, 0, 0, 0.1);
-    }
-    
-    .app-card-title {
-        font-weight: 600;
-        font-size: 1.05em;
-    }
-    
-    .app-card-subtitle {
-        font-size: 0.85em;
-        color: @insensitive_fg_color;
-    }
-    
-    .app-card-button {
-        background-color: rgba(53, 132, 228, 0.15);
-        color: #3584e4;
-        font-weight: bold;
-        border-radius: 20px;
-        padding: 4px 16px;
-        border: none;
-        box-shadow: none;
-        transition: all 0.2s;
-    }
-    
-    .app-card-button:hover {
-        background-color: #3584e4;
-        color: #ffffff;
-    }
-    
-    .top-free-card {
-        background-color: @card_bg_color;
-        border-radius: 16px;
-        padding: 16px;
-        margin: 6px;
-        min-width: 140px;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.05);
-        border: 1px solid rgba(0,0,0,0.05);
-    }
-    
-    .top-free-rank {
-        font-size: 1.8em;
-        font-weight: 800;
-        color: rgba(53, 132, 228, 0.6);
-        margin-bottom: 4px;
-    }
-    
-    .top-free-title {
-        font-weight: bold;
-        font-size: 0.95em;
-        margin-top: 8px;
-        margin-bottom: 8px;
-    }
-    
-    /* Make sidebar icons blue like in the App Store design */
-    .navigation-sidebar row image {
-        color: #3584e4;
-    }
-    
-    .sidebar-search {
-        border-radius: 12px;
-        margin-bottom: 8px;
-    }
-    
-    .screenshot-image {
-        border-radius: 8px;
-    }
-    
-    .screenshot-container {
-        border-radius: 8px;
-        border: 1px solid rgba(0, 0, 0, 0.1);
-        overflow: hidden;
-        background-color: rgba(0, 0, 0, 0.05);
-    }
-    
-    .meta-col-card {
-        min-width: 110px;
-        min-height: 70px;
-        margin-left: 4px;
-        margin-right: 4px;
-        padding: 8px 12px;
-    }
-/* Pulsar Store README view */
+.header-bar {
+    background-color: transparent;
+    border-bottom: 1px solid alpha(currentColor, 0.08);
+}
+
+.card {
+    background-color: @card_bg_color;
+    color: @card_fg_color;
+    border-radius: 12px;
+    padding: 18px;
+    margin: 6px;
+    border: 1px solid alpha(currentColor, 0.08);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+}
+
+.title-label {
+    font-size: 1.15em;
+    font-weight: 700;
+    color: @window_fg_color;
+}
+
+.subtitle-label {
+    font-size: 0.9em;
+    color: alpha(currentColor, 0.6);
+}
+
+.action-button {
+    background-color: #0a84ff;
+    color: #ffffff;
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-weight: 600;
+    border: none;
+}
+
+.action-button:hover {
+    background-color: #0071e3;
+}
+
+.secondary-button {
+    background-color: alpha(currentColor, 0.08);
+    color: @window_fg_color;
+    border-radius: 8px;
+    padding: 10px 20px;
+    border: 1px solid alpha(currentColor, 0.1);
+}
+
+.secondary-button:hover {
+    background-color: alpha(currentColor, 0.14);
+}
+
+.destructive-button {
+    background-color: @error_bg_color;
+    color: @error_fg_color;
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-weight: 600;
+}
+
+.search-entry {
+    border-radius: 10px;
+    padding: 6px 10px;
+}
+
+.progress-bar {
+    border-radius: 4px;
+}
+
+.status-label {
+    color: alpha(currentColor, 0.65);
+}
+
+.list-row {
+    border-radius: 8px;
+    margin: 2px;
+}
+
+.file-chooser-button {
+    border: 2px dashed alpha(currentColor, 0.2);
+    border-radius: 12px;
+    padding: 24px;
+    background-color: alpha(currentColor, 0.03);
+}
+
+.file-chooser-button:hover {
+    background-color: alpha(currentColor, 0.06);
+    border-color: #0a84ff;
+}
+
+/* Estilos App Store / Pulsar Store */
+.store-section-title {
+    font-size: 1.3em;
+    font-weight: 700;
+    color: @window_fg_color;
+    margin-top: 16px;
+    margin-bottom: 8px;
+}
+
+.store-app-card {
+    padding: 12px 14px;
+    border-radius: 12px;
+    transition: background-color 0.2s;
+}
+
+.store-app-card:hover {
+    background-color: alpha(currentColor, 0.06);
+}
+
+.app-card-icon {
+    border-radius: 12px;
+    border: 1px solid alpha(currentColor, 0.08);
+}
+
+.app-card-title {
+    font-weight: 600;
+    font-size: 1.05em;
+    color: @window_fg_color;
+}
+
+.app-card-subtitle {
+    font-size: 0.85em;
+    color: alpha(currentColor, 0.6);
+}
+
+.app-card-button {
+    background-color: #0a84ff;
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 13px;
+    border-radius: 9999px;
+    padding: 5px 16px;
+    border: none;
+    box-shadow: none;
+}
+
+.app-card-button:hover {
+    background-color: #0071e3;
+    color: #ffffff;
+}
+
+.app-card-button-secondary {
+    background-color: alpha(currentColor, 0.08);
+    color: @window_fg_color;
+    font-weight: 600;
+    font-size: 13px;
+    border-radius: 9999px;
+    padding: 5px 16px;
+    border: none;
+}
+
+.app-card-button-secondary:hover {
+    background-color: alpha(currentColor, 0.15);
+}
+
+.top-free-card {
+    background-color: @card_bg_color;
+    color: @card_fg_color;
+    border-radius: 14px;
+    padding: 14px;
+    margin: 4px;
+    min-width: 140px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+    border: 1px solid alpha(currentColor, 0.08);
+}
+
+.top-free-rank {
+    font-size: 1.6em;
+    font-weight: 800;
+    color: alpha(#0a84ff, 0.7);
+    margin-bottom: 4px;
+}
+
+.top-free-title {
+    font-weight: 600;
+    font-size: 0.95em;
+    color: @window_fg_color;
+    margin-top: 6px;
+    margin-bottom: 6px;
+}
+
+.store-rank-row {
+    background-color: transparent;
+    border-radius: 10px;
+    padding: 12px 10px;
+    margin-top: 4px;
+    margin-bottom: 4px;
+}
+
+.store-rank-row:hover {
+    background-color: alpha(currentColor, 0.06);
+}
+
+.store-rank-number {
+    font-size: 1.05em;
+    font-weight: 700;
+    color: alpha(currentColor, 0.45);
+    min-width: 24px;
+}
+
+.store-rank-name {
+    font-weight: 600;
+    color: @window_fg_color;
+}
+
+.store-rank-sub {
+    font-size: 0.85em;
+    color: alpha(currentColor, 0.6);
+}
+
+/* Barra lateral */
+.sidebar-container {
+    background-color: alpha(currentColor, 0.025);
+    border-right: 1px solid alpha(currentColor, 0.08);
+}
+
+.sidebar-container label {
+    color: @window_fg_color;
+    font-weight: 500;
+}
+
+.sidebar-container image {
+    color: #0a84ff;
+}
+
+.sidebar-container row {
+    border-radius: 8px;
+    margin-bottom: 3px;
+    padding: 4px 6px;
+    transition: background-color 0.15s;
+}
+
+.sidebar-container row:selected {
+    background-color: alpha(#0a84ff, 0.16);
+}
+
+.sidebar-container row:selected label {
+    color: #0a84ff;
+    font-weight: 600;
+}
+
+.sidebar-container row:selected image {
+    color: #0a84ff;
+}
+
+.sidebar-search {
+    border-radius: 10px;
+    margin-bottom: 8px;
+    background-color: alpha(currentColor, 0.05);
+}
+
+.screenshot-image {
+    border-radius: 8px;
+}
+
+.screenshot-container {
+    border-radius: 8px;
+    border: 1px solid alpha(currentColor, 0.1);
+    background-color: alpha(currentColor, 0.03);
+}
+
+.meta-row-container {
+    border-top: 1px solid alpha(currentColor, 0.1);
+    border-bottom: 1px solid alpha(currentColor, 0.1);
+    padding-top: 10px;
+    padding-bottom: 10px;
+    margin-top: 8px;
+    margin-bottom: 8px;
+}
+
+.meta-column {
+    margin-left: 2px;
+    margin-right: 2px;
+}
+
+.meta-pill {
+    background-color: alpha(currentColor, 0.08);
+    border-radius: 9999px;
+    padding: 4px 14px;
+    min-height: 28px;
+    min-width: 60px;
+    margin: 0;
+    color: @window_fg_color;
+    border: none;
+}
+
+.meta-pill image {
+    color: @window_fg_color;
+}
+
+.meta-pill-text {
+    font-weight: bold;
+    font-size: 13px;
+    color: @window_fg_color;
+}
+
+.meta-column-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: alpha(currentColor, 0.55);
+    margin-top: 4px;
+}
+
+.scrolling-text-container {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+}
+
+.screenshot-nav-btn {
+    background-color: rgba(0, 0, 0, 0.6);
+    color: white;
+    border-radius: 9999px;
+    margin: 24px;
+    border: none;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    transition: background-color 0.2s, transform 0.2s;
+}
+
+.screenshot-nav-btn:hover {
+    background-color: rgba(0, 0, 0, 0.85);
+    transform: scale(1.1);
+}
+
+.screenshot-nav-btn image {
+    color: white;
+}
+
+.log-view, .pkgbuild-view {
+    font-family: monospace;
+    font-size: 9pt;
+}
+
+.verified-icon {
+    color: #0a84ff;
+}
+
+.badge {
+    padding: 3px 8px;
+    border-radius: 8px;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.badge-system {
+    background-color: rgba(53, 132, 228, 0.15);
+    color: #3584e4;
+}
+
+.badge-flatpak {
+    background-color: rgba(143, 80, 157, 0.15);
+    color: #8f509d;
+}
+
+.badge-snap {
+    background-color: rgba(224, 27, 36, 0.15);
+    color: #e01b24;
+}
+
+.badge-aur {
+    background-color: rgba(18, 140, 204, 0.15);
+    color: #128ccc;
+}
+
+.badge-brew {
+    background-color: rgba(246, 178, 107, 0.15);
+    color: #f6b26b;
+}
+
+.badge-pulsar {
+    background-color: rgba(10, 132, 255, 0.15);
+    color: #0a84ff;
+}
+
+.badge-generic {
+    background-color: rgba(120, 120, 120, 0.15);
+    color: #787878;
+}
+
 .readme-view {
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     line-height: 1.6;
-    padding: 12px;
+    padding: 14px;
+    color: @window_fg_color;
 }
