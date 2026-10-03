@@ -92,11 +92,11 @@ def get_cached_icon(icon_url: str, package_id: str) -> str:
         r = requests.get(icon_url, headers={"User-Agent": "AppInstall/1.0"}, timeout=5)
         if r.status_code == 200 and r.content:
             ct = r.headers.get("Content-Type", "").lower()
-            if "svg" in ct and not local_path.endswith(".svg"):
+            if ("svg" in ct or b"<svg" in r.content[:100].lower()) and not local_path.endswith(".svg"):
                 local_path = os.path.join(cache_dir, f"{safe_filename}.svg")
-            elif "gif" in ct and not local_path.endswith(".gif"):
+            elif ("gif" in ct or r.content.startswith(b"GIF")) and not local_path.endswith(".gif"):
                 local_path = os.path.join(cache_dir, f"{safe_filename}.gif")
-            elif "webp" in ct and not local_path.endswith(".webp"):
+            elif ("webp" in ct or b"WEBP" in r.content[:20]) and not local_path.endswith(".webp"):
                 local_path = os.path.join(cache_dir, f"{safe_filename}.webp")
 
             with open(local_path, "wb") as f:
@@ -106,6 +106,42 @@ def get_cached_icon(icon_url: str, package_id: str) -> str:
         print(f"Error downloading icon {icon_url}: {e}")
         
     return ""
+
+def create_app_icon_widget(icon_path_or_url_or_name: str, size: int = 44, fallback: str = "system-software-install-symbolic", package_id: str = "app") -> Gtk.Widget:
+    """Creates a GTK4 widget (Gtk.Image or Gtk.Picture) properly rendering SVG, GIF, PNG, JPG, WebP, ICO, or symbolic icon."""
+    if not icon_path_or_url_or_name:
+        img = Gtk.Image.new_from_icon_name(fallback)
+        img.set_pixel_size(size)
+        return img
+
+    path = icon_path_or_url_or_name
+    if path.startswith("http://") or path.startswith("https://"):
+        cached = get_cached_icon(path, package_id)
+        if cached and os.path.exists(cached):
+            path = cached
+
+    if os.path.isfile(path):
+        lower = path.lower()
+        if lower.endswith((".svg", ".gif", ".webp", ".png", ".jpg", ".jpeg", ".ico")):
+            try:
+                pic = Gtk.Picture.new_for_filename(path)
+                pic.set_size_request(size, size)
+                pic.set_content_fit(Gtk.ContentFit.CONTAIN)
+                pic.set_can_shrink(True)
+                return pic
+            except Exception:
+                pass
+        try:
+            img = Gtk.Image.new_from_file(path)
+            img.set_pixel_size(size)
+            return img
+        except Exception:
+            pass
+
+    # Symbolic or named theme icon
+    img = Gtk.Image.new_from_icon_name(path if path else fallback)
+    img.set_pixel_size(size)
+    return img
 
 def get_cached_screenshot(screenshot_url: str, prefix: str) -> str:
     """Descarga una imagen de demo/screenshot (PNG, JPG, WebP, SVG, GIF) y la almacena en caché."""

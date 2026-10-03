@@ -540,20 +540,14 @@ class GnomeExtensionsWidget(Gtk.Box):
         # Header Row: Icon + Title + Author
         top_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
 
-        icon_img = Gtk.Image()
-        icon_img.set_pixel_size(44)
-        icon_img.add_css_class("app-card-icon")
-
+        from src.utils.system import create_app_icon_widget
         icon_rel = ext.get("icon", "")
         if icon_rel and not icon_rel.endswith("plugin.png"):
             full_icon_url = f"https://extensions.gnome.org{icon_rel}" if icon_rel.startswith("/") else icon_rel
-            cached = get_cached_icon(full_icon_url, f"ego_{ext.get('pk', '0')}")
-            if cached and os.path.exists(cached):
-                icon_img.set_from_file(cached)
-            else:
-                icon_img.set_from_icon_name("application-x-addon-symbolic")
+            icon_img = create_app_icon_widget(full_icon_url, size=44, fallback="application-x-addon-symbolic", package_id=f"ego_{ext.get('pk', '0')}")
         else:
-            icon_img.set_from_icon_name("application-x-addon-symbolic")
+            icon_img = create_app_icon_widget("", size=44, fallback="application-x-addon-symbolic")
+        icon_img.add_css_class("app-card-icon")
 
         top_row.append(icon_img)
 
@@ -575,10 +569,21 @@ class GnomeExtensionsWidget(Gtk.Box):
         # Downloads / Popularity badge
         dls = ext.get("downloads", 0)
         if dls:
-            d_badge = Gtk.Label(label=f"⬇ {dls}")
+            try:
+                dls_int = int(dls)
+                dls_formatted = f"{dls_int:,}".replace(",", ".")
+            except Exception:
+                dls_formatted = str(dls)
+            d_badge = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
             d_badge.add_css_class("badge")
             d_badge.add_css_class("badge-generic")
+            d_icon = Gtk.Image.new_from_icon_name("folder-download-symbolic")
+            d_icon.set_pixel_size(12)
+            d_badge.append(d_icon)
+            d_lbl = Gtk.Label(label=dls_formatted)
+            d_badge.append(d_lbl)
             top_row.append(d_badge)
+
 
         card.append(top_row)
 

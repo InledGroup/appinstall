@@ -196,22 +196,14 @@ class PulsarStoreWidget(Gtk.Box):
         top_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
 
         # Icon
+        from src.utils.system import create_app_icon_widget
         icon_url = pkg.get("icon_url", "")
         pkg_id = pkg.get("id", "")
-        icon_img = Gtk.Image()
-        icon_img.set_pixel_size(44)
+        icon_img = create_app_icon_widget(icon_url, size=44, fallback="system-software-install-symbolic", package_id=f"pulsar_{pkg_id}")
         icon_img.add_css_class("app-card-icon")
 
-        if icon_url:
-            cached_path = get_cached_icon(icon_url, f"pulsar_{pkg_id}")
-            if cached_path and os.path.exists(cached_path):
-                icon_img.set_from_file(cached_path)
-            else:
-                icon_img.set_from_icon_name("system-software-install-symbolic")
-        else:
-            icon_img.set_from_icon_name("system-software-install-symbolic")
-
         top_row.append(icon_img)
+
 
         # Info Box
         info_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)

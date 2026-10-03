@@ -792,24 +792,13 @@ class PackageInstaller(Adw.ApplicationWindow):
 
         top_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
 
+        # Rounded App Icon (supports local files, SVG, GIF, WebP, PNG, cached icons, and symbolic names)
+        from src.utils.system import create_app_icon_widget
         icon_path = app_data.get('icon', '')
-        if icon_path and os.path.exists(icon_path):
-            icon = Gtk.Image.new_from_file(icon_path)
-        elif icon_path and icon_path.startswith('http'):
-            try:
-                from src.utils.system import get_cached_icon
-                cached = get_cached_icon(icon_path, app_data.get('name', 'app'))
-                if cached and os.path.exists(cached):
-                    icon = Gtk.Image.new_from_file(cached)
-                else:
-                    icon = Gtk.Image.new_from_icon_name("system-software-install-symbolic")
-            except Exception:
-                icon = Gtk.Image.new_from_icon_name("system-software-install-symbolic")
-        else:
-            icon = Gtk.Image.new_from_icon_name(icon_path if icon_path else "system-software-install-symbolic")
-        icon.set_pixel_size(44)
+        icon = create_app_icon_widget(icon_path, size=44, fallback="system-software-install-symbolic", package_id=app_data.get('name', 'app'))
         icon.add_css_class("app-card-icon")
         top_row.append(icon)
+
 
         title_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
         title_box.set_hexpand(True)
@@ -900,23 +889,9 @@ class PackageInstaller(Adw.ApplicationWindow):
         hbox.append(rank_lbl)
 
         # Rounded App Icon (supports local files, cached icons, and symbolic names)
+        from src.utils.system import create_app_icon_widget
         icon_path = app_data.get('icon', '')
-        if icon_path and os.path.exists(icon_path):
-            icon = Gtk.Image.new_from_file(icon_path)
-        elif icon_path and icon_path.startswith('http'):
-            # Remote URL — try to load from cache, fallback to symbolic
-            try:
-                from src.utils.system import get_cached_icon
-                cached = get_cached_icon(icon_path, app_data.get('name', 'app'))
-                if cached and os.path.exists(cached):
-                    icon = Gtk.Image.new_from_file(cached)
-                else:
-                    icon = Gtk.Image.new_from_icon_name("system-software-install-symbolic")
-            except Exception:
-                icon = Gtk.Image.new_from_icon_name("system-software-install-symbolic")
-        else:
-            icon = Gtk.Image.new_from_icon_name(icon_path if icon_path else "system-software-install-symbolic")
-        icon.set_pixel_size(44)
+        icon = create_app_icon_widget(icon_path, size=44, fallback="system-software-install-symbolic", package_id=app_data.get('name', 'app'))
         icon.set_valign(Gtk.Align.CENTER)
         icon.add_css_class("app-card-icon")
         hbox.append(icon)
@@ -952,25 +927,12 @@ class PackageInstaller(Adw.ApplicationWindow):
         box.set_valign(Gtk.Align.CENTER)
         
         # Rounded App Icon (supports local files, cached icons, and symbolic names)
+        from src.utils.system import create_app_icon_widget
         icon_path = app_data.get('icon', '')
-        if icon_path and os.path.exists(icon_path):
-            icon = Gtk.Image.new_from_file(icon_path)
-        elif icon_path and icon_path.startswith('http'):
-            # Remote URL — try to load from cache, fallback to symbolic
-            try:
-                from src.utils.system import get_cached_icon
-                cached = get_cached_icon(icon_path, app_data.get('name', 'app'))
-                if cached and os.path.exists(cached):
-                    icon = Gtk.Image.new_from_file(cached)
-                else:
-                    icon = Gtk.Image.new_from_icon_name("system-software-install-symbolic")
-            except Exception:
-                icon = Gtk.Image.new_from_icon_name("system-software-install-symbolic")
-        else:
-            icon = Gtk.Image.new_from_icon_name(icon_path if icon_path else "system-software-install-symbolic")
-        icon.set_pixel_size(48)
+        icon = create_app_icon_widget(icon_path, size=48, fallback="system-software-install-symbolic", package_id=app_data.get('name', 'app'))
         icon.add_css_class("app-card-icon")
         box.append(icon)
+
         
         # Text labels
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
@@ -1455,7 +1417,11 @@ class PackageInstaller(Adw.ApplicationWindow):
 
     def load_initial_file(self):
         if self.file_path:
-            is_scheme = any(self.file_path.startswith(prefix) for prefix in ["flatpak:", "snap:", "aur:", "brew:", "pulsar:", "appstream:", "flatpak+https:"])
+            is_scheme = any(self.file_path.startswith(prefix) for prefix in [
+                "flatpak:", "snap:", "aur:", "brew:", "pulsar:", "pulsar-store:",
+                "gnome-extension:", "gnome-extensions:", "gnome-ext:",
+                "appstream:", "flatpak+https:"
+            ])
             if is_scheme or os.path.exists(self.file_path):
                 # Ensure store tab is active and visible
                 store_row = self.sidebar_list.get_row_at_index(0)

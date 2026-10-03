@@ -156,41 +156,13 @@ class PackageDetailsWidget(Gtk.Box):
         header_box.append(info_box)
         
         # Icon (supports local files, SVG, GIF, PNG, cached icons, and symbolic names)
+        from src.utils.system import create_app_icon_widget
         icon_path = info.get('icon', '')
-        if icon_path and os.path.exists(icon_path):
-            if icon_path.endswith('.svg') or icon_path.endswith('.gif'):
-                icon_image = Gtk.Picture.new_for_filename(icon_path)
-                icon_image.set_size_request(96, 96)
-                icon_image.set_content_fit(Gtk.ContentFit.CONTAIN)
-            else:
-                icon_image = Gtk.Image.new_from_file(icon_path)
-                icon_image.set_pixel_size(96)
-        elif icon_path and icon_path.startswith('http'):
-            try:
-                from src.utils.system import get_cached_icon
-                cached = get_cached_icon(icon_path, info.get('name', 'app'))
-                if cached and os.path.exists(cached):
-                    if cached.endswith('.svg') or cached.endswith('.gif'):
-                        icon_image = Gtk.Picture.new_for_filename(cached)
-                        icon_image.set_size_request(96, 96)
-                        icon_image.set_content_fit(Gtk.ContentFit.CONTAIN)
-                    else:
-                        icon_image = Gtk.Image.new_from_file(cached)
-                        icon_image.set_pixel_size(96)
-                else:
-                    icon_image = Gtk.Image.new_from_icon_name("system-software-install-symbolic")
-                    icon_image.set_pixel_size(96)
-            except Exception:
-                icon_image = Gtk.Image.new_from_icon_name("system-software-install-symbolic")
-                icon_image.set_pixel_size(96)
-        else:
-            icon_name = icon_path if icon_path else "system-software-install-symbolic"
-            icon_image = Gtk.Image.new_from_icon_name(icon_name)
-            icon_image.set_pixel_size(96)
-        
+        icon_image = create_app_icon_widget(icon_path, size=96, fallback="system-software-install-symbolic", package_id=info.get('name', 'app'))
         icon_image.set_halign(Gtk.Align.START)
         icon_image.set_valign(Gtk.Align.CENTER)
         info_box.append(icon_image)
+
         
         # Text block
         text_vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
@@ -301,14 +273,33 @@ class PackageDetailsWidget(Gtk.Box):
             try:
                 dls_int = int(dls)
                 dls_formatted = f"{dls_int:,}".replace(",", ".")
-                add_meta_col(f"⬇ {dls_formatted}", _("Descargas"))
             except Exception:
-                add_meta_col(f"⬇ {dls}", _("Descargas"))
+                dls_formatted = str(dls)
+            dls_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            dls_box.set_halign(Gtk.Align.CENTER)
+            dls_box.set_valign(Gtk.Align.CENTER)
+            dls_icon = Gtk.Image.new_from_icon_name("folder-download-symbolic")
+            dls_icon.set_pixel_size(16)
+            dls_box.append(dls_icon)
+            dls_lbl = Gtk.Label(label=dls_formatted)
+            dls_lbl.add_css_class("meta-pill-text")
+            dls_box.append(dls_lbl)
+            add_meta_col(dls_box, _("Descargas"))
 
         # 3. Puntuación de Seguridad OpenCode (Pulsar Store / Auditoría)
         sec_score = info.get('security_score')
         if sec_score and sec_score != 'N/A':
-            add_meta_col(f"🛡 {sec_score}/100", _("Seguridad"))
+            sec_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            sec_box.set_halign(Gtk.Align.CENTER)
+            sec_box.set_valign(Gtk.Align.CENTER)
+            sec_icon = Gtk.Image.new_from_icon_name("security-high-symbolic")
+            sec_icon.set_pixel_size(16)
+            sec_box.append(sec_icon)
+            sec_lbl = Gtk.Label(label=f"{sec_score}/100")
+            sec_lbl.add_css_class("meta-pill-text")
+            sec_box.append(sec_lbl)
+            add_meta_col(sec_box, _("Seguridad"))
+
 
         # 4. Tamaño
         if size_val and size_val != 'N/A':
@@ -353,6 +344,7 @@ class PackageDetailsWidget(Gtk.Box):
                 if os.path.exists(path):
                     img = Gtk.Picture.new_for_filename(path)
                     img.set_content_fit(Gtk.ContentFit.CONTAIN)
+                    img.set_can_shrink(True)
                     img.set_size_request(340, 200)
                     img.add_css_class("screenshot-image")
                     

@@ -22,17 +22,98 @@ from src.application.search_service import SearchService
 
 # Main Window
 def parse_scheme_url(url: str) -> str:
+    import urllib.parse
+    url = url.strip()
     url_lower = url.lower()
     
-    # 1. appstream://pkg or appstream:pkg
-    if url_lower.startswith("appstream:"):
+    # 1. Pulsar Store schemes & web URLs
+    if url_lower.startswith('pulsar-store:') or url_lower.startswith('pulsar:'):
+        prefix = 'pulsar-store:' if url_lower.startswith('pulsar-store:') else 'pulsar:'
+        rest = url[len(prefix):]
+        if rest.startswith('//'):
+            rest = rest[2:]
+        for p in ['install/', 'package/', 'pkg/', 'show/', 'open/', 'details/']:
+            if rest.lower().startswith(p):
+                rest = rest[len(p):]
+                break
+        pkg = rest.split('?')[0].split('#')[0].rstrip('/')
+        return f"pulsar:{pkg}"
+        
+    elif 'store-os.inled.es' in url_lower:
+        parsed = urllib.parse.urlparse(url)
+        path = parsed.path.strip('/')
+        parts = [p for p in path.split('/') if p]
+        pkg = None
+        for i, p in enumerate(parts):
+            if p.lower() in ['pkg', 'package', 'app', 'item'] and i + 1 < len(parts):
+                pkg = parts[i + 1]
+                break
+        if not pkg and parsed.fragment:
+            frag_parts = [p for p in parsed.fragment.strip('/').split('/') if p]
+            for i, p in enumerate(frag_parts):
+                if p.lower() in ['pkg', 'package', 'app', 'item'] and i + 1 < len(frag_parts):
+                    pkg = frag_parts[i + 1]
+                    break
+        if not pkg and parts:
+            pkg = parts[-1]
+        if pkg:
+            return f"pulsar:{pkg}"
+            
+    # 2. GNOME Extensions schemes & web URLs
+    elif url_lower.startswith('gnome-extensions:') or url_lower.startswith('gnome-extension:') or url_lower.startswith('gnome-ext:'):
+        if url_lower.startswith('gnome-extensions:'):
+            prefix = 'gnome-extensions:'
+        elif url_lower.startswith('gnome-extension:'):
+            prefix = 'gnome-extension:'
+        else:
+            prefix = 'gnome-ext:'
+        rest = url[len(prefix):]
+        if rest.startswith('//'):
+            rest = rest[2:]
+        for p in ['install/', 'extension/', 'pk/', 'details/']:
+            if rest.lower().startswith(p):
+                rest = rest[len(p):]
+                break
+        ext = rest.split('?')[0].split('#')[0].rstrip('/')
+        return f"gnome-extension:{ext}"
+        
+    elif 'extensions.gnome.org' in url_lower:
+        parsed = urllib.parse.urlparse(url)
+        parts = [p for p in parsed.path.strip('/').split('/') if p]
+        try:
+            if 'extension' in parts:
+                idx = parts.index('extension')
+                if idx + 1 < len(parts):
+                    ext_id = parts[idx + 1]
+                    return f"gnome-extension:{ext_id}"
+        except Exception:
+            pass
+
+    # 3. appstream://pkg or appstream:pkg
+    elif url_lower.startswith("appstream:"):
         pkg = url[10:]
         if pkg.startswith("//"):
             pkg = pkg[2:]
         pkg = pkg.split("?")[0].split("/")[0]
         return f"flatpak:{pkg}"
         
-    # 2. snap://pkg or snap:pkg
+    # 4. Flathub web URLs
+    elif 'flathub.org' in url_lower:
+        parsed = urllib.parse.urlparse(url)
+        parts = [p for p in parsed.path.strip('/').split('/') if p]
+        try:
+            if 'apps' in parts:
+                idx = parts.index('apps')
+                if idx + 1 < len(parts):
+                    next_part = parts[idx + 1]
+                    if next_part == 'details' and idx + 2 < len(parts):
+                        return f"flatpak:{parts[idx + 2]}"
+                    else:
+                        return f"flatpak:{next_part}"
+        except Exception:
+            pass
+
+    # 5. snap://pkg or snap:pkg
     elif url_lower.startswith("snap:"):
         pkg = url[5:]
         if pkg.startswith("//"):
@@ -40,7 +121,7 @@ def parse_scheme_url(url: str) -> str:
         pkg = pkg.split("?")[0].split("/")[0]
         return f"snap:{pkg}"
         
-    # 3. flatpak://pkg or flatpak:pkg or flatpak+https://...
+    # 6. flatpak://pkg or flatpak+https://...
     elif url_lower.startswith("flatpak:"):
         pkg = url[8:]
         if pkg.startswith("//"):
@@ -49,20 +130,14 @@ def parse_scheme_url(url: str) -> str:
         return f"flatpak:{pkg}"
     elif url_lower.startswith("flatpak+https:"):
         return url
-        
-    # 4. https://flathub.org/apps/details/org.gimp.GIMP or similar
-    elif url_lower.startswith("https://flathub.org/apps/") or url_lower.startswith("http://flathub.org/apps/"):
-        parts = url.split("?")[0].split("/")
-        try:
-            apps_idx = parts.index("apps")
-            if apps_idx + 1 < len(parts):
-                next_part = parts[apps_idx + 1]
-                if next_part == "details" and apps_idx + 2 < len(parts):
-                    return f"flatpak:{parts[apps_idx + 2]}"
-                else:
-                    return f"flatpak:{next_part}"
-        except ValueError:
-            pass
+
+    # 7. apt://pkg or apt:pkg
+    elif url_lower.startswith("apt:"):
+        pkg = url[4:]
+        if pkg.startswith("//"):
+            pkg = pkg[2:]
+        pkg = pkg.split("?")[0].split("/")[0]
+        return pkg
             
     return url
 
@@ -75,7 +150,7 @@ def _resolve_file_arg(raw_arg: str) -> str:
     """
     from urllib.parse import unquote, urlparse
 
-    arg = raw_arg
+    arg = raw_arg.strip()
     arg_lower = arg.lower()
 
     if arg.startswith("file://"):
@@ -89,10 +164,17 @@ def _resolve_file_arg(raw_arg: str) -> str:
     if os.path.isfile(arg):
         return os.path.abspath(arg)
 
-    if any(arg_lower.startswith(p) for p in ['appstream:', 'snap:', 'flatpak:', 'flatpak+https:', 'http://', 'https://']):
+    scheme_prefixes = [
+        'appstream:', 'snap:', 'flatpak:', 'flatpak+https:',
+        'pulsar:', 'pulsar-store:',
+        'gnome-extension:', 'gnome-extensions:', 'gnome-ext:',
+        'apt:', 'http://', 'https://'
+    ]
+    if any(arg_lower.startswith(p) for p in scheme_prefixes):
         return parse_scheme_url(arg)
 
     return None
+
 
 
 from src.ui.windows.main_window import PackageInstaller
