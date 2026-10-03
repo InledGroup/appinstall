@@ -1307,8 +1307,32 @@ msgstr "No extensions found on extensions.gnome.org."
 #: appinstall/src/ui/windows/gnome_extensions_window.py:605
 #: appinstall/src/ui/windows/gnome_extensions_window.py:667
 msgid "Instalada"
-msgstr "Install"
+msgstr "Installed"
 
 #: appinstall/src/ui/windows/gnome_extensions_window.py:673
 msgid "Reintentar"
 msgstr "Retry"
+
+#: appinstall/src/ui/windows/package_details_window.py:304
+msgid "Descargas"
+msgstr "Downloads"
+
+#: appinstall/src/ui/windows/package_details_window.py:311
+msgid "Seguridad"
+msgstr "Security"
+
+#: appinstall/src/ui/windows/package_details_window.py:341
+msgid "Capturas de pantalla y demo"
+msgstr "Screenshots and demo"
+
+#: appinstall/src/ui/windows/package_details_window.py:401
+msgid "Informe de Auditoría OpenCode"
+msgstr "OpenCode Security Audit Report"
+
+#: appinstall/src/ui/windows/package_details_window.py:419
+msgid "0 detecciones VirusTotal"
+msgstr "0 VirusTotal detections"
+
+#: appinstall/src/ui/windows/package_details_window.py:419
+msgid "{} detecciones VT"
+msgstr "{} VT detections"

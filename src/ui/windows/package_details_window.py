@@ -2,8 +2,75 @@ import os
 import re
 import hashlib
 import threading
-from gi.repository import Gtk, Adw, GLib, Gdk
+from gi.repository import Gtk, Adw, GLib, Gdk, Pango
 from src.infrastructure.services.localization import _
+
+def _insert_formatted_line(buffer: Gtk.TextBuffer, text: str):
+    if not text:
+        return
+    # Tokenize by bold **...**, inline code `...`, and italics *...*
+    pattern = re.compile(r'(\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*)')
+    parts = pattern.split(text)
+    for part in parts:
+        if not part:
+            continue
+        end_iter = buffer.get_end_iter()
+        if part.startswith('**') and part.endswith('**') and len(part) >= 4:
+            buffer.insert_with_tags_by_name(end_iter, part[2:-2], "bold")
+        elif part.startswith('`') and part.endswith('`') and len(part) >= 2:
+            buffer.insert_with_tags_by_name(end_iter, part[1:-1], "code")
+        elif part.startswith('*') and part.endswith('*') and len(part) >= 2:
+            buffer.insert_with_tags_by_name(end_iter, part[1:-1], "italic")
+        else:
+            buffer.insert(end_iter, part)
+
+def set_markdown_buffer(buffer: Gtk.TextBuffer, md_text: str):
+    """Parses Markdown text and renders it with styled Gtk.TextBuffer tags."""
+    buffer.set_text("")
+    if not md_text:
+        return
+
+    tag_table = buffer.get_tag_table()
+    if not tag_table.lookup("h1"):
+        buffer.create_tag("h1", weight=Pango.Weight.BOLD, scale=1.25)
+    if not tag_table.lookup("h2"):
+        buffer.create_tag("h2", weight=Pango.Weight.BOLD, scale=1.12)
+    if not tag_table.lookup("bold"):
+        buffer.create_tag("bold", weight=Pango.Weight.BOLD)
+    if not tag_table.lookup("italic"):
+        buffer.create_tag("italic", style=Pango.Style.ITALIC)
+    if not tag_table.lookup("code"):
+        buffer.create_tag("code", family="monospace")
+    if not tag_table.lookup("code_block"):
+        buffer.create_tag("code_block", family="monospace", left_margin=16, right_margin=16)
+
+    lines = md_text.splitlines()
+    in_code_block = False
+    
+    for i, line in enumerate(lines):
+        if line.strip().startswith("```"):
+            in_code_block = not in_code_block
+            continue
+
+        if in_code_block:
+            end_iter = buffer.get_end_iter()
+            buffer.insert_with_tags_by_name(end_iter, line, "code_block")
+        elif line.startswith("# "):
+            end_iter = buffer.get_end_iter()
+            buffer.insert_with_tags_by_name(end_iter, line[2:].strip(), "h1")
+        elif line.startswith("## ") or line.startswith("### "):
+            header_text = re.sub(r'^#{2,6}\s*', '', line).strip()
+            end_iter = buffer.get_end_iter()
+            buffer.insert_with_tags_by_name(end_iter, header_text, "h2")
+        elif line.strip().startswith("- ") or line.strip().startswith("* "):
+            bullet_text = "• " + line.strip()[2:]
+            _insert_formatted_line(buffer, bullet_text)
+        else:
+            _insert_formatted_line(buffer, line)
+            
+        if i < len(lines) - 1:
+            end_iter = buffer.get_end_iter()
+            buffer.insert(end_iter, "\n")
 
 def get_deterministic_reviews(app_id, app_name):
     # Deterministic rating between 4.1 and 4.9
@@ -22,7 +89,6 @@ def get_deterministic_reviews(app_id, app_name):
         ("Laura T.", 4, "Interfaz limpia y muy intuitiva. Me encanta.")
     ]
     
-    # Select 3 reviews deterministically
     reviews = []
     num_comments = len(comments)
     for idx in range(3):
@@ -34,24 +100,17 @@ def get_deterministic_reviews(app_id, app_name):
             'text': text
         })
         
-    # Number of ratings: e.g. from 120 to 9500
     ratings_count = 100 + (h % 9400)
-    
     return rating, ratings_count, reviews
 
 
 def clean_html(raw_html: str) -> str:
     if not raw_html:
         return ""
-    # Replace list items with bullets
     text = re.sub(r'<li>\s*', '• ', raw_html)
-    # Replace paragraphs and line breaks
     text = re.sub(r'</p>|<br\s*/?>', '\n\n', text)
-    # Strip all other HTML tags
     text = re.sub(r'<[^>]+>', '', text)
-    # Decode XML/HTML entities
     text = text.replace('&amp;', '&').replace('&lt;', '<').replace('&gt;', '>').replace('&quot;', '"').replace('&apos;', "'")
-    # Clean up double newlines
     text = re.sub(r'\n{3,}', '\n\n', text)
     return text.strip()
 
@@ -86,7 +145,9 @@ class PackageDetailsWidget(Gtk.Box):
         back_btn.add_css_class("circular")
         back_btn.connect("clicked", lambda b: self.back_callback())
         top_navigation_box.append(back_btn)
-        main_box.append(top_navigation_box)        # 1. Header Card (Icon + Title + Version + Developer on Left, Button on Right)
+        main_box.append(top_navigation_box)
+
+        # 1. Header Card (Icon + Title + Version + Developer on Left, Button on Right)
         header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=20)
         header_box.set_hexpand(True)
         
@@ -94,25 +155,39 @@ class PackageDetailsWidget(Gtk.Box):
         info_box.set_hexpand(True)
         header_box.append(info_box)
         
-        # Icon (supports local files, cached icons, and symbolic names)
+        # Icon (supports local files, SVG, GIF, PNG, cached icons, and symbolic names)
         icon_path = info.get('icon', '')
         if icon_path and os.path.exists(icon_path):
-            icon_image = Gtk.Image.new_from_file(icon_path)
+            if icon_path.endswith('.svg') or icon_path.endswith('.gif'):
+                icon_image = Gtk.Picture.new_for_filename(icon_path)
+                icon_image.set_size_request(96, 96)
+                icon_image.set_content_fit(Gtk.ContentFit.CONTAIN)
+            else:
+                icon_image = Gtk.Image.new_from_file(icon_path)
+                icon_image.set_pixel_size(96)
         elif icon_path and icon_path.startswith('http'):
             try:
                 from src.utils.system import get_cached_icon
                 cached = get_cached_icon(icon_path, info.get('name', 'app'))
                 if cached and os.path.exists(cached):
-                    icon_image = Gtk.Image.new_from_file(cached)
+                    if cached.endswith('.svg') or cached.endswith('.gif'):
+                        icon_image = Gtk.Picture.new_for_filename(cached)
+                        icon_image.set_size_request(96, 96)
+                        icon_image.set_content_fit(Gtk.ContentFit.CONTAIN)
+                    else:
+                        icon_image = Gtk.Image.new_from_file(cached)
+                        icon_image.set_pixel_size(96)
                 else:
                     icon_image = Gtk.Image.new_from_icon_name("system-software-install-symbolic")
+                    icon_image.set_pixel_size(96)
             except Exception:
                 icon_image = Gtk.Image.new_from_icon_name("system-software-install-symbolic")
+                icon_image.set_pixel_size(96)
         else:
             icon_name = icon_path if icon_path else "system-software-install-symbolic"
             icon_image = Gtk.Image.new_from_icon_name(icon_name)
+            icon_image.set_pixel_size(96)
         
-        icon_image.set_pixel_size(96)
         icon_image.set_halign(Gtk.Align.START)
         icon_image.set_valign(Gtk.Align.CENTER)
         info_box.append(icon_image)
@@ -169,10 +244,7 @@ class PackageDetailsWidget(Gtk.Box):
         
         main_box.append(header_box)
 
-        # Hashing and Rating calculations
-        rating, ratings_count, reviews_list = get_deterministic_reviews(info.get('app_id', info.get('name', '')), info.get('name', ''))
-
-        # 1.5 Metadata Row Container (homogeneous layout spanning full width with no scroll)
+        # 1.5 Metadata Row Container (homogeneous layout spanning full width)
         meta_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         meta_row.add_css_class("meta-row-container")
         meta_row.set_hexpand(True)
@@ -185,7 +257,6 @@ class PackageDetailsWidget(Gtk.Box):
             col.set_valign(Gtk.Align.START)
             col.set_halign(Gtk.Align.CENTER)
             
-            # Pill content box
             pill_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
             pill_box.set_halign(Gtk.Align.CENTER)
             pill_box.set_valign(Gtk.Align.CENTER)
@@ -197,7 +268,6 @@ class PackageDetailsWidget(Gtk.Box):
                 lbl.add_css_class("meta-pill-text")
                 pill_box.append(lbl)
                 
-            # Use Gtk.Frame as the meta-pill to guarantee background rendering
             pill = Gtk.Frame()
             pill.add_css_class("meta-pill")
             pill.set_child(pill_box)
@@ -217,7 +287,7 @@ class PackageDetailsWidget(Gtk.Box):
         source = info.get('source', '')
         size_val = info.get('size', '')
         
-        # 2. Formato (Siempre visible)
+        # 1. Formato
         source_format = source.upper() if source else _("NATIVO")
         img_format = Gtk.Image.new_from_icon_name("package-x-generic-symbolic")
         img_format.set_pixel_size(20)
@@ -225,18 +295,33 @@ class PackageDetailsWidget(Gtk.Box):
         img_format.set_valign(Gtk.Align.CENTER)
         add_meta_col(img_format, source_format)
         
-        # 3. Tamaño (Solo si está disponible y no es N/A)
+        # 2. Descargas (GNOME Extension downloads / App installs)
+        dls = info.get('downloads')
+        if dls:
+            try:
+                dls_int = int(dls)
+                dls_formatted = f"{dls_int:,}".replace(",", ".")
+                add_meta_col(f"⬇ {dls_formatted}", _("Descargas"))
+            except Exception:
+                add_meta_col(f"⬇ {dls}", _("Descargas"))
+
+        # 3. Puntuación de Seguridad OpenCode (Pulsar Store / Auditoría)
+        sec_score = info.get('security_score')
+        if sec_score and sec_score != 'N/A':
+            add_meta_col(f"🛡 {sec_score}/100", _("Seguridad"))
+
+        # 4. Tamaño
         if size_val and size_val != 'N/A':
             add_meta_col(size_val, _("Descarga"))
             
-        # 4. Desarrollador (Solo si está disponible y no es N/A)
+        # 5. Desarrollador
         dev_name = info.get('developer', '')
         if dev_name and dev_name != 'N/A':
             if len(dev_name) > 15:
                 dev_name = dev_name[:15] + "..."
             add_meta_col(dev_name, _("Desarrollador"))
             
-        # 5. Verificado (Solo si es verdadero)
+        # 6. Verificado
         if info.get('verified'):
             img_ver = Gtk.Image.new_from_icon_name("emblem-ok-symbolic")
             img_ver.set_pixel_size(20)
@@ -244,23 +329,22 @@ class PackageDetailsWidget(Gtk.Box):
             img_ver.set_valign(Gtk.Align.CENTER)
             add_meta_col(img_ver, _("Verificado"))
             
-        # Añadir el contenedor directamente a main_box
         if meta_row.get_first_child():
             main_box.append(meta_row)
 
-        # 2. Screenshots Section (Now placed directly under the header and metadata row)
+        # 2. Screenshots / Demo Image Section (Supports PNG, JPG, SVG, GIF, WebP)
         cached_screenshots = info.get('cached_screenshots', [])
         if cached_screenshots:
             screenshots_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
             screenshots_card.add_css_class("card")
             
-            screenshots_title = Gtk.Label(label=_("Capturas de pantalla"), xalign=0)
+            screenshots_title = Gtk.Label(label=_("Capturas de pantalla y demo"), xalign=0)
             screenshots_title.add_css_class("title-label")
             screenshots_card.append(screenshots_title)
             
             scrolled_shots = Gtk.ScrolledWindow()
             scrolled_shots.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.NEVER)
-            scrolled_shots.set_min_content_height(200)
+            scrolled_shots.set_min_content_height(220)
             
             shots_hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
             scrolled_shots.set_child(shots_hbox)
@@ -269,10 +353,9 @@ class PackageDetailsWidget(Gtk.Box):
                 if os.path.exists(path):
                     img = Gtk.Picture.new_for_filename(path)
                     img.set_content_fit(Gtk.ContentFit.CONTAIN)
-                    img.set_size_request(320, 180)
+                    img.set_size_request(340, 200)
                     img.add_css_class("screenshot-image")
                     
-                    # Make screenshot expandable on click
                     click_gesture = Gtk.GestureClick()
                     click_gesture.connect("released", lambda gesture, n_press, x, y, p=path: self.on_screenshot_clicked(p))
                     img.add_controller(click_gesture)
@@ -300,7 +383,65 @@ class PackageDetailsWidget(Gtk.Box):
         
         main_box.append(desc_section)
 
-        # 3.5 README Section (for Pulsar Store packages)
+        # 3.3 OpenCode Security Audit Report Section (Pulsar Store packages)
+        sec_report = info.get('security_report', {}) or {}
+        sec_summary = info.get('security_summary', '') or sec_report.get('summary', '')
+        if sec_summary or (sec_report and sec_report.get('score')):
+            audit_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+            audit_card.add_css_class("card")
+            
+            # Header
+            audit_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+            audit_icon = Gtk.Image.new_from_icon_name("security-high-symbolic")
+            audit_icon.set_pixel_size(24)
+            audit_header.append(audit_icon)
+            
+            title_vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+            title_vbox.set_hexpand(True)
+            audit_title = Gtk.Label(label=_("Informe de Auditoría OpenCode"), xalign=0)
+            audit_title.add_css_class("title-label")
+            title_vbox.append(audit_title)
+            
+            auditor_lbl = Gtk.Label(label=info.get('security_auditor') or sec_report.get('audited_by', 'OpenCode AI'), xalign=0)
+            auditor_lbl.add_css_class("subtitle-label")
+            title_vbox.append(auditor_lbl)
+            audit_header.append(title_vbox)
+            
+            # Badges
+            score_val = info.get('security_score') or sec_report.get('score', '')
+            if score_val and score_val != 'N/A':
+                score_badge = Gtk.Label(label=f"{score_val}/100")
+                score_badge.add_css_class("badge")
+                score_badge.add_css_class("badge-pulsar")
+                audit_header.append(score_badge)
+                
+            vt_det = info.get('virustotal_detections') if 'virustotal_detections' in info else sec_report.get('virustotal_detections', 0)
+            vt_badge = Gtk.Label(label=_("0 detecciones VirusTotal") if vt_det == 0 else _("{} detecciones VT").format(vt_det))
+            vt_badge.add_css_class("badge")
+            vt_badge.add_css_class("badge-flatpak" if vt_det == 0 else "badge-snap")
+            audit_header.append(vt_badge)
+            
+            audit_card.append(audit_header)
+            
+            # Summary / Report formatted in Markdown
+            if sec_summary:
+                report_scroll = Gtk.ScrolledWindow()
+                report_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+                report_scroll.set_min_content_height(100)
+                report_scroll.set_max_content_height(350)
+                
+                report_view = Gtk.TextView()
+                report_view.set_editable(False)
+                report_view.set_cursor_visible(False)
+                report_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+                report_view.add_css_class("readme-view")
+                set_markdown_buffer(report_view.get_buffer(), sec_summary)
+                report_scroll.set_child(report_view)
+                audit_card.append(report_scroll)
+                
+            main_box.append(audit_card)
+
+        # 3.5 README Section (for Pulsar Store packages, formatted with Markdown)
         readme_url = info.get('readme_url', '')
         if readme_url and info.get('source') == 'pulsar':
             readme_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
@@ -326,39 +467,14 @@ class PackageDetailsWidget(Gtk.Box):
             
             main_box.append(readme_card)
             
-            # Fetch README in background thread
+            # Fetch README in background thread and format as Markdown
             def _fetch_readme():
                 try:
                     import requests
                     r = requests.get(readme_url, timeout=10)
                     if r.status_code == 200:
                         md = r.text
-                        # Simple markdown to text conversion
-                        import re
-                        text = md
-                        # Remove code blocks
-                        text = re.sub(r'```[\s\S]*?```', '', text)
-                        # Remove inline code
-                        text = re.sub(r'`([^`]+)`', r'\1', text)
-                        # Remove images
-                        text = re.sub(r'!\[([^\]]*)\]\([^)]+\)', '', text)
-                        # Convert links to text
-                        text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', text)
-                        # Remove headings markers
-                        text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
-                        # Remove bold/italic
-                        text = re.sub(r'\*\*\*([^*]+)\*\*\*', r'\1', text)
-                        text = re.sub(r'\*\*([^*]+)\*\*', r'\1', text)
-                        text = re.sub(r'\*([^*]+)\*', r'\1', text)
-                        # Convert tables to simple format
-                        text = re.sub(r'\|([^\n]+)\|', lambda m: ' | '.join(c.strip() for c in m.group(1).split('|') if c.strip()), text)
-                        text = re.sub(r'^[-:|\s]+$', '', text, flags=re.MULTILINE)
-                        # Remove horizontal rules
-                        text = re.sub(r'^---+$', '', text, flags=re.MULTILINE)
-                        # Clean up
-                        text = re.sub(r'\n{3,}', '\n\n', text)
-                        text = text.strip()
-                        GLib.idle_add(readme_view.get_buffer().set_text, text)
+                        GLib.idle_add(set_markdown_buffer, readme_view.get_buffer(), md)
                 except Exception as e:
                     GLib.idle_add(readme_view.get_buffer().set_text, f"Error loading README: {e}")
             

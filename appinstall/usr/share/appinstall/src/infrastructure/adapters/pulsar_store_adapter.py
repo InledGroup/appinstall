@@ -438,16 +438,37 @@ class PulsarStoreAdapter(PackageManager):
             "readme_url": pkg.get("readme_url", ""),
             "security_score": str(security_score),
             "security_status": security_status,
+            "security_report": security,
+            "security_summary": security.get("summary", ""),
+            "security_auditor": security.get("audited_by", "OpenCode"),
+            "virustotal_detections": security.get("virustotal_detections", 0),
             "is_installed": is_installed,
             "verified": True,
         }
 
-        # Enrich with icon
+        # Enrich with icon (supports SVG, GIF, PNG, WebP)
         icon_url = pkg.get("icon_url", "")
         if icon_url:
             cached = get_cached_icon(icon_url, f"pulsar_{pkg_id}")
             if cached:
                 info["icon"] = cached
+
+        # Demo Screenshots (supports SVG, GIF, PNG, JPG, WebP)
+        demo_urls = pkg.get("demo_urls", []) or []
+        if isinstance(demo_urls, str):
+            demo_urls = [demo_urls]
+        if pkg.get("promo_url") and pkg.get("promo_url") not in demo_urls:
+            demo_urls.append(pkg.get("promo_url"))
+        
+        from src.utils.system import get_cached_screenshot
+        cached_shots = []
+        for idx, durl in enumerate(demo_urls):
+            if durl:
+                cshot = get_cached_screenshot(durl, f"pulsar_shot_{pkg_id}_{idx}")
+                if cshot and os.path.exists(cshot):
+                    cached_shots.append(cshot)
+        if cached_shots:
+            info["cached_screenshots"] = cached_shots
 
         # Add website/source repo
         github_url = pkg.get("github_url", "")

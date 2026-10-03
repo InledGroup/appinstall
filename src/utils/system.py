@@ -64,7 +64,7 @@ def get_safe_window_size(default_width, default_height, scale_factor=0.8):
     return default_width, default_height
 
 def get_cached_icon(icon_url: str, package_id: str) -> str:
-    """Descarga un icono de forma segura y lo guarda en caché local."""
+    """Descarga un icono de forma segura (PNG, SVG, GIF, JPG, ICO, WebP) y lo guarda en caché local."""
     if not icon_url:
         return ""
     import urllib.parse
@@ -73,16 +73,15 @@ def get_cached_icon(icon_url: str, package_id: str) -> str:
     cache_dir = os.path.expanduser("~/.cache/appinstall/icons")
     os.makedirs(cache_dir, exist_ok=True)
     
-    # Nombre seguro para el archivo
     safe_filename = "".join([c if c.isalnum() or c in ".-_" else "_" for c in package_id])
     
     ext = ".png"
     try:
         parsed = urllib.parse.urlparse(icon_url)
-        path_ext = os.path.splitext(parsed.path)[1]
-        if path_ext in [".png", ".jpg", ".jpeg", ".svg", ".gif", ".ico"]:
+        path_ext = os.path.splitext(parsed.path)[1].lower()
+        if path_ext in [".png", ".jpg", ".jpeg", ".svg", ".gif", ".ico", ".webp"]:
             ext = path_ext
-    except:
+    except Exception:
         pass
         
     local_path = os.path.join(cache_dir, f"{safe_filename}{ext}")
@@ -90,14 +89,68 @@ def get_cached_icon(icon_url: str, package_id: str) -> str:
         return local_path
         
     try:
-        r = requests.get(icon_url, headers={"User-Agent": "AppInstall/1.0"}, timeout=3)
-        if r.status_code == 200:
+        r = requests.get(icon_url, headers={"User-Agent": "AppInstall/1.0"}, timeout=5)
+        if r.status_code == 200 and r.content:
+            ct = r.headers.get("Content-Type", "").lower()
+            if "svg" in ct and not local_path.endswith(".svg"):
+                local_path = os.path.join(cache_dir, f"{safe_filename}.svg")
+            elif "gif" in ct and not local_path.endswith(".gif"):
+                local_path = os.path.join(cache_dir, f"{safe_filename}.gif")
+            elif "webp" in ct and not local_path.endswith(".webp"):
+                local_path = os.path.join(cache_dir, f"{safe_filename}.webp")
+
             with open(local_path, "wb") as f:
                 f.write(r.content)
             return local_path
     except Exception as e:
         print(f"Error downloading icon {icon_url}: {e}")
         
+    return ""
+
+def get_cached_screenshot(screenshot_url: str, prefix: str) -> str:
+    """Descarga una imagen de demo/screenshot (PNG, JPG, WebP, SVG, GIF) y la almacena en caché."""
+    if not screenshot_url:
+        return ""
+    import urllib.parse
+    import hashlib
+    import requests
+
+    cache_dir = os.path.expanduser("~/.cache/appinstall/screenshots")
+    os.makedirs(cache_dir, exist_ok=True)
+
+    url_hash = hashlib.md5(screenshot_url.encode("utf-8")).hexdigest()[:10]
+    safe_prefix = "".join([c if c.isalnum() or c in ".-_" else "_" for c in prefix])
+    
+    ext = ".jpg"
+    try:
+        parsed = urllib.parse.urlparse(screenshot_url)
+        path_ext = os.path.splitext(parsed.path)[1].lower()
+        if path_ext in [".png", ".jpg", ".jpeg", ".svg", ".gif", ".webp"]:
+            ext = path_ext
+    except Exception:
+        pass
+
+    local_path = os.path.join(cache_dir, f"{safe_prefix}_{url_hash}{ext}")
+    if os.path.exists(local_path) and os.path.getsize(local_path) > 0:
+        return local_path
+
+    try:
+        r = requests.get(screenshot_url, headers={"User-Agent": "AppInstall/1.0"}, timeout=8)
+        if r.status_code == 200 and r.content:
+            ct = r.headers.get("Content-Type", "").lower()
+            if "svg" in ct and not local_path.endswith(".svg"):
+                local_path = os.path.join(cache_dir, f"{safe_prefix}_{url_hash}.svg")
+            elif "gif" in ct and not local_path.endswith(".gif"):
+                local_path = os.path.join(cache_dir, f"{safe_prefix}_{url_hash}.gif")
+            elif "png" in ct and not local_path.endswith(".png"):
+                local_path = os.path.join(cache_dir, f"{safe_prefix}_{url_hash}.png")
+
+            with open(local_path, "wb") as f:
+                f.write(r.content)
+            return local_path
+    except Exception as e:
+        print(f"Error downloading screenshot {screenshot_url}: {e}")
+
     return ""
 
 def is_gnome_desktop() -> bool:

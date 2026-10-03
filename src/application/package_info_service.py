@@ -113,7 +113,7 @@ class PackageInfoService:
             except Exception as e:
                 print(f"Error reading local extension metadata: {e}")
 
-        # 2. Query EGO to enrich description, author, and icon
+        # 2. Query EGO to enrich description, author, icon, demo screenshot, and downloads
         try:
             ego_url = f"https://extensions.gnome.org/extension-query/?search={urllib.parse.quote(ext_id)}"
             req = urllib.request.Request(ego_url, headers={"User-Agent": "AppInstall/1.0"})
@@ -137,13 +137,27 @@ class PackageInfoService:
                     if not info.get('website'):
                         info['website'] = f"https://extensions.gnome.org{matched.get('link', '')}"
                     
-                    # Icon
+                    # Downloads count
+                    dls = matched.get('downloads', 0)
+                    if dls:
+                        info['downloads'] = dls
+
+                    # Icon (supports SVG, GIF, PNG, WebP)
+                    from src.utils.system import get_cached_icon, get_cached_screenshot
                     icon_rel = matched.get('icon', '')
                     if icon_rel and not icon_rel.endswith('plugin.png'):
                         full_icon_url = f"https://extensions.gnome.org{icon_rel}" if icon_rel.startswith('/') else icon_rel
                         cached = get_cached_icon(full_icon_url, f"ego_{matched.get('pk', ext_id)}")
                         if cached and os.path.exists(cached):
                             info['icon'] = cached
+
+                    # Demo Screenshot / Image
+                    screenshot_rel = matched.get('screenshot', '')
+                    if screenshot_rel:
+                        full_shot_url = f"https://extensions.gnome.org{screenshot_rel}" if screenshot_rel.startswith('/') else screenshot_rel
+                        cached_shot = get_cached_screenshot(full_shot_url, f"ego_shot_{matched.get('pk', ext_id)}")
+                        if cached_shot and os.path.exists(cached_shot):
+                            info['cached_screenshots'] = [cached_shot]
         except Exception as e:
             print(f"Error querying EGO for extension info ({ext_id}): {e}")
 
