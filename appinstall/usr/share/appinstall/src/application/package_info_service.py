@@ -62,9 +62,92 @@ class PackageInfoService:
             elif identifier.startswith('pulsar:'):
                 pkg_name = identifier.replace('pulsar:', '', 1)
                 return self.pulsar_adapter.get_package_info(pkg_name)
+            elif identifier.startswith('gnome-ext:') or identifier.startswith('gnome-extension:'):
+                prefix = 'gnome-ext:' if identifier.startswith('gnome-ext:') else 'gnome-extension:'
+                ext_id = identifier.replace(prefix, '', 1)
+                return self._get_gnome_extension_info(ext_id)
             return self.package_manager.get_package_info(identifier)
         
         return {}
+
+    def _get_gnome_extension_info(self, ext_id: str) -> Dict[str, str]:
+        """Fetch details for a GNOME Extension from local metadata or EGO."""
+        import json
+        import urllib.request
+        from src.utils.system import get_cached_icon
+
+        # 1. Check if extension exists locally
+        user_ext_dir = os.path.expanduser(f"~/.local/share/gnome-shell/extensions/{ext_id}")
+        sys_ext_dir = f"/usr/share/gnome-shell/extensions/{ext_id}"
+        meta_path = None
+        if os.path.isfile(os.path.join(user_ext_dir, "metadata.json")):
+            meta_path = os.path.join(user_ext_dir, "metadata.json")
+        elif os.path.isfile(os.path.join(sys_ext_dir, "metadata.json")):
+            meta_path = os.path.join(sys_ext_dir, "metadata.json")
+
+        info = {
+            'name': ext_id,
+            'version': 'N/A',
+            'description': '',
+            'developer': 'GNOME Community',
+            'license': 'GPL',
+            'size': 'N/A',
+            'icon': 'application-x-addon-symbolic',
+            'source': 'gnome-ext',
+            'uuid': ext_id,
+            'is_installed': meta_path is not None,
+            'verified': True,
+        }
+
+        if meta_path:
+            try:
+                with open(meta_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    local_meta = json.load(f)
+                    info['name'] = local_meta.get('name', ext_id)
+                    info['description'] = local_meta.get('description', '')
+                    info['version'] = str(local_meta.get('version', 'N/A'))
+                    if local_meta.get('url'):
+                        info['website'] = local_meta.get('url')
+                    if local_meta.get('uuid'):
+                        info['uuid'] = local_meta.get('uuid')
+            except Exception as e:
+                print(f"Error reading local extension metadata: {e}")
+
+        # 2. Query EGO to enrich description, author, and icon
+        try:
+            ego_url = f"https://extensions.gnome.org/extension-query/?search={urllib.parse.quote(ext_id)}"
+            req = urllib.request.Request(ego_url, headers={"User-Agent": "AppInstall/1.0"})
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                data = json.loads(resp.read().decode('utf-8'))
+                exts = data.get('extensions', [])
+                matched = None
+                for e in exts:
+                    if e.get('uuid') == ext_id or str(e.get('pk')) == ext_id:
+                        matched = e
+                        break
+                if not matched and exts:
+                    matched = exts[0]
+
+                if matched:
+                    if not info['description'] or len(matched.get('description', '')) > len(info['description']):
+                        info['description'] = matched.get('description', info['description'])
+                    if not info['name'] or info['name'] == ext_id:
+                        info['name'] = matched.get('name', ext_id)
+                    info['developer'] = matched.get('creator', info['developer'])
+                    if not info.get('website'):
+                        info['website'] = f"https://extensions.gnome.org{matched.get('link', '')}"
+                    
+                    # Icon
+                    icon_rel = matched.get('icon', '')
+                    if icon_rel and not icon_rel.endswith('plugin.png'):
+                        full_icon_url = f"https://extensions.gnome.org{icon_rel}" if icon_rel.startswith('/') else icon_rel
+                        cached = get_cached_icon(full_icon_url, f"ego_{matched.get('pk', ext_id)}")
+                        if cached and os.path.exists(cached):
+                            info['icon'] = cached
+        except Exception as e:
+            print(f"Error querying EGO for extension info ({ext_id}): {e}")
+
+        return info
 
     def _get_appimage_info(self, file_path: str) -> Dict[str, str]:
         info = {

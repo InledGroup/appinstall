@@ -4,58 +4,75 @@ from gi.repository import Gtk, Gdk
 def load_css():
     css_provider = Gtk.CssProvider()
     
-    # CSS moderno integrado para GNOME
+    # CSS adaptativo moderno para GNOME / Libadwaita (Soporte perfecto Modo Claro y Oscuro)
     css_data = """
     .main-window {
-        background: @window_bg_color;
+        background-color: @window_bg_color;
+        color: @window_fg_color;
     }
     
     .header-bar {
-        background: @headerbar_bg_color;
-        color: @headerbar_fg_color;
+        background-color: transparent;
+        border-bottom: 1px solid alpha(currentColor, 0.08);
     }
     
     .card {
-        background: @card_bg_color;
+        background-color: @card_bg_color;
+        color: @card_fg_color;
         border-radius: 12px;
-        padding: 24px;
-        margin: 8px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        padding: 18px;
+        margin: 6px;
+        border: 1px solid alpha(currentColor, 0.08);
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
     }
     
     .title-label {
-        font-size: 1.2em;
-        font-weight: bold;
+        font-size: 1.15em;
+        font-weight: 700;
         color: @window_fg_color;
     }
     
     .subtitle-label {
         font-size: 0.9em;
-        color: @insensitive_fg_color;
+        color: alpha(currentColor, 0.6);
     }
     
     .action-button {
-        background: @accent_bg_color;
-        color: @accent_fg_color;
+        background-color: #0a84ff;
+        color: #ffffff;
         border-radius: 8px;
-        padding: 12px 24px;
-        font-weight: bold;
+        padding: 10px 20px;
+        font-weight: 600;
+        border: none;
+    }
+
+    .action-button:hover {
+        background-color: #0071e3;
     }
     
     .secondary-button {
+        background-color: alpha(currentColor, 0.08);
+        color: @window_fg_color;
         border-radius: 8px;
-        padding: 12px 24px;
+        padding: 10px 20px;
+        border: 1px solid alpha(currentColor, 0.1);
+    }
+
+    .secondary-button:hover {
+        background-color: alpha(currentColor, 0.14);
     }
     
     .destructive-button {
-        background: @error_bg_color;
+        background-color: @error_bg_color;
         color: @error_fg_color;
         border-radius: 8px;
+        padding: 10px 20px;
+        font-weight: 600;
     }
     
     .search-entry {
-        border-radius: 8px;
-        padding: 8px 12px;
+        border-radius: 10px;
+        padding: 6px 10px;
     }
     
     .progress-bar {
@@ -63,7 +80,7 @@ def load_css():
     }
     
     .status-label {
-        color: @insensitive_fg_color;
+        color: alpha(currentColor, 0.65);
     }
     
     .list-row {
@@ -72,103 +89,176 @@ def load_css():
     }
     
     .file-chooser-button {
-        border: 2px dashed @borders;
+        border: 2px dashed alpha(currentColor, 0.2);
         border-radius: 12px;
-        padding: 32px;
-        background: @view_bg_color;
+        padding: 24px;
+        background-color: alpha(currentColor, 0.03);
     }
     
     .file-chooser-button:hover {
-        background: @view_hover_bg_color;
-        border-color: @accent_bg_color;
+        background-color: alpha(currentColor, 0.06);
+        border-color: #0a84ff;
     }
 
-    /* Custom App Store CSS styles */
+    /* Estilos App Store / Pulsar Store */
     .store-section-title {
-        font-size: 1.4em;
-        font-weight: bold;
+        font-size: 1.3em;
+        font-weight: 700;
+        color: @window_fg_color;
         margin-top: 16px;
         margin-bottom: 8px;
     }
     
     .store-app-card {
-        padding: 10px 14px;
+        padding: 12px 14px;
         border-radius: 12px;
         transition: background-color 0.2s;
     }
     
     .store-app-card:hover {
-        background-color: rgba(255, 255, 255, 0.05);
+        background-color: alpha(currentColor, 0.06);
     }
     
     .app-card-icon {
         border-radius: 12px;
-        border: 1px solid rgba(0, 0, 0, 0.1);
+        border: 1px solid alpha(currentColor, 0.08);
     }
     
     .app-card-title {
         font-weight: 600;
         font-size: 1.05em;
+        color: @window_fg_color;
     }
     
     .app-card-subtitle {
         font-size: 0.85em;
-        color: @insensitive_fg_color;
+        color: alpha(currentColor, 0.6);
     }
     
     .app-card-button {
-        background-color: rgba(53, 132, 228, 0.15);
-        color: #3584e4;
-        font-weight: bold;
-        border-radius: 20px;
-        padding: 4px 16px;
+        background-color: #0a84ff;
+        color: #ffffff;
+        font-weight: 700;
+        font-size: 13px;
+        border-radius: 9999px;
+        padding: 5px 16px;
         border: none;
         box-shadow: none;
-        transition: all 0.2s;
     }
     
     .app-card-button:hover {
-        background-color: #3584e4;
+        background-color: #0071e3;
         color: #ffffff;
+    }
+
+    .app-card-button-secondary {
+        background-color: alpha(currentColor, 0.08);
+        color: @window_fg_color;
+        font-weight: 600;
+        font-size: 13px;
+        border-radius: 9999px;
+        padding: 5px 16px;
+        border: none;
+    }
+
+    .app-card-button-secondary:hover {
+        background-color: alpha(currentColor, 0.15);
     }
     
     .top-free-card {
-        background: @card_bg_color;
-        border-radius: 16px;
-        padding: 16px;
-        margin: 6px;
+        background-color: @card_bg_color;
+        color: @card_fg_color;
+        border-radius: 14px;
+        padding: 14px;
+        margin: 4px;
         min-width: 140px;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.05);
-        border: 1px solid rgba(0,0,0,0.05);
+        box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+        border: 1px solid alpha(currentColor, 0.08);
     }
     
     .top-free-rank {
-        font-size: 1.8em;
+        font-size: 1.6em;
         font-weight: 800;
-        color: rgba(53, 132, 228, 0.6);
+        color: alpha(#0a84ff, 0.7);
         margin-bottom: 4px;
     }
     
     .top-free-title {
-        font-weight: bold;
+        font-weight: 600;
         font-size: 0.95em;
-        margin-top: 8px;
-        margin-bottom: 8px;
+        color: @window_fg_color;
+        margin-top: 6px;
+        margin-bottom: 6px;
     }
     
-    /* Make sidebar icons blue like in the App Store design (icons only) */
-    .navigation-sidebar row image {
-        color: #3584e4;
+    .store-rank-row {
+        background-color: transparent;
+        border-radius: 10px;
+        padding: 12px 10px;
+        margin-top: 4px;
+        margin-bottom: 4px;
     }
 
-    .navigation-sidebar row > box > label,
-    .navigation-sidebar row label {
+    .store-rank-row:hover {
+        background-color: alpha(currentColor, 0.06);
+    }
+
+    .store-rank-number {
+        font-size: 1.05em;
+        font-weight: 700;
+        color: alpha(currentColor, 0.45);
+        min-width: 24px;
+    }
+
+    .store-rank-name {
+        font-weight: 600;
         color: @window_fg_color;
+    }
+
+    .store-rank-sub {
+        font-size: 0.85em;
+        color: alpha(currentColor, 0.6);
+    }
+    
+    /* Barra lateral */
+    .sidebar-container {
+        background-color: alpha(currentColor, 0.025);
+        border-right: 1px solid alpha(currentColor, 0.08);
+    }
+
+    .sidebar-container label {
+        color: @window_fg_color;
+        font-weight: 500;
+    }
+
+    .sidebar-container image {
+        color: #0a84ff;
+    }
+
+    .sidebar-container row {
+        border-radius: 8px;
+        margin-bottom: 3px;
+        padding: 4px 6px;
+        transition: background-color 0.15s;
+    }
+
+    .sidebar-container row:selected {
+        background-color: alpha(#0a84ff, 0.16);
+    }
+
+    .sidebar-container row:selected label {
+        color: #0a84ff;
+        font-weight: 600;
+    }
+
+    .sidebar-container row:selected image {
+        color: #0a84ff;
     }
     
     .sidebar-search {
-        border-radius: 12px;
+        border-radius: 10px;
         margin-bottom: 8px;
+        background-color: alpha(currentColor, 0.05);
     }
     
     .screenshot-image {
@@ -177,46 +267,50 @@ def load_css():
     
     .screenshot-container {
         border-radius: 8px;
-        border: 1px solid rgba(0, 0, 0, 0.1);
-        background-color: rgba(0, 0, 0, 0.05);
+        border: 1px solid alpha(currentColor, 0.1);
+        background-color: alpha(currentColor, 0.03);
     }
     
+    .meta-row-container {
+        border-top: 1px solid alpha(currentColor, 0.1);
+        border-bottom: 1px solid alpha(currentColor, 0.1);
+        padding-top: 10px;
+        padding-bottom: 10px;
+        margin-top: 8px;
+        margin-bottom: 8px;
+    }
+
     .meta-column {
         margin-left: 2px;
         margin-right: 2px;
     }
 
     .meta-pill {
-        background-color: @accent_bg_color;
+        background-color: alpha(currentColor, 0.08);
         border-radius: 9999px;
-        padding: 4px 12px;
+        padding: 4px 14px;
         min-height: 28px;
         min-width: 60px;
         margin: 0;
-        color: @accent_fg_color;
+        color: @window_fg_color;
         border: none;
     }
 
     .meta-pill image {
-        color: @accent_fg_color;
+        color: @window_fg_color;
     }
 
     .meta-pill-text {
         font-weight: bold;
         font-size: 13px;
-        color: @accent_fg_color;
+        color: @window_fg_color;
     }
 
     .meta-column-label {
-        font-size: 12px;
-        color: @theme_fg_color;
-        opacity: 0.7;
-        margin-top: 6px;
-    }
-
-    .store-app-card:hover {
-        background-color: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(0, 0, 0, 0.1);
+        font-size: 11px;
+        font-weight: 600;
+        color: alpha(currentColor, 0.55);
+        margin-top: 4px;
     }
 
     .scrolling-text-container {
@@ -244,205 +338,69 @@ def load_css():
         color: white;
     }
 
-    .log-view {
+    .log-view, .pkgbuild-view {
         font-family: monospace;
         font-size: 9pt;
-    }
-
-    .pkgbuild-view {
-        font-family: monospace;
-        font-size: 9pt;
-    }
-
-    /* =====================================================================
-       Fixed Mac App Store look (theme-independent).
-       English: hard-coded dark palette so home + details pages look the same
-       no matter which system theme is installed.
-       Español: paleta oscura fija para que el inicio y los detalles se vean
-       igual sin importar el tema del sistema.
-       ===================================================================== */
-    .main-window {
-        background-color: #1e1e20;
-        color: #f2f2f7;
-    }
-
-    .main-window label {
-        color: #f2f2f7;
-    }
-
-    .main-window .title-label {
-        color: #f2f2f7;
-        font-weight: 800;
-    }
-
-    .main-window .subtitle-label {
-        color: alpha(#f2f2f7, 0.55);
-    }
-
-    .main-window headerbar {
-        background-color: #26262a;
-        color: #f2f2f7;
-    }
-
-    .main-window headerbar label,
-    .main-window headerbar button {
-        color: #f2f2f7;
-    }
-
-    .sidebar-container {
-        background-color: #26262a;
-    }
-
-    /* Sidebar: icon blue, label normal (fixed MAS theme) */
-    .sidebar-container label {
-        color: #f2f2f7;
-        font-weight: 500;
-    }
-
-    .sidebar-container image {
-        color: #0a84ff;
-    }
-
-    .sidebar-container row:selected label,
-    .sidebar-container row:selected image {
-        color: #ffffff;
-    }
-
-    .sidebar-container row:selected {
-        background-color: alpha(#0a84ff, 0.22);
-    }
-
-    .sidebar-search {
-        background-color: alpha(#f2f2f7, 0.08);
-        color: #f2f2f7;
-    }
-
-    .main-window .card {
-        background-color: #2c2c2e;
-        color: #f2f2f7;
-        border: none;
-        box-shadow: none;
-    }
-
-    .store-section-title {
-        font-size: 1.35em;
-        font-weight: 800;
-        color: #f2f2f7;
-        margin-top: 16px;
-        margin-bottom: 8px;
-    }
-
-    /* Ranked list rows: number + icon + name + GET pill */    .store-rank-row {        background-color: transparent;        border-radius: 10px;        padding: 20px 12px;        margin-top: 8px;        margin-bottom: 8px;    }
-
-    .store-rank-row:hover {
-        background-color: alpha(#f2f2f7, 0.06);
-    }
-
-    .store-rank-number {
-        font-size: 1.05em;
-        font-weight: 700;
-        color: alpha(#f2f2f7, 0.6);
-        min-width: 22px;
-    }
-
-    .store-rank-name {
-        font-weight: 600;
-        color: #f2f2f7;
-    }
-
-    .store-rank-sub {
-        font-size: 0.85em;
-        color: alpha(#f2f2f7, 0.55);
-    }
-
-    .store-rank-sep {
-        color: alpha(#f2f2f7, 0.12);
-    }
-
-    .app-card-icon {
-        border-radius: 10px;
-    }
-
-    .app-card-title {
-        font-weight: 600;
-        color: #f2f2f7;
-    }
-
-    .app-card-subtitle {
-        color: alpha(#f2f2f7, 0.55);
-    }
-
-    /* GET / Obtener pill: solid MAS blue */
-    .app-card-button {
-        background-color: #0a84ff;
-        color: #ffffff;
-        font-weight: bold;
-        border-radius: 9999px;
-        padding: 4px 16px;
-        border: none;
-        box-shadow: none;
-    }
-
-    .app-card-button:hover {
-        background-color: #2f97ff;
-        color: #ffffff;
-    }
-
-    .top-free-card {
-        background-color: transparent;
-        border: none;
-        box-shadow: none;
-    }
-
-    .top-free-rank {
-        color: alpha(#f2f2f7, 0.6);
-    }
-
-    /* Detail page: info pills over thin rules */
-    .meta-row-container {
-        border-top: 1px solid alpha(#f2f2f7, 0.15);
-        border-bottom: 1px solid alpha(#f2f2f7, 0.15);
-        padding-top: 12px;
-        padding-bottom: 12px;
-        margin-top: 8px;
-        margin-bottom: 8px;
-    }
-
-    /* Detail info pills: neutral like MAS, no blue highlight */
-    .meta-pill {
-        background-color: alpha(#f2f2f7, 0.10);
-        border-radius: 9999px;
-        padding: 4px 14px;
-        min-height: 28px;
-        min-width: 60px;
-        color: #f2f2f7;
-        border: none;
-    }
-
-    .meta-pill image {
-        color: #f2f2f7;
-    }
-
-    .meta-pill-text {
-        font-weight: bold;
-        font-size: 13px;
-        color: #f2f2f7;
-    }
-
-    .meta-column-label {
-        font-size: 11px;
-        font-weight: 700;
-        color: alpha(#f2f2f7, 0.45);
-        margin-top: 6px;
-    }
-
-    .screenshot-container {
-        background-color: alpha(#f2f2f7, 0.05);
-        border: 1px solid alpha(#f2f2f7, 0.12);
     }
 
     .verified-icon {
         color: #0a84ff;
+    }
+
+    .badge {
+        padding: 3px 8px;
+        border-radius: 8px;
+        font-size: 10px;
+        font-weight: 700;
+    }
+    
+    .badge-system {
+        background-color: rgba(53, 132, 228, 0.15);
+        color: #3584e4;
+    }
+    
+    .badge-flatpak {
+        background-color: rgba(143, 80, 157, 0.15);
+        color: #8f509d;
+    }
+    
+    .badge-snap {
+        background-color: rgba(224, 27, 36, 0.15);
+        color: #e01b24;
+    }
+    
+    .badge-aur {
+        background-color: rgba(18, 140, 204, 0.15);
+        color: #128ccc;
+    }
+    
+    .badge-brew {
+        background-color: rgba(246, 178, 107, 0.15);
+        color: #f6b26b;
+    }
+    
+    .badge-pulsar {
+        background-color: rgba(10, 132, 255, 0.15);
+        color: #0a84ff;
+    }
+
+    .badge-generic {
+        background-color: rgba(120, 120, 120, 0.15);
+        color: #787878;
+    }
+
+    .compact-tab-btn {
+        padding: 4px 14px;
+        min-height: 28px;
+        font-size: 0.85rem;
+        border-radius: 6px;
+    }
+
+    .readme-view {
+        font-size: 0.95rem;
+        line-height: 1.6;
+        padding: 14px;
+        color: @window_fg_color;
     }
     """
     

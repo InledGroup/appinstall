@@ -126,26 +126,47 @@ class DaemonService:
         # 4. Comprobar y aplicar actualizaciones de paquetes del sistema
         print("[Daemon] Comprobando actualizaciones del sistema...")
         updated = False
+        updates_available_count = 0
 
+        # Debian / Ubuntu / Pulsar OS APT
+        if shutil.which("apt-get"):
+            try:
+                if os.geteuid() == 0:
+                    subprocess.run(["apt-get", "update", "-qq"], capture_output=True, timeout=120)
+                check = subprocess.run(["apt", "list", "--upgradable"], capture_output=True, text=True, timeout=60)
+                lines = [l for l in check.stdout.strip().splitlines() if "/" in l and "Listing..." not in l]
+                if lines:
+                    updates_available_count += len(lines)
+                    print(f"[Daemon] {len(lines)} paquetes actualizables encontrados en APT.")
+            except Exception as e:
+                print(f"[Daemon] Error comprobando APT: {e}")
+
+        # Arch Linux / Pacman
         if shutil.which("pacman"):
             try:
-                # Sincronizar bases de datos en segundo plano
-                res = subprocess.run(["pkexec", "pacman", "-Sy"], capture_output=True, timeout=120)
-                if res.returncode == 0:
-                    # Comprobar si hay paquetes actualizables
-                    check = subprocess.run(["pacman", "-Qu"], capture_output=True, text=True, timeout=60)
-                    if check.stdout.strip():
-                        print(f"[Daemon] Paquetes actualizables encontrados:\n{check.stdout.strip()}")
-                        # Ejecutar actualización desatendida
-                        upg = subprocess.run(["pkexec", "pacman", "-Su", "--noconfirm"], capture_output=True, timeout=600)
-                        if upg.returncode == 0:
-                            updated = True
+                if os.geteuid() == 0:
+                    subprocess.run(["pacman", "-Sy"], capture_output=True, timeout=120)
+                check = subprocess.run(["pacman", "-Qu"], capture_output=True, text=True, timeout=60)
+                lines = [l for l in check.stdout.strip().splitlines() if l.strip()]
+                if lines:
+                    updates_available_count += len(lines)
+                    print(f"[Daemon] {len(lines)} paquetes actualizables encontrados en Pacman.")
             except Exception as e:
-                print(f"[Daemon] Error durante la actualización de pacman: {e}")
+                print(f"[Daemon] Error comprobando Pacman: {e}")
 
+        # Fedora / DNF
+        if shutil.which("dnf"):
+            try:
+                check = subprocess.run(["dnf", "check-update", "-q"], capture_output=True, text=True, timeout=60)
+                lines = [l for l in check.stdout.strip().splitlines() if l.strip()]
+                if lines:
+                    updates_available_count += len(lines)
+            except Exception as e:
+                print(f"[Daemon] Error comprobando DNF: {e}")
+
+        # Flatpak
         if shutil.which("flatpak"):
             try:
-                # Actualizar metadatos y paquetes Flatpak de forma no interactiva
                 upg_flat = subprocess.run(["flatpak", "update", "-y", "--noninteractive"], capture_output=True, timeout=180)
                 if upg_flat.returncode == 0:
                     out_text = upg_flat.stdout.decode('utf-8', errors='ignore')
@@ -158,7 +179,12 @@ class DaemonService:
             print("[Daemon] Sistema actualizado correctamente.")
             self.send_notification(
                 _("Pulsar OS - Actualizaciones"),
-                _("El sistema y las aplicaciones se han actualizado automáticamente con éxito.")
+                _("Las aplicaciones se han actualizado automáticamente con éxito.")
+            )
+        elif updates_available_count > 0:
+            self.send_notification(
+                _("Pulsar OS - Actualizaciones"),
+                _("Hay {} actualizaciones del sistema disponibles para instalar.").format(updates_available_count)
             )
         else:
             print("[Daemon] El sistema ya se encuentra al día.")

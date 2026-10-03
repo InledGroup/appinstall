@@ -17,6 +17,8 @@ from .pwa_config_window import PWAConfigWindow
 from .appimage_config_window import AppImageConfigWindow
 from .progress_window import ProgressWindow
 from .package_details_window import PackageDetailsWidget
+from .pulsar_store_window import PulsarStoreWidget
+from .gnome_extensions_window import GnomeExtensionsWidget, is_gnome_desktop
 
 class ScrollingTextContainer(Gtk.ScrolledWindow):
     def __init__(self, text, label_class):
@@ -168,6 +170,19 @@ class PackageInstaller(Adw.ApplicationWindow):
         
         # Add Navigation Rows
         self.add_sidebar_row(self.sidebar_list, "store", _("Buscar / Tienda"), "system-search-symbolic")
+        
+        pulsar_store_icon = "emblem-favorite-symbolic"
+        for icon_cand in [
+            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "pulsar-store.svg"),
+            "/usr/share/icons/hicolor/scalable/apps/pulsar-store.svg"
+        ]:
+            if os.path.exists(icon_cand):
+                pulsar_store_icon = icon_cand
+                break
+        self.add_sidebar_row(self.sidebar_list, "pulsar_store", _("Pulsar Store"), pulsar_store_icon)
+        
+        if is_gnome_desktop():
+            self.add_sidebar_row(self.sidebar_list, "gnome_extensions", _("Extensiones GNOME"), "application-x-addon-symbolic")
         self.add_sidebar_row(self.sidebar_list, "installed", _("Mis Aplicaciones"), "system-software-install-symbolic")
         self.add_sidebar_row(self.sidebar_list, "updates", _("Actualizaciones"), "software-update-available-symbolic")
         self.add_sidebar_row(self.sidebar_list, "cleanup", _("Limpiar Sistema"), "user-trash-symbolic")
@@ -282,21 +297,30 @@ class PackageInstaller(Adw.ApplicationWindow):
         from src.application.cleanup_service import CleanupService
         from src.application.antivirus_service import AntivirusService
 
-        # 1. Installed Apps Widget
+        # 1. Pulsar Store Widget
+        self.pulsar_store_widget = PulsarStoreWidget(self)
+        self.content_stack.add_named(self.pulsar_store_widget, "pulsar_store")
+
+        # 2. GNOME Extensions Widget (if available)
+        if is_gnome_desktop():
+            self.gnome_extensions_widget = GnomeExtensionsWidget(self)
+            self.content_stack.add_named(self.gnome_extensions_widget, "gnome_extensions")
+
+        # 3. Installed Apps Widget
         uninstall_service = UninstallService(self.pkg_manager)
         self.installed_apps_widget = InstalledAppsWidget(self, self.pkg_manager, uninstall_service)
         self.content_stack.add_named(self.installed_apps_widget, "installed")
 
-        # 2. Updates Widget
+        # 4. Updates Widget
         self.updates_widget = self.setup_updates_widget()
         self.content_stack.add_named(self.updates_widget, "updates")
 
-        # 3. Cleanup Widget
+        # 5. Cleanup Widget
         cleanup_service = CleanupService(self.pkg_manager)
         self.cleanup_widget = SystemCleanupWidget(self, cleanup_service)
         self.content_stack.add_named(self.cleanup_widget, "cleanup")
 
-        # 4. Antivirus Widget
+        # 6. Antivirus Widget
         antivirus_service = AntivirusService(self.pkg_manager)
         self.antivirus_widget = AntivirusWidget(self, antivirus_service)
         self.content_stack.add_named(self.antivirus_widget, "antivirus")
@@ -318,7 +342,10 @@ class PackageInstaller(Adw.ApplicationWindow):
         box.set_margin_start(12)
         box.set_margin_end(12)
         
-        icon = Gtk.Image.new_from_icon_name(icon_name)
+        if icon_name.endswith(".svg") or icon_name.endswith(".png") or os.path.exists(icon_name):
+            icon = Gtk.Image.new_from_file(icon_name)
+        else:
+            icon = Gtk.Image.new_from_icon_name(icon_name)
         icon.set_pixel_size(18)
         box.append(icon)
         
@@ -351,6 +378,10 @@ class PackageInstaller(Adw.ApplicationWindow):
             self.installed_apps_widget.load_installed_apps()
         elif target == "updates":
             self.trigger_updates_check()
+        elif target == "pulsar_store":
+            self.pulsar_store_widget.load_catalog_async()
+        elif target == "gnome_extensions" and hasattr(self, 'gnome_extensions_widget'):
+            self.gnome_extensions_widget.refresh_active_tab()
 
     def setup_store_menus(self):
         # --- Main Menu View (App Store Homepage) ---
@@ -392,6 +423,55 @@ class PackageInstaller(Adw.ApplicationWindow):
         self.offline_banner.set_visible(False)
         self.main_box.append(self.offline_banner)
         
+        # 0. Destacados de Pulsar Store Section
+        self.pulsar_highlights_section_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        pulsar_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        
+        pulsar_title = Gtk.Label(label=_("Destacados de Pulsar Store"), xalign=0)
+        pulsar_title.add_css_class("store-section-title")
+        pulsar_title.set_hexpand(True)
+        pulsar_header.append(pulsar_title)
+
+        ver_pulsar_btn = Gtk.Button(label=_("Ver catálogo"))
+        ver_pulsar_btn.add_css_class("flat")
+        ver_pulsar_btn.connect("clicked", lambda b: self.navigate_to_page("pulsar_store"))
+        pulsar_header.append(ver_pulsar_btn)
+        self.pulsar_highlights_section_box.append(pulsar_header)
+
+        scrolled_pulsar = Gtk.ScrolledWindow()
+        scrolled_pulsar.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.NEVER)
+        self.pulsar_highlights_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=14)
+        self.pulsar_highlights_box.set_margin_top(4)
+        self.pulsar_highlights_box.set_margin_bottom(8)
+        scrolled_pulsar.set_child(self.pulsar_highlights_box)
+        self.pulsar_highlights_section_box.append(scrolled_pulsar)
+        self.main_box.append(self.pulsar_highlights_section_box)
+
+        # 0.5 GNOME Extensions Section (if GNOME desktop)
+        if is_gnome_desktop():
+            self.gnome_highlights_section_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+            gnome_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+
+            gnome_title = Gtk.Label(label=_("Extensiones GNOME destacadas"), xalign=0)
+            gnome_title.add_css_class("store-section-title")
+            gnome_title.set_hexpand(True)
+            gnome_header.append(gnome_title)
+
+            ver_gnome_btn = Gtk.Button(label=_("Explorar todas"))
+            ver_gnome_btn.add_css_class("flat")
+            ver_gnome_btn.connect("clicked", lambda b: self.navigate_to_page("gnome_extensions"))
+            gnome_header.append(ver_gnome_btn)
+            self.gnome_highlights_section_box.append(gnome_header)
+
+            scrolled_gnome = Gtk.ScrolledWindow()
+            scrolled_gnome.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.NEVER)
+            self.gnome_highlights_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=14)
+            self.gnome_highlights_box.set_margin_top(4)
+            self.gnome_highlights_box.set_margin_bottom(8)
+            scrolled_gnome.set_child(self.gnome_highlights_box)
+            self.gnome_highlights_section_box.append(scrolled_gnome)
+            self.main_box.append(self.gnome_highlights_section_box)
+
         # 1. Apps imprescindibles Section (from Flathub)
         self.popular_section_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         popular_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
@@ -561,19 +641,20 @@ class PackageInstaller(Adw.ApplicationWindow):
     def on_sidebar_search_changed(self, entry):
         text = entry.get_text()
         if text:
-            # Switch to "store" tab if not already there
+            # Switch to "store" tab and search results view immediately!
             store_row = self.sidebar_list.get_row_at_index(0)
             if self.sidebar_list.get_selected_row() != store_row:
                 self.sidebar_list.select_row(store_row)
                 
+            self.content_stack.set_visible_child_name("store")
             self.header_stack.set_visible_child_name("search")
             self.main_stack.set_visible_child_name("search_results")
             
             stripped_text = text.strip()
-            if len(stripped_text) >= 3:
+            if len(stripped_text) >= 1:
                 if self.search_timer:
                     GLib.source_remove(self.search_timer)
-                self.search_timer = GLib.timeout_add(30, self.perform_package_search, stripped_text)
+                self.search_timer = GLib.timeout_add(150, self.perform_package_search, stripped_text)
         else:
             # If search text is empty, switch back to home menu of the store
             self.header_stack.set_visible_child_name("main")
@@ -590,10 +671,22 @@ class PackageInstaller(Adw.ApplicationWindow):
             store_row = self.sidebar_list.get_row_at_index(0)
             if self.sidebar_list.get_selected_row() != store_row:
                 self.sidebar_list.select_row(store_row)
+            self.content_stack.set_visible_child_name("store")
             self.header_stack.set_visible_child_name("search")
             self.main_stack.set_visible_child_name("search_results")
-            if len(text) >= 3:
+            if len(text) >= 1:
                 self.perform_package_search(text)
+
+    def navigate_to_page(self, page_name):
+        row = None
+        for i in range(10):
+            r = self.sidebar_list.get_row_at_index(i)
+            if r and getattr(r, 'target_page', None) == page_name:
+                row = r
+                break
+        if row:
+            self.sidebar_list.select_row(row)
+            self.content_stack.set_visible_child_name(page_name)
 
     def load_store_recommendations(self):
         def _fetch():
@@ -612,15 +705,23 @@ class PackageInstaller(Adw.ApplicationWindow):
 
                 # Fetch trending apps (12)
                 trending = self.search_service.get_trending_apps(limit=12)
+
+                # Fetch Pulsar Store highlights (6)
+                pulsar_highlights = self.search_service.get_pulsar_store_highlights(limit=6)
+
+                # Fetch GNOME Extensions highlights (6) if on GNOME
+                gnome_highlights = self.search_service.get_gnome_extensions_highlights(limit=6) if is_gnome_desktop() else []
             except Exception as e:
                 print(f"Error loading store recommendations: {e}")
                 popular_all = []
                 trending = []
+                pulsar_highlights = []
+                gnome_highlights = []
 
-            if not popular_all and not trending:
+            if not popular_all and not trending and not pulsar_highlights:
                 GLib.idle_add(self.show_offline_banner)
             else:
-                GLib.idle_add(self.populate_recommendations, popular, trending, top_free)
+                GLib.idle_add(self.populate_recommendations, popular, trending, top_free, pulsar_highlights, gnome_highlights)
 
         threading.Thread(target=_fetch, daemon=True).start()
 
@@ -652,10 +753,18 @@ class PackageInstaller(Adw.ApplicationWindow):
         if hasattr(self, 'offline_banner'):
             self.offline_banner.set_visible(True)
 
-    def populate_recommendations(self, popular, trending, top_free):
+    def populate_recommendations(self, popular, trending, top_free, pulsar_highlights=None, gnome_highlights=None):
         # Stop and remove spinners if they exist
         self._stop_recommendation_spinners()
             
+        # Populate Pulsar Store highlights
+        if pulsar_highlights and hasattr(self, 'pulsar_highlights_box'):
+            self._fill_horizontal_cards(self.pulsar_highlights_box, pulsar_highlights)
+
+        # Populate GNOME Extensions highlights
+        if gnome_highlights and hasattr(self, 'gnome_highlights_box'):
+            self._fill_horizontal_cards(self.gnome_highlights_box, gnome_highlights)
+
         # Populate popular (Mac App Store ranked two-column list, 1..N)
         self._fill_ranked_columns(self.popular_grid, popular[:12])
         
@@ -664,6 +773,88 @@ class PackageInstaller(Adw.ApplicationWindow):
         
         # Populate top free (Mac App Store ranked two-column list, 1..N)
         self._fill_ranked_columns(self.top_free_horizontal_box, top_free[:6])
+
+    def _fill_horizontal_cards(self, container, items):
+        child = container.get_first_child()
+        while child:
+            container.remove(child)
+            child = container.get_first_child()
+
+        for item in items:
+            card = self.create_highlight_card(item)
+            container.append(card)
+
+    def create_highlight_card(self, app_data):
+        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        card.add_css_class("card")
+        card.set_size_request(240, -1)
+        card.set_hexpand(False)
+
+        top_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+
+        icon_path = app_data.get('icon', '')
+        if icon_path and os.path.exists(icon_path):
+            icon = Gtk.Image.new_from_file(icon_path)
+        elif icon_path and icon_path.startswith('http'):
+            try:
+                from src.utils.system import get_cached_icon
+                cached = get_cached_icon(icon_path, app_data.get('name', 'app'))
+                if cached and os.path.exists(cached):
+                    icon = Gtk.Image.new_from_file(cached)
+                else:
+                    icon = Gtk.Image.new_from_icon_name("system-software-install-symbolic")
+            except Exception:
+                icon = Gtk.Image.new_from_icon_name("system-software-install-symbolic")
+        else:
+            icon = Gtk.Image.new_from_icon_name(icon_path if icon_path else "system-software-install-symbolic")
+        icon.set_pixel_size(44)
+        icon.add_css_class("app-card-icon")
+        top_row.append(icon)
+
+        title_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        title_box.set_hexpand(True)
+        title_box.set_valign(Gtk.Align.CENTER)
+
+        name_lbl = Gtk.Label(label=app_data.get('display_name', app_data.get('name', '')), xalign=0)
+        name_lbl.add_css_class("app-card-title")
+        name_lbl.set_ellipsize(Pango.EllipsizeMode.END)
+        title_box.append(name_lbl)
+
+        source = app_data.get('source', '')
+        if source == 'pulsar':
+            sub_text = app_data.get('type', 'Pulsar').replace('_', ' ').capitalize()
+        elif source == 'gnome-extension':
+            sub_text = _("Extensión")
+        else:
+            sub_text = app_data.get('desc', '')
+
+        sub_lbl = Gtk.Label(label=sub_text, xalign=0)
+        sub_lbl.add_css_class("app-card-subtitle")
+        sub_lbl.set_ellipsize(Pango.EllipsizeMode.END)
+        title_box.append(sub_lbl)
+
+        top_row.append(title_box)
+        card.append(top_row)
+
+        desc_lbl = Gtk.Label(label=app_data.get('desc', ''), xalign=0)
+        desc_lbl.add_css_class("subtitle-label")
+        desc_lbl.set_wrap(True)
+        desc_lbl.set_lines(2)
+        desc_lbl.set_ellipsize(Pango.EllipsizeMode.END)
+        desc_lbl.set_vexpand(True)
+        card.append(desc_lbl)
+
+        btn = Gtk.Button(label=_("Ver") if source != 'gnome-extension' else _("Explorar"))
+        btn.add_css_class("app-card-button")
+        btn.set_halign(Gtk.Align.END)
+        btn.connect("clicked", lambda b: self.on_recommendation_clicked(app_data))
+        card.append(btn)
+
+        click_gesture = Gtk.GestureClick()
+        click_gesture.connect("released", lambda g, n, x, y: self.on_recommendation_clicked(app_data))
+        card.add_controller(click_gesture)
+
+        return card
 
     def _fill_ranked_columns(self, container, apps):
         """English: Fill a container with a Mac App Store style ranked
@@ -875,7 +1066,9 @@ class PackageInstaller(Adw.ApplicationWindow):
     def on_recommendation_clicked(self, app_data):
         pkg_name = app_data['name']
         source = app_data.get('source', '')
-        if source == 'flatpak':
+        if source == 'gnome-extension' or source == 'gnome-ext':
+            pkg_name = f"gnome-ext:{pkg_name}"
+        elif source == 'flatpak':
             pkg_name = f"flatpak:{pkg_name}"
         elif source == 'pulsar':
             pkg_name = f"pulsar:{pkg_name}"
@@ -1019,6 +1212,8 @@ class PackageInstaller(Adw.ApplicationWindow):
 
         def _check():
             try:
+                import shutil
+                import urllib.request
                 # Actualizar automáticamente los repositorios del sistema
                 try:
                     update_cmd = self.pkg_manager.update_cache()
@@ -1032,7 +1227,6 @@ class PackageInstaller(Adw.ApplicationWindow):
                 
                 upgradable_pkgs = []
                 try:
-                    import shutil
                     if shutil.which('pacman'):
                         try:
                             output = subprocess.check_output(['pacman', '-Qu'], stderr=subprocess.DEVNULL, timeout=10).decode('utf-8')
@@ -1042,7 +1236,6 @@ class PackageInstaller(Adw.ApplicationWindow):
                                     if len(parts) >= 2:
                                         upgradable_pkgs.append(parts[0])
                         except subprocess.CalledProcessError as e:
-                            # pacman -Qu returns 1 if there are no updates. That is normal behavior.
                             if e.returncode != 1:
                                 print(f"pacman check-updates error: {e}")
                     elif shutil.which('apt'):
@@ -1056,7 +1249,6 @@ class PackageInstaller(Adw.ApplicationWindow):
                             print(f"apt check-updates error: {e}")
                     elif shutil.which('dnf'):
                         try:
-                            # dnf check-update returns 100 if updates exist, 0 if not, 1 if error
                             res = subprocess.run(['dnf', 'check-update', '-q'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=15)
                             if res.returncode in [0, 100]:
                                 output = res.stdout.decode('utf-8')
@@ -1065,25 +1257,105 @@ class PackageInstaller(Adw.ApplicationWindow):
                                         parts = line.split()
                                         if len(parts) >= 2 and parts[0] != 'Obtaining':
                                             upgradable_pkgs.append(parts[0])
-                            else:
-                                print(f"dnf check-update returned code: {res.returncode}")
                         except Exception as e:
                             print(f"dnf check-updates error: {e}")
                 except Exception as e:
                     print(f"Error checking system updates: {e}")
+
+                # Check Flatpak updates
+                upgradable_flatpaks = []
+                if shutil.which('flatpak'):
+                    try:
+                        res = subprocess.run(['flatpak', 'remote-ls', '--updates'], capture_output=True, text=True, timeout=10)
+                        if res.returncode == 0:
+                            for l in res.stdout.splitlines():
+                                if l.strip():
+                                    parts = l.split()
+                                    if parts:
+                                        upgradable_flatpaks.append(parts[0])
+                    except Exception:
+                        pass
+
+                # Check Pulsar Store updates
+                upgradable_pulsar = []
+                try:
+                    from src.infrastructure.adapters.pulsar_store_adapter import _load_installed_db
+                    installed_db = _load_installed_db()
+                    if installed_db:
+                        catalog = self.info_service.pulsar_adapter._get_catalog()
+                        for pkg_id, inst_meta in installed_db.items():
+                            cat_pkg = self.info_service.pulsar_adapter._find_pkg(catalog, pkg_id)
+                            if cat_pkg and cat_pkg.get('version'):
+                                cur_ver = str(inst_meta.get('version', ''))
+                                new_ver = str(cat_pkg.get('version', ''))
+                                if cur_ver and new_ver and cur_ver != new_ver:
+                                    upgradable_pulsar.append({
+                                        'id': pkg_id,
+                                        'name': cat_pkg.get('name', pkg_id),
+                                        'new_version': new_ver,
+                                        'current_version': cur_ver,
+                                    })
+                except Exception as e:
+                    print(f"Error checking Pulsar Store updates: {e}")
+
+                # Check GNOME Extensions updates
+                upgradable_extensions = []
+                try:
+                    user_ext_dir = os.path.expanduser("~/.local/share/gnome-shell/extensions")
+                    if os.path.isdir(user_ext_dir):
+                        for entry in os.listdir(user_ext_dir):
+                            meta_p = os.path.join(user_ext_dir, entry, "metadata.json")
+                            if os.path.isfile(meta_p):
+                                try:
+                                    with open(meta_p, 'r', encoding='utf-8', errors='ignore') as mf:
+                                        local_meta = json.load(mf)
+                                    uuid = local_meta.get('uuid', entry)
+                                    name = local_meta.get('name', uuid)
+                                    local_ver = str(local_meta.get('version', ''))
+                                    ego_url = f"https://extensions.gnome.org/extension-query/?search={urllib.parse.quote(uuid)}"
+                                    req = urllib.request.Request(ego_url, headers={"User-Agent": "AppInstall/1.0"})
+                                    with urllib.request.urlopen(req, timeout=4) as resp:
+                                        data = json.loads(resp.read().decode('utf-8'))
+                                        for ext_obj in data.get('extensions', []):
+                                            if ext_obj.get('uuid') == uuid:
+                                                # Check pk details for shell version
+                                                pk = ext_obj.get('pk')
+                                                if pk:
+                                                    info_req = urllib.request.Request(f"https://extensions.gnome.org/extension-info/?pk={pk}", headers={"User-Agent": "AppInstall/1.0"})
+                                                    with urllib.request.urlopen(info_req, timeout=4) as info_resp:
+                                                        ext_info = json.loads(info_resp.read().decode('utf-8'))
+                                                        shell_map = ext_info.get('shell_version_map', {})
+                                                        if shell_map:
+                                                            latest_v = list(shell_map.values())[-1]
+                                                            latest_ver_num = str(latest_v.get('version', '')) if isinstance(latest_v, dict) else ''
+                                                            if latest_ver_num and local_ver and latest_ver_num != local_ver:
+                                                                upgradable_extensions.append({
+                                                                    'uuid': uuid,
+                                                                    'name': name,
+                                                                    'new_version': latest_ver_num,
+                                                                    'current_version': local_ver
+                                                                })
+                                except Exception:
+                                    pass
+                except Exception as e:
+                    print(f"Error checking GNOME extensions updates: {e}")
                     
-                GLib.idle_add(self.show_updates_results, appinstall_upgradable, latest_app_version, upgradable_pkgs)
+                GLib.idle_add(self.show_updates_results, appinstall_upgradable, latest_app_version, upgradable_pkgs, upgradable_flatpaks, upgradable_pulsar, upgradable_extensions)
             except Exception as e:
                 print(f"Error in updates check thread: {e}")
                 GLib.idle_add(self.show_updates_error)
                 
         threading.Thread(target=_check, daemon=True).start()
 
-    def show_updates_results(self, appinstall_upgradable, latest_app_version, upgradable_pkgs):
+    def show_updates_results(self, appinstall_upgradable, latest_app_version, upgradable_pkgs, upgradable_flatpaks=None, upgradable_pulsar=None, upgradable_extensions=None):
         self.updates_spinner.stop()
         self.updates_spinner.set_visible(False)
         
-        total_updates = len(upgradable_pkgs) + (1 if appinstall_upgradable else 0)
+        upgradable_flatpaks = upgradable_flatpaks or []
+        upgradable_pulsar = upgradable_pulsar or []
+        upgradable_extensions = upgradable_extensions or []
+
+        total_updates = len(upgradable_pkgs) + len(upgradable_flatpaks) + len(upgradable_pulsar) + len(upgradable_extensions) + (1 if appinstall_upgradable else 0)
         
         if total_updates == 0:
             self.updates_status_icon.set_from_icon_name("emblem-ok-symbolic")
@@ -1097,13 +1369,22 @@ class PackageInstaller(Adw.ApplicationWindow):
             if appinstall_upgradable:
                 self.add_update_row("AppInstall", _("Nueva versión disponible: {} (actual: {})").format(latest_app_version, CURRENT_VERSION), is_app=True)
                 
+            for p in upgradable_pulsar:
+                self.add_update_row(p['name'], _("Pulsar Store: versión {} disponible (actual: {})").format(p['new_version'], p['current_version']), icon_name="emblem-favorite-symbolic")
+
+            for ext in upgradable_extensions:
+                self.add_update_row(ext['name'], _("Extensión GNOME: versión {} disponible (actual: {})").format(ext['new_version'], ext['current_version']), icon_name="application-x-addon-symbolic")
+
+            for f in upgradable_flatpaks:
+                self.add_update_row(f, _("Actualización disponible en Flathub"), icon_name="package-x-generic-symbolic")
+
             for pkg in upgradable_pkgs[:100]:
                 self.add_update_row(pkg, _("Actualización disponible de los repositorios del sistema"))
                 
             if len(upgradable_pkgs) > 100:
                 self.add_update_row("...", _("Y {} actualizaciones más...").format(len(upgradable_pkgs) - 100))
 
-    def add_update_row(self, name, description, is_app=False):
+    def add_update_row(self, name, description, is_app=False, icon_name=None):
         row = Gtk.ListBoxRow()
         row.add_css_class("list-row")
         
@@ -1111,7 +1392,8 @@ class PackageInstaller(Adw.ApplicationWindow):
         box.set_margin_top(8); box.set_margin_bottom(8)
         box.set_margin_start(8); box.set_margin_end(8)
         
-        icon = Gtk.Image.new_from_icon_name("es.inled.AppInstall" if is_app else "package-x-generic-symbolic")
+        icon_to_use = icon_name if icon_name else ("es.inled.AppInstall" if is_app else "package-x-generic-symbolic")
+        icon = Gtk.Image.new_from_icon_name(icon_to_use)
         box.append(icon)
         
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
@@ -1259,6 +1541,14 @@ class PackageInstaller(Adw.ApplicationWindow):
                         elif source == 'brew':
                             if shutil.which('brew'):
                                 is_installed = subprocess.run(['brew', 'list', name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
+                        elif source == 'pulsar':
+                            pkg_id = info.get('pulsar_id') or name
+                            is_installed = self.info_service.pulsar_adapter.is_package_installed(pkg_id)
+                        elif source in ['gnome-ext', 'gnome-extension']:
+                            uuid = info.get('uuid') or name
+                            user_dir = os.path.expanduser(f"~/.local/share/gnome-shell/extensions/{uuid}")
+                            sys_dir = f"/usr/share/gnome-shell/extensions/{uuid}"
+                            is_installed = os.path.isdir(user_dir) or os.path.isdir(sys_dir)
                         else:
                             # Paquete nativo de la distribución
                             if shutil.which('pacman'):
@@ -1307,7 +1597,7 @@ class PackageInstaller(Adw.ApplicationWindow):
             self, 
             info, 
             on_install_callback=lambda: self.on_install_clicked(None),
-            on_uninstall_callback=lambda: self.uninstall_package_from_details(info.get('name'), info.get('source')),
+            on_uninstall_callback=lambda: self.uninstall_package_from_details(info.get('pulsar_id') or info.get('uuid') or info.get('name'), info.get('source')),
             back_callback=self.on_details_back_clicked
         )
         self.main_stack.add_named(self.details_widget_instance, "details")
@@ -1328,6 +1618,20 @@ class PackageInstaller(Adw.ApplicationWindow):
             GLib.timeout_add(100, self.sidebar_search_entry.grab_focus)
 
     def uninstall_package_from_details(self, name, source):
+        if source in ['gnome-ext', 'gnome-extension']:
+            self.set_buttons_sensitive(False)
+            self._show_progress(_("Desinstalando extensión..."))
+            cmd = ["gnome-extensions", "uninstall", name]
+            self.install_service.run_installation(cmd, f"gnome-ext:{name}", self.update_progress_ui, self.on_upgrade_system_complete, on_log=self.on_operation_log)
+            return
+
+        if source == 'pulsar':
+            self.set_buttons_sensitive(False)
+            self._show_progress(_("Desinstalando paquete..."))
+            cmd = self.info_service.pulsar_adapter.uninstall(name)
+            self.install_service.run_installation(cmd, f"pulsar:{name}", self.update_progress_ui, self.on_upgrade_system_complete, on_log=self.on_operation_log)
+            return
+
         is_flatpak = (source == 'flatpak')
         is_snap = (source == 'snap')
         is_aur = (source == 'aur')
@@ -1440,8 +1744,8 @@ class PackageInstaller(Adw.ApplicationWindow):
         self.install_service.run_fix_deps(cmd, self.update_progress_ui, self.on_fix_deps_complete, on_log=self.on_operation_log)
 
     def on_upgrade_system_clicked(self, widget):
-        # English: Trigger full system update and upgrade
-        # Español: Desencadenar la actualización completa del sistema
+        # English: Trigger full system update and upgrade (including Flatpak)
+        # Español: Desencadenar la actualización completa del sistema y aplicaciones
         self.set_buttons_sensitive(False)
         self.status_label.set_text(_("Actualizando el sistema..."))
         self.progress_bar.set_fraction(0.0)
@@ -1449,6 +1753,14 @@ class PackageInstaller(Adw.ApplicationWindow):
         self._show_progress(_("Actualizando el sistema..."))
         
         cmd = self.pkg_manager.upgrade_system()
+        import shutil
+        if shutil.which('flatpak'):
+            if cmd and len(cmd) >= 2 and cmd[0] == 'pkexec':
+                inner_cmd = " ".join(cmd[1:])
+                cmd = ['pkexec', 'sh', '-c', f"{inner_cmd} && (flatpak update -y || true)"]
+            elif cmd:
+                inner_cmd = " ".join(cmd)
+                cmd = ['sh', '-c', f"{inner_cmd} && (flatpak update -y || true)"]
         self.install_service.run_installation(cmd, "system_upgrade", self.update_progress_ui, self.on_upgrade_system_complete, on_log=self.on_operation_log)
 
     def on_apps_clicked(self, widget):
@@ -1769,6 +2081,12 @@ class PackageInstaller(Adw.ApplicationWindow):
             elif source == 'flatpak':
                 source_label = "Flatpak"
                 badge_class = "badge-flatpak"
+            elif source == 'pulsar':
+                source_label = "Pulsar Store"
+                badge_class = "badge-pulsar"
+            elif source == 'gnome-extension':
+                source_label = _("Extensión GNOME")
+                badge_class = "badge-generic"
             elif source == 'snap':
                 source_label = "Snap"
                 badge_class = "badge-snap"
@@ -1803,7 +2121,9 @@ class PackageInstaller(Adw.ApplicationWindow):
 
     def on_search_result_activated(self, listbox, row):
         pkg_name = row.pkg_name
-        if row.source == 'brew':
+        if row.source == 'gnome-extension' or row.source == 'gnome-ext':
+            pkg_name = f"gnome-ext:{pkg_name}"
+        elif row.source == 'brew':
             pkg_name = f"brew:{pkg_name}"
         elif row.source == 'flatpak':
             pkg_name = f"flatpak:{pkg_name}"
