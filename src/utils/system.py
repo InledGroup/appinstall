@@ -108,51 +108,49 @@ def get_cached_icon(icon_url: str, package_id: str) -> str:
     return ""
 
 def create_app_icon_widget(icon_path_or_url_or_name: str, size: int = 44, fallback: str = "system-software-install-symbolic", package_id: str = "app") -> Gtk.Widget:
-    """Creates a GTK4 widget (Gtk.Image or Gtk.Picture) properly rendering SVG, GIF, PNG, JPG, WebP, ICO, or symbolic icon."""
-    if not icon_path_or_url_or_name:
-        img = Gtk.Image.new_from_icon_name(fallback)
-        img.set_pixel_size(size)
-        img.set_size_request(size, size)
-        img.set_halign(Gtk.Align.CENTER)
-        img.set_valign(Gtk.Align.CENTER)
-        return img
+    """Creates a GTK4 widget properly rendering SVG, GIF, PNG, JPG, WebP, ICO, or symbolic icon strictly constrained to size x size."""
+    import gi
+    gi.require_version('GdkPixbuf', '2.0')
+    from gi.repository import GdkPixbuf, Gdk
 
     path = icon_path_or_url_or_name
-    if path.startswith("http://") or path.startswith("https://"):
+    if path and (path.startswith("http://") or path.startswith("https://")):
         cached = get_cached_icon(path, package_id)
         if cached and os.path.exists(cached):
             path = cached
 
-    if os.path.isfile(path):
-        lower = path.lower()
-        if lower.endswith((".svg", ".gif", ".webp", ".png", ".jpg", ".jpeg", ".ico")):
+    widget = None
+    if path and os.path.isfile(path):
+        try:
+            pix = GdkPixbuf.Pixbuf.new_from_file_at_scale(path, size, size, True)
+            tex = Gdk.Texture.new_for_pixbuf(pix)
+            img = Gtk.Image.new_from_paintable(tex)
+            img.set_pixel_size(size)
+            widget = img
+        except Exception:
             try:
-                pic = Gtk.Picture.new_for_filename(path)
-                pic.set_size_request(size, size)
-                pic.set_content_fit(Gtk.ContentFit.CONTAIN)
-                pic.set_can_shrink(True)
-                pic.set_halign(Gtk.Align.CENTER)
-                pic.set_valign(Gtk.Align.CENTER)
-                return pic
+                img = Gtk.Image.new_from_file(path)
+                img.set_pixel_size(size)
+                widget = img
             except Exception:
                 pass
-        try:
-            img = Gtk.Image.new_from_file(path)
-            img.set_pixel_size(size)
-            img.set_size_request(size, size)
-            img.set_halign(Gtk.Align.CENTER)
-            img.set_valign(Gtk.Align.CENTER)
-            return img
-        except Exception:
-            pass
 
-    # Symbolic or named theme icon
-    img = Gtk.Image.new_from_icon_name(path if path else fallback)
-    img.set_pixel_size(size)
-    img.set_size_request(size, size)
-    img.set_halign(Gtk.Align.CENTER)
-    img.set_valign(Gtk.Align.CENTER)
-    return img
+    if widget is None:
+        icon_name = path if (path and not os.path.isabs(path) and not path.startswith("http")) else fallback
+        img = Gtk.Image.new_from_icon_name(icon_name)
+        img.set_pixel_size(size)
+        widget = img
+
+    box = Gtk.Box()
+    box.set_size_request(size, size)
+    box.set_halign(Gtk.Align.CENTER)
+    box.set_valign(Gtk.Align.CENTER)
+    box.set_hexpand(False)
+    box.set_vexpand(False)
+    box.add_css_class("app-card-icon")
+    box.append(widget)
+    return box
+
 
 
 def get_cached_screenshot(screenshot_url: str, prefix: str) -> str:
