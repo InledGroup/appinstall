@@ -235,17 +235,16 @@ class SystemCleanupWidget(Gtk.Box):
         self.progress_bar.set_fraction(0.0)
         self.status_label.set_text(_("Limpiando archivos..."))
         
-        self.progress_dialog = ProgressWindow(self, _("Limpiando archivos..."))
-        self.progress_dialog.present()
+        if hasattr(self.parent_window, '_show_progress'):
+            self.parent_window._show_progress(_("Limpiando archivos..."))
         
         selected_dirs = [d for d, check in self.directory_checks.items() if check.get_active()]
         self.cleanup_service.run_cleanup(selected_dirs, self.orphan_check.get_active(), self.apt_check.get_active(),
                                        self.update_progress, self.cleanup_complete)
 
     def cleanup_complete(self, success, cleaned_size, error_msg):
-        if hasattr(self, 'progress_dialog') and self.progress_dialog:
-            self.progress_dialog.close()
-            self.progress_dialog = None
+        if hasattr(self.parent_window, '_close_progress_dialog'):
+            self.parent_window._close_progress_dialog()
             
         self.progress_bar.set_visible(False)
         self.analyze_button.set_sensitive(True)

@@ -504,8 +504,8 @@ class InstalledAppsWidget(Gtk.Box):
         self.progress_bar.set_visible(True)
         self.status_label.set_text(_("Desinstalando {}...").format(package_name))
         
-        self.progress_dialog = ProgressWindow(self, _("Desinstalando {}...").format(package_name))
-        self.progress_dialog.present()
+        if hasattr(self.parent_window, '_show_progress'):
+            self.parent_window._show_progress(_("Desinstalando {}...").format(package_name))
 
         cmd = self.uninstall_service.get_uninstall_command(
             package_name, is_appimage, is_brew, is_pwa, BREW_PATH,
@@ -520,8 +520,8 @@ class InstalledAppsWidget(Gtk.Box):
         return False
     
     def on_uninstall_log(self, line):
-        if hasattr(self, 'progress_dialog') and self.progress_dialog:
-            self.progress_dialog.append_log(line)
+        if hasattr(self.parent_window, 'on_operation_log'):
+            self.parent_window.on_operation_log(line)
         self.update_uninstall_progress()
 
     def update_uninstall_progress(self):
@@ -529,16 +529,16 @@ class InstalledAppsWidget(Gtk.Box):
         if new_value > 0.95:
             new_value = 0.15
         self.progress_bar.set_fraction(new_value)
+        if hasattr(self.parent_window, 'update_progress_ui'):
+            self.parent_window.update_progress_ui()
         return False
 
     def uninstall_complete(self, package_name, success, is_appimage=False, is_brew=False, is_pwa=False, is_flatpak=False, is_snap=False, is_aur=False, error_message=None):
         self.search_entry.set_sensitive(True)
         self.stop_loading = False
 
-        # Cerrar el diálogo de progreso primero
-        if hasattr(self, 'progress_dialog') and self.progress_dialog:
-            self.progress_dialog.close()
-            self.progress_dialog = None
+        if hasattr(self.parent_window, '_close_progress_dialog'):
+            self.parent_window._close_progress_dialog()
 
         self.progress_bar.set_visible(False)
         self.progress_bar.set_fraction(0.0)

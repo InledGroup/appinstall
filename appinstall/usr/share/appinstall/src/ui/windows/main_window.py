@@ -196,10 +196,51 @@ class PackageInstaller(Adw.ApplicationWindow):
         main_layout.append(sep)
 
         # --- Content Area (Right Pane) ---
+        content_wrapper = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        content_wrapper.set_hexpand(True)
+        content_wrapper.set_vexpand(True)
+
         self.content_stack = Adw.ViewStack()
         self.content_stack.set_hexpand(True)
         self.content_stack.set_vexpand(True)
-        main_layout.append(self.content_stack)
+        content_wrapper.append(self.content_stack)
+
+        # --- Bottom Progress & Activity Bar ---
+        self.bottom_progress_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        self.bottom_progress_box.add_css_class("bottom-status-bar")
+        self.bottom_progress_box.set_visible(False)
+
+        top_status_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        top_status_row.set_valign(Gtk.Align.CENTER)
+        
+        self.bottom_spinner = Gtk.Spinner()
+        self.bottom_spinner.set_size_request(16, 16)
+        top_status_row.append(self.bottom_spinner)
+
+        self.bottom_title_label = Gtk.Label(label="", xalign=0)
+        self.bottom_title_label.add_css_class("status-title-label")
+        top_status_row.append(self.bottom_title_label)
+
+        self.bottom_log_label = Gtk.Label(label="", xalign=0)
+        self.bottom_log_label.add_css_class("status-log-label")
+        from gi.repository import Pango
+        self.bottom_log_label.set_ellipsize(Pango.EllipsizeMode.END)
+        self.bottom_log_label.set_hexpand(True)
+        top_status_row.append(self.bottom_log_label)
+
+        self.bottom_skip_button = Gtk.Button(label=_("Omitir"))
+        self.bottom_skip_button.add_css_class("flat")
+        self.bottom_skip_button.set_visible(False)
+        top_status_row.append(self.bottom_skip_button)
+
+        self.bottom_progress_box.append(top_status_row)
+
+        self.bottom_progress_bar = Gtk.ProgressBar()
+        self.bottom_progress_bar.add_css_class("bottom-progress-bar")
+        self.bottom_progress_box.append(self.bottom_progress_bar)
+
+        content_wrapper.append(self.bottom_progress_box)
+        main_layout.append(content_wrapper)
 
         # Create original store content (Header Stack + ToolbarView + main_stack)
         store_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
@@ -1475,8 +1516,7 @@ class PackageInstaller(Adw.ApplicationWindow):
             
         self.file_path = identifier
         self.status_label.set_text(_("Obteniendo información de la aplicación..."))
-        self.progress_dialog = ProgressWindow(self, _("Analizando paquete..."), skip_callback=self.on_skip_analysis_clicked)
-        self.progress_dialog.present()
+        self._show_progress(_("Analizando paquete..."), skip_callback=self.on_skip_analysis_clicked)
         
         def _get_info():
             try:
@@ -1775,28 +1815,44 @@ class PackageInstaller(Adw.ApplicationWindow):
         self.install_service.run_installation(cmd, None, self.update_progress_ui, self.on_installation_complete, on_log=self.on_operation_log)
 
     def on_operation_log(self, line):
-        # English: Append a line to the operation log shown in the progress window
-        # Español: Añadir una línea al registro de operación mostrado en la ventana de progreso
-        if hasattr(self, 'progress_dialog') and self.progress_dialog:
-            self.progress_dialog.append_log(line)
+        if hasattr(self, 'bottom_log_label') and self.bottom_log_label:
+            GLib.idle_add(self.bottom_log_label.set_text, line)
+        if hasattr(self, 'bottom_progress_bar') and self.bottom_progress_bar:
+            GLib.idle_add(self.bottom_progress_bar.pulse)
 
     def _close_progress_dialog(self):
-        if hasattr(self, 'progress_dialog') and self.progress_dialog:
-            try:
-                self.progress_dialog.close()
-            except Exception:
-                pass
-            self.progress_dialog = None
+        if hasattr(self, 'bottom_progress_box') and self.bottom_progress_box:
+            self.bottom_spinner.stop()
+            self.bottom_progress_box.set_visible(False)
+            self.bottom_title_label.set_text("")
+            self.bottom_log_label.set_text("")
 
     def _show_progress(self, message, skip_callback=None):
-        self._close_progress_dialog()
-        self.progress_dialog = ProgressWindow(self, message, skip_callback=skip_callback)
-        self.progress_dialog.present()
-        return self.progress_dialog
+        if hasattr(self, 'bottom_progress_box') and self.bottom_progress_box:
+            self.bottom_progress_box.set_visible(True)
+            self.bottom_spinner.start()
+            self.bottom_title_label.set_text(message)
+            self.bottom_log_label.set_text("")
+            self.bottom_progress_bar.set_fraction(0.0)
+            
+            if skip_callback:
+                self.bottom_skip_button.set_visible(True)
+                if hasattr(self, '_skip_handler_id') and self._skip_handler_id:
+                    try:
+                        self.bottom_skip_button.disconnect(self._skip_handler_id)
+                    except Exception:
+                        pass
+                self._skip_handler_id = self.bottom_skip_button.connect("clicked", lambda b: skip_callback())
+            else:
+                self.bottom_skip_button.set_visible(False)
+        return None
 
     def update_progress_ui(self):
-        new_value = min(1.0, self.progress_bar.get_fraction() + 0.01)
-        self.progress_bar.set_fraction(new_value)
+        if hasattr(self, 'bottom_progress_bar') and self.bottom_progress_bar:
+            new_value = min(1.0, self.bottom_progress_bar.get_fraction() + 0.04)
+            self.bottom_progress_bar.set_fraction(new_value)
+        new_val = min(1.0, self.progress_bar.get_fraction() + 0.01)
+        self.progress_bar.set_fraction(new_val)
         return False
 
     def on_installation_complete(self, message, is_error=False, stderr_output=""):

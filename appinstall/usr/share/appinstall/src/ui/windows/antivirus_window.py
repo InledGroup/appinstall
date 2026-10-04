@@ -294,8 +294,8 @@ class AntivirusWidget(Gtk.Box):
                 self.progress_bar.set_fraction(0.0)
                 self.status_label.set_text(_("Instalando ClamAV..."))
                 
-                self.progress_dialog = ProgressWindow(self, _("Instalando ClamAV..."))
-                self.progress_dialog.present()
+                if hasattr(self.parent_window, '_show_progress'):
+                    self.parent_window._show_progress(_("Instalando ClamAV..."))
                 
                 self.antivirus_service.install_clamav(self.update_install_progress, self.update_status_label, self.install_clam_complete)
         except Exception as e:
@@ -307,12 +307,13 @@ class AntivirusWidget(Gtk.Box):
 
     def update_status_label(self, message):
         self.status_label.set_text(message)
+        if hasattr(self.parent_window, 'on_operation_log'):
+            self.parent_window.on_operation_log(message)
         return False
 
     def install_clam_complete(self, success, error_msg):
-        if hasattr(self, 'progress_dialog') and self.progress_dialog:
-            self.progress_dialog.close()
-            self.progress_dialog = None
+        if hasattr(self.parent_window, '_close_progress_dialog'):
+            self.parent_window._close_progress_dialog()
             
         self.progress_bar.set_visible(False)
         self.install_clam_button.set_sensitive(True)
@@ -330,8 +331,8 @@ class AntivirusWidget(Gtk.Box):
         self.progress_bar.set_fraction(0.0)
         self.status_label.set_text(_("Actualizando definiciones de virus..."))
         
-        self.progress_dialog = ProgressWindow(self, _("Actualizando definiciones..."))
-        self.progress_dialog.present()
+        if hasattr(self.parent_window, '_show_progress'):
+            self.parent_window._show_progress(_("Actualizando definiciones de virus..."))
         
         self.antivirus_service.update_definitions(self.update_defs_progress, self.update_definitions_complete)
 
@@ -340,9 +341,8 @@ class AntivirusWidget(Gtk.Box):
         return False
 
     def update_definitions_complete(self, success, error_msg):
-        if hasattr(self, 'progress_dialog') and self.progress_dialog:
-            self.progress_dialog.close()
-            self.progress_dialog = None
+        if hasattr(self.parent_window, '_close_progress_dialog'):
+            self.parent_window._close_progress_dialog()
             
         self.progress_bar.set_visible(False)
         self.update_button.set_sensitive(True)
@@ -374,8 +374,8 @@ class AntivirusWidget(Gtk.Box):
         self.status_label.set_text(_("Iniciando análisis antivirus..."))
         self.results_text.get_buffer().set_text("")
         
-        self.progress_dialog = ProgressWindow(self, _("Analizando virus..."))
-        self.progress_dialog.present()
+        if hasattr(self.parent_window, '_show_progress'):
+            self.parent_window._show_progress(_("Analizando virus..."))
         
         if self.quick_scan_radio.get_active():
             scan_paths = [os.path.expanduser("~"), "/tmp", "/var/tmp"]
@@ -395,12 +395,13 @@ class AntivirusWidget(Gtk.Box):
         buffer = self.results_text.get_buffer()
         buffer.insert(buffer.get_end_iter(), text)
         self.results_text.scroll_to_mark(buffer.get_insert(), 0.0, False, 0.0, 0.0)
+        if hasattr(self.parent_window, 'on_operation_log'):
+            self.parent_window.on_operation_log(text.strip())
         return False
 
     def scan_complete(self, success, infected_count, scanned_count, stderr):
-        if hasattr(self, 'progress_dialog') and self.progress_dialog:
-            self.progress_dialog.close()
-            self.progress_dialog = None
+        if hasattr(self.parent_window, '_close_progress_dialog'):
+            self.parent_window._close_progress_dialog()
             
         self.progress_bar.set_fraction(1.0)
         self.scan_button.set_sensitive(True)

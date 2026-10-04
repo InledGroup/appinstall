@@ -148,16 +148,6 @@ class PackageDetailsWidget(Gtk.Box):
         main_box.set_margin_start(20)
         main_box.set_margin_end(20)
         scrolled.set_child(main_box)
-        
-        # Simple chevron-left back button at the top
-        top_navigation_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        back_btn = Gtk.Button()
-        back_btn.set_icon_name("go-previous-symbolic")
-        back_btn.add_css_class("flat")
-        back_btn.add_css_class("circular")
-        back_btn.connect("clicked", lambda b: self.back_callback())
-        top_navigation_box.append(back_btn)
-        main_box.append(top_navigation_box)
 
         # 1. Header Card (Icon + Title + Version + Developer on Left, Button on Right)
         header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=20)
@@ -349,6 +339,7 @@ class PackageDetailsWidget(Gtk.Box):
             scrolled_shots.set_min_content_height(340)
             
             shots_hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16)
+            shots_hbox.set_halign(Gtk.Align.START)
             scrolled_shots.set_child(shots_hbox)
 
             for path in self.cached_screenshots:
@@ -359,6 +350,7 @@ class PackageDetailsWidget(Gtk.Box):
                         pic.set_content_fit(Gtk.ContentFit.CONTAIN)
                         pic.set_can_shrink(True)
                         pic.set_size_request(560, 315)
+                        pic.set_halign(Gtk.Align.START)
                         pic.add_css_class("screenshot-image")
                         widget = pic
                     except Exception:
@@ -367,6 +359,7 @@ class PackageDetailsWidget(Gtk.Box):
                             tex = Gdk.Texture.new_for_pixbuf(pix)
                             img = Gtk.Image.new_from_paintable(tex)
                             img.set_size_request(560, 315)
+                            img.set_halign(Gtk.Align.START)
                             img.add_css_class("screenshot-image")
                             widget = img
                         except Exception:
@@ -378,6 +371,7 @@ class PackageDetailsWidget(Gtk.Box):
                         widget.add_controller(click_gesture)
                         
                         img_box = Gtk.Box()
+                        img_box.set_halign(Gtk.Align.START)
                         img_box.add_css_class("screenshot-container")
                         img_box.append(widget)
                         shots_hbox.append(img_box)

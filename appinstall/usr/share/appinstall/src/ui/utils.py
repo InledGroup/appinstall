@@ -264,12 +264,38 @@ def load_css():
     
     .screenshot-image {
         border-radius: 8px;
+        border: none;
     }
     
     .screenshot-container {
         border-radius: 8px;
-        border: 1px solid alpha(currentColor, 0.1);
-        background-color: alpha(currentColor, 0.03);
+        border: none;
+        background-color: transparent;
+    }
+
+    .bottom-status-bar {
+        background-color: @card_bg_color;
+        border-top: 1px solid alpha(currentColor, 0.08);
+        padding: 6px 14px 10px 14px;
+    }
+
+    .status-title-label {
+        font-weight: 700;
+        font-size: 0.95em;
+        color: @window_fg_color;
+        margin-right: 8px;
+    }
+
+    .status-log-label {
+        font-family: monospace;
+        font-size: 0.85em;
+        color: alpha(currentColor, 0.65);
+    }
+
+    .bottom-progress-bar {
+        min-height: 4px;
+        border-radius: 4px;
+        margin-top: 4px;
     }
     
     .meta-row-container {
