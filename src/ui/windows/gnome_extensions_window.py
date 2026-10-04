@@ -354,7 +354,7 @@ class GnomeExtensionsWidget(Gtk.Box):
             prefs_hbox.append(Gtk.Label(label=_("Configuración")))
             prefs_btn.set_child(prefs_hbox)
             prefs_btn.add_css_class("secondary-button")
-            prefs_btn.connect("clicked", lambda b, u=ext["uuid"]: subprocess.Popen(["gnome-extensions", "prefs", u]))
+            prefs_btn.connect("clicked", lambda b, u=ext["uuid"]: self._open_extension_prefs(u))
             actions_row.append(prefs_btn)
 
         # 2. Diagnosis & errors button
@@ -401,6 +401,18 @@ class GnomeExtensionsWidget(Gtk.Box):
 
         return row
 
+    def _open_extension_prefs(self, uuid):
+        def worker():
+            for base in [os.path.expanduser("~/.local/share/gnome-shell/extensions"), "/usr/share/gnome-shell/extensions"]:
+                s_dir = os.path.join(base, uuid, "schemas")
+                if os.path.isdir(s_dir):
+                    subprocess.run(["glib-compile-schemas", s_dir], capture_output=True)
+            res = subprocess.run(["gnome-extensions", "prefs", uuid], capture_output=True)
+            if res.returncode != 0:
+                subprocess.run(["gdbus", "call", "--session", "--dest", "org.gnome.Shell.Extensions", "--object-path", "/org/gnome/Shell/Extensions", "--method", "org.gnome.Shell.Extensions.LaunchExtensionPrefs", uuid], capture_output=True)
+
+        threading.Thread(target=worker, daemon=True).start()
+
     def _on_show_extension_diagnosis(self, button, uuid, error_box, error_lbl):
         def worker():
             info_text = ""
@@ -432,12 +444,36 @@ class GnomeExtensionsWidget(Gtk.Box):
 
         def worker():
             if state:
+                for base in [os.path.expanduser("~/.local/share/gnome-shell/extensions"), "/usr/share/gnome-shell/extensions"]:
+                    s_dir = os.path.join(base, uuid, "schemas")
+                    if os.path.isdir(s_dir):
+                        subprocess.run(["glib-compile-schemas", s_dir], capture_output=True)
                 subprocess.run(["gdbus", "call", "--session", "--dest", "org.gnome.Shell.Extensions", "--object-path", "/org/gnome/Shell/Extensions", "--method", "org.gnome.Shell.Extensions.ReloadExtension", uuid], capture_output=True)
                 subprocess.run(["gnome-extensions", "enable", uuid], capture_output=True)
                 subprocess.run(["gdbus", "call", "--session", "--dest", "org.gnome.Shell.Extensions", "--object-path", "/org/gnome/Shell/Extensions", "--method", "org.gnome.Shell.Extensions.EnableExtension", uuid], capture_output=True)
+                try:
+                    res_en = subprocess.run(["gsettings", "get", "org.gnome.shell", "enabled-extensions"], capture_output=True, text=True)
+                    if res_en.returncode == 0 and uuid not in res_en.stdout:
+                        import ast
+                        arr = ast.literal_eval(res_en.stdout.strip())
+                        if isinstance(arr, list) and uuid not in arr:
+                            arr.append(uuid)
+                            subprocess.run(["gsettings", "set", "org.gnome.shell", "enabled-extensions", str(arr)], capture_output=True)
+                except Exception:
+                    pass
             else:
                 subprocess.run(["gnome-extensions", "disable", uuid], capture_output=True)
                 subprocess.run(["gdbus", "call", "--session", "--dest", "org.gnome.Shell.Extensions", "--object-path", "/org/gnome/Shell/Extensions", "--method", "org.gnome.Shell.Extensions.DisableExtension", uuid], capture_output=True)
+                try:
+                    res_en = subprocess.run(["gsettings", "get", "org.gnome.shell", "enabled-extensions"], capture_output=True, text=True)
+                    if res_en.returncode == 0 and uuid in res_en.stdout:
+                        import ast
+                        arr = ast.literal_eval(res_en.stdout.strip())
+                        if isinstance(arr, list) and uuid in arr:
+                            arr = [x for x in arr if x != uuid]
+                            subprocess.run(["gsettings", "set", "org.gnome.shell", "enabled-extensions", str(arr)], capture_output=True)
+                except Exception:
+                    pass
 
         threading.Thread(target=worker, daemon=True).start()
         return False
@@ -445,10 +481,22 @@ class GnomeExtensionsWidget(Gtk.Box):
     def _on_uninstall_extension(self, button, uuid):
         def worker():
             user_dir = os.path.expanduser(f"~/.local/share/gnome-shell/extensions/{uuid}")
+            subprocess.run(["gdbus", "call", "--session", "--dest", "org.gnome.Shell.Extensions", "--object-path", "/org/gnome/Shell/Extensions", "--method", "org.gnome.Shell.Extensions.DisableExtension", uuid], capture_output=True)
+            subprocess.run(["gnome-extensions", "disable", uuid], capture_output=True)
             subprocess.run(["gdbus", "call", "--session", "--dest", "org.gnome.Shell.Extensions", "--object-path", "/org/gnome/Shell/Extensions", "--method", "org.gnome.Shell.Extensions.UninstallExtension", uuid], capture_output=True)
             subprocess.run(["gnome-extensions", "uninstall", uuid], capture_output=True)
             if os.path.isdir(user_dir):
                 shutil.rmtree(user_dir, ignore_errors=True)
+            try:
+                res_en = subprocess.run(["gsettings", "get", "org.gnome.shell", "enabled-extensions"], capture_output=True, text=True)
+                if res_en.returncode == 0 and uuid in res_en.stdout:
+                    import ast
+                    arr = ast.literal_eval(res_en.stdout.strip())
+                    if isinstance(arr, list) and uuid in arr:
+                        arr = [x for x in arr if x != uuid]
+                        subprocess.run(["gsettings", "set", "org.gnome.shell", "enabled-extensions", str(arr)], capture_output=True)
+            except Exception:
+                pass
             GLib.idle_add(self.load_installed_extensions)
 
         threading.Thread(target=worker, daemon=True).start()
