@@ -650,6 +650,8 @@ class PackageInstaller(Adw.ApplicationWindow):
         
         # --- Search Results View ---
         results_scrolled = Gtk.ScrolledWindow()
+        results_scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        results_scrolled.set_propagate_natural_width(False)
         results_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         results_box.set_margin_top(24); results_box.set_margin_bottom(24)
         results_box.set_margin_start(24); results_box.set_margin_end(24)
@@ -2078,6 +2080,7 @@ class PackageInstaller(Adw.ApplicationWindow):
         for res in results:
             row = Gtk.ListBoxRow()
             box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+            box.set_hexpand(True)
             box.set_margin_top(12)
             box.set_margin_bottom(12)
             box.set_margin_start(12)
@@ -2093,11 +2096,14 @@ class PackageInstaller(Adw.ApplicationWindow):
             vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
             vbox.set_hexpand(True)
             name_label = Gtk.Label(label=res.get('display_name', res['name']), xalign=0)
+            name_label.set_ellipsize(Pango.EllipsizeMode.END)
+            name_label.set_hexpand(True)
             name_label.add_css_class("title-label") 
             vbox.append(name_label)
             
             desc_label = Gtk.Label(label=res['desc'], xalign=0)
             desc_label.set_ellipsize(Pango.EllipsizeMode.END)
+            desc_label.set_hexpand(True)
             desc_label.add_css_class("subtitle-label")
             vbox.append(desc_label)
             
