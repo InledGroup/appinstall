@@ -1594,15 +1594,20 @@ class PackageInstaller(Adw.ApplicationWindow):
         if source in ['gnome-ext', 'gnome-extension']:
             self.set_buttons_sensitive(False)
             self._show_progress(_("Desinstalando extensión..."))
-            cmd = ["gnome-extensions", "uninstall", name]
-            self.install_service.run_installation(cmd, f"gnome-ext:{name}", self.update_progress_ui, self.on_upgrade_system_complete, on_log=self.on_operation_log)
+            user_dir = os.path.expanduser(f"~/.local/share/gnome-shell/extensions/{name}")
+            cmd = [
+                "sh", "-c",
+                f"(gdbus call --session --dest org.gnome.Shell.Extensions --object-path /org/gnome/Shell/Extensions --method org.gnome.Shell.Extensions.UninstallExtension '{name}' || true) && "
+                f"(gnome-extensions uninstall '{name}' || true) && rm -rf '{user_dir}'"
+            ]
+            self.install_service.run_installation(cmd, f"uninstall:gnome-ext:{name}", self.update_progress_ui, self.on_uninstall_complete, on_log=self.on_operation_log)
             return
 
         if source == 'pulsar':
             self.set_buttons_sensitive(False)
             self._show_progress(_("Desinstalando paquete..."))
             cmd = self.info_service.pulsar_adapter.uninstall(name)
-            self.install_service.run_installation(cmd, f"pulsar:{name}", self.update_progress_ui, self.on_upgrade_system_complete, on_log=self.on_operation_log)
+            self.install_service.run_installation(cmd, f"uninstall:pulsar:{name}", self.update_progress_ui, self.on_uninstall_complete, on_log=self.on_operation_log)
             return
 
         is_flatpak = (source == 'flatpak')
@@ -1810,6 +1815,23 @@ class PackageInstaller(Adw.ApplicationWindow):
         dialog.set_default_response("ok")
         dialog.present(self)
         self.set_buttons_sensitive(True)
+
+    def on_uninstall_complete(self, message, is_error=False, stderr_output=""):
+        self.progress_bar.set_fraction(1.0)
+        self.status_label.set_text(message)
+        self._close_progress_dialog()
+
+        if is_error:
+            dialog = Adw.AlertDialog(heading=_("¡Un error en la desinstalación!"), body=message)
+        else:
+            dialog = Adw.AlertDialog(heading=_("Desinstalación completada"), body=message)
+        
+        dialog.add_response("ok", "OK")
+        dialog.set_default_response("ok")
+        dialog.present(self)
+        self.set_buttons_sensitive(True)
+        if self.file_path and self.main_stack.get_visible_child_name() == "package_details":
+            GLib.idle_add(lambda: self.show_package_details(identifier=self.file_path, is_local=False))
 
     def on_fix_deps_complete(self, message, is_error=False):
         self.progress_bar.set_fraction(1.0)

@@ -121,7 +121,8 @@ def load_css():
     
     .app-card-icon {
         border-radius: 12px;
-        border: 1px solid alpha(currentColor, 0.08);
+        border: none;
+        background: transparent;
     }
     
     .app-card-title {

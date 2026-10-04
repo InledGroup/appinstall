@@ -165,11 +165,19 @@ class PackageInfoService:
 
                     # Demo Screenshot / Image (get latest screenshot)
                     screenshot_rel = info_data.get('screenshot') or matched.get('screenshot', '')
-                    if screenshot_rel:
+                    if screenshot_rel and not screenshot_rel.endswith('plugin.png') and screenshot_rel != icon_rel:
                         full_shot_url = f"https://extensions.gnome.org{screenshot_rel}" if screenshot_rel.startswith('/') else screenshot_rel
                         cached_shot = get_cached_screenshot(full_shot_url, f"ego_shot_{pk or ext_id}")
                         if cached_shot and os.path.exists(cached_shot):
-                            info['cached_screenshots'] = [cached_shot]
+                            try:
+                                import gi
+                                gi.require_version('GdkPixbuf', '2.0')
+                                from gi.repository import GdkPixbuf
+                                pix = GdkPixbuf.Pixbuf.new_from_file(cached_shot)
+                                if pix and pix.get_width() >= 180 and pix.get_height() >= 100:
+                                    info['cached_screenshots'] = [cached_shot]
+                            except Exception:
+                                info['cached_screenshots'] = [cached_shot]
         except Exception as e:
             print(f"Error querying EGO for extension info ({ext_id}): {e}")
 

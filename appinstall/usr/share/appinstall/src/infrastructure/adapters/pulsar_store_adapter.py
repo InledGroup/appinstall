@@ -257,7 +257,7 @@ class PulsarStoreAdapter(PackageManager):
             # If native arch package exists and we are on Arch, install natively with pacman
             if shutil.which("pacman") and formats.get("arch"):
                 arch_url = formats.get("arch")
-                cmd = f"tmpfile=$(mktemp --suffix=.pkg.tar.zst) && curl -sSL '{arch_url}' -o \"$tmpfile\" && pkexec pacman -U --noconfirm \"$tmpfile\" && rm -f \"$tmpfile\""
+                cmd = f"tmpfile=$(mktemp --suffix=.pkg.tar.zst) && curl -sSL '{arch_url}' -o \"$tmpfile\" && (pkexec pacman -U --noconfirm \"$tmpfile\" || pkexec pacman -U --nodeps --noconfirm \"$tmpfile\") && rm -f \"$tmpfile\""
                 return ["sh", "-c", cmd]
             # If deb package exists and on Debian/Ubuntu, install natively
             elif shutil.which("dpkg") and formats.get("deb"):
@@ -272,7 +272,7 @@ class PulsarStoreAdapter(PackageManager):
         # 2. GNOME Extension
         elif pkg_type == "gnome_extension":
             py_script = (
-                "import urllib.request, json, subprocess, os, sys, re, zipfile\n"
+                "import urllib.request, urllib.parse, json, subprocess, os, sys, re, zipfile\n"
                 f"uuid = '{pkg_id}'\n"
                 f"fallback_url = '{download_url}'\n"
                 "try:\n"
@@ -343,7 +343,9 @@ class PulsarStoreAdapter(PackageManager):
                 "    with zipfile.ZipFile(tmp_zip, 'r') as zf:\n"
                 "        zf.extractall(dest_dir)\n"
                 "    subprocess.run(['gnome-extensions', 'install', '--force', tmp_zip], capture_output=True)\n"
+                "    subprocess.run(['gdbus', 'call', '--session', '--dest', 'org.gnome.Shell.Extensions', '--object-path', '/org/gnome/Shell/Extensions', '--method', 'org.gnome.Shell.Extensions.ReloadExtension', target_uuid], capture_output=True)\n"
                 "    subprocess.run(['gnome-extensions', 'enable', target_uuid], capture_output=True)\n"
+                "    subprocess.run(['gdbus', 'call', '--session', '--dest', 'org.gnome.Shell.Extensions', '--object-path', '/org/gnome/Shell/Extensions', '--method', 'org.gnome.Shell.Extensions.EnableExtension', target_uuid], capture_output=True)\n"
                 "    if os.path.exists(tmp_zip): os.remove(tmp_zip)\n"
                 "    print(f'Extensión {target_uuid} instalada con éxito.')\n"
                 "except Exception as e:\n"
@@ -414,7 +416,10 @@ class PulsarStoreAdapter(PackageManager):
 
         if pkg_type == "gnome_extension":
             user_dir = os.path.expanduser(f"~/.local/share/gnome-shell/extensions/{pkg_id}")
-            cmd = f"(gnome-extensions uninstall '{pkg_id}' || true) && rm -rf '{user_dir}'"
+            cmd = (
+                f"(gdbus call --session --dest org.gnome.Shell.Extensions --object-path /org/gnome/Shell/Extensions --method org.gnome.Shell.Extensions.UninstallExtension '{pkg_id}' || true) && "
+                f"(gnome-extensions uninstall '{pkg_id}' || true) && rm -rf '{user_dir}'"
+            )
             return ["sh", "-c", cmd]
 
         elif pkg_type == "sayri_skill":
@@ -428,14 +433,29 @@ class PulsarStoreAdapter(PackageManager):
             return ["sh", "-c", f"rm -rf '{cfg_dir}' '{local_dir}'"]
 
         # Flatpak / Native package
+        candidate_names = [pkg_id]
+        if pkg:
+            name_clean = pkg.get("name", "").lower().replace(" ", "-")
+            if name_clean and name_clean not in candidate_names:
+                candidate_names.append(name_clean)
+        if "." in pkg_id:
+            clean = pkg_id.replace("com.", "").replace(".app", "")
+            if clean and clean not in candidate_names:
+                candidate_names.append(clean)
+            short = pkg_id.split(".")[-2] if pkg_id.endswith(".app") else pkg_id.split(".")[-1]
+            if short and short not in candidate_names:
+                candidate_names.append(short)
+
         if shutil.which("pacman"):
-            res = subprocess.run(["pacman", "-Qi", pkg_id], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            if res.returncode == 0:
-                return ["pkexec", "pacman", "-R", "--noconfirm", pkg_id]
+            for cand in candidate_names:
+                res = subprocess.run(["pacman", "-Qi", cand], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                if res.returncode == 0:
+                    return ["pkexec", "pacman", "-R", "--noconfirm", cand]
         if shutil.which("dpkg-query"):
-            res = subprocess.run(["dpkg-query", "-W", "-f=${Status}", pkg_id], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-            if b"install ok installed" in res.stdout:
-                return ["pkexec", "apt-get", "remove", "-y", pkg_id]
+            for cand in candidate_names:
+                res = subprocess.run(["dpkg-query", "-W", "-f=${Status}", cand], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+                if b"install ok installed" in res.stdout:
+                    return ["pkexec", "apt-get", "remove", "-y", cand]
 
         return ["flatpak", "uninstall", "-y", pkg_id]
 
@@ -448,6 +468,19 @@ class PulsarStoreAdapter(PackageManager):
         pkg_type = pkg.get("type", "") if pkg else ""
         pkg_id = pkg.get("id", package) if pkg else package
 
+        candidate_names = [pkg_id]
+        if pkg:
+            name_clean = pkg.get("name", "").lower().replace(" ", "-")
+            if name_clean and name_clean not in candidate_names:
+                candidate_names.append(name_clean)
+        if "." in pkg_id:
+            clean = pkg_id.replace("com.", "").replace(".app", "")
+            if clean and clean not in candidate_names:
+                candidate_names.append(clean)
+            short = pkg_id.split(".")[-2] if pkg_id.endswith(".app") else pkg_id.split(".")[-1]
+            if short and short not in candidate_names:
+                candidate_names.append(short)
+
         if pkg_type == "flatpak":
             try:
                 res = subprocess.run(["flatpak", "info", pkg_id], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -456,13 +489,15 @@ class PulsarStoreAdapter(PackageManager):
             except Exception:
                 pass
             if shutil.which("pacman"):
-                res = subprocess.run(["pacman", "-Qi", pkg_id], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                if res.returncode == 0:
-                    return True
+                for cand in candidate_names:
+                    res = subprocess.run(["pacman", "-Qi", cand], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    if res.returncode == 0:
+                        return True
             if shutil.which("dpkg-query"):
-                res = subprocess.run(["dpkg-query", "-W", "-f=${Status}", pkg_id], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-                if b"install ok installed" in res.stdout:
-                    return True
+                for cand in candidate_names:
+                    res = subprocess.run(["dpkg-query", "-W", "-f=${Status}", cand], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+                    if b"install ok installed" in res.stdout:
+                        return True
         elif pkg_type == "gnome_extension":
             user_dir = os.path.expanduser(f"~/.local/share/gnome-shell/extensions/{pkg_id}")
             sys_dir = f"/usr/share/gnome-shell/extensions/{pkg_id}"

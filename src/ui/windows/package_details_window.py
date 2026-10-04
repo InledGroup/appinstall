@@ -120,8 +120,20 @@ class PackageDetailsWidget(Gtk.Box):
         self.parent_window = parent_window
         self.on_install_callback = on_install_callback
         self.on_uninstall_callback = on_uninstall_callback
-        self.back_callback = back_callback
-        self.cached_screenshots = info.get('cached_screenshots', [])
+        import gi
+        gi.require_version('GdkPixbuf', '2.0')
+        from gi.repository import GdkPixbuf
+
+        valid_screenshots = []
+        for path in info.get('cached_screenshots', []):
+            if path and os.path.exists(path):
+                try:
+                    pix = GdkPixbuf.Pixbuf.new_from_file(path)
+                    if pix and pix.get_width() >= 180 and pix.get_height() >= 100:
+                        valid_screenshots.append(path)
+                except Exception:
+                    valid_screenshots.append(path)
+        self.cached_screenshots = valid_screenshots
         self.add_css_class("main-window")
         
         # Scrolled window directly as content
@@ -324,8 +336,7 @@ class PackageDetailsWidget(Gtk.Box):
             main_box.append(meta_row)
 
         # 2. Screenshots / Demo Image Section (Supports PNG, JPG, SVG, GIF, WebP)
-        cached_screenshots = info.get('cached_screenshots', [])
-        if cached_screenshots:
+        if self.cached_screenshots:
             screenshots_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
             screenshots_card.add_css_class("card")
             
@@ -339,29 +350,25 @@ class PackageDetailsWidget(Gtk.Box):
             
             shots_hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16)
             scrolled_shots.set_child(shots_hbox)
-            
-            import gi
-            gi.require_version('GdkPixbuf', '2.0')
-            from gi.repository import GdkPixbuf
 
-            for path in cached_screenshots:
+            for path in self.cached_screenshots:
                 if os.path.exists(path):
                     widget = None
                     try:
-                        pix = GdkPixbuf.Pixbuf.new_from_file_at_scale(path, 640, 360, True)
-                        tex = Gdk.Texture.new_for_pixbuf(pix)
-                        img = Gtk.Image.new_from_paintable(tex)
-                        img.set_size_request(pix.get_width(), pix.get_height())
-                        img.add_css_class("screenshot-image")
-                        widget = img
+                        pic = Gtk.Picture.new_for_filename(path)
+                        pic.set_content_fit(Gtk.ContentFit.CONTAIN)
+                        pic.set_can_shrink(True)
+                        pic.set_size_request(560, 315)
+                        pic.add_css_class("screenshot-image")
+                        widget = pic
                     except Exception:
                         try:
-                            pic = Gtk.Picture.new_for_filename(path)
-                            pic.set_content_fit(Gtk.ContentFit.CONTAIN)
-                            pic.set_can_shrink(True)
-                            pic.set_size_request(560, 320)
-                            pic.add_css_class("screenshot-image")
-                            widget = pic
+                            pix = GdkPixbuf.Pixbuf.new_from_file_at_scale(path, 560, 315, True)
+                            tex = Gdk.Texture.new_for_pixbuf(pix)
+                            img = Gtk.Image.new_from_paintable(tex)
+                            img.set_size_request(560, 315)
+                            img.add_css_class("screenshot-image")
+                            widget = img
                         except Exception:
                             pass
                     

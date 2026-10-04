@@ -135,6 +135,7 @@ class GnomeExtensionsWidget(Gtk.Box):
         scrolled = Gtk.ScrolledWindow()
         scrolled.set_vexpand(True)
         scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self.installed_scrolled = scrolled
 
         self.installed_listbox = Gtk.ListBox()
         self.installed_listbox.set_selection_mode(Gtk.SelectionMode.NONE)
@@ -224,6 +225,12 @@ class GnomeExtensionsWidget(Gtk.Box):
         self.render_installed_list()
 
     def render_installed_list(self):
+        v_adj = 0.0
+        if hasattr(self, 'installed_scrolled') and self.installed_scrolled:
+            adj = self.installed_scrolled.get_vadjustment()
+            if adj:
+                v_adj = adj.get_value()
+
         while True:
             row = self.installed_listbox.get_first_child()
             if not row:
@@ -249,6 +256,9 @@ class GnomeExtensionsWidget(Gtk.Box):
             empty_lbl.add_css_class("subtitle-label")
             empty_row.append(empty_lbl)
             self.installed_listbox.append(empty_row)
+
+        if v_adj > 0 and hasattr(self, 'installed_scrolled') and self.installed_scrolled:
+            GLib.idle_add(lambda: self.installed_scrolled.get_vadjustment().set_value(v_adj))
 
     def create_installed_row(self, ext):
         row = Adw.ExpanderRow()
@@ -282,7 +292,10 @@ class GnomeExtensionsWidget(Gtk.Box):
         switch.set_valign(Gtk.Align.CENTER)
         is_enabled = (ext["state"] == "ENABLED")
         switch.set_active(is_enabled)
-        switch.connect("state-set", self._on_extension_toggle, ext["uuid"])
+        
+        # State label in info grid (to update on toggle without rebuild)
+        state_val = Gtk.Label(label=ext.get("state", "DESCONOCIDO"), xalign=0)
+        switch.connect("state-set", self._on_extension_toggle, ext["uuid"], state_val)
         row.add_suffix(switch)
 
         # --- EXPANDED DETAILS ---
@@ -313,7 +326,6 @@ class GnomeExtensionsWidget(Gtk.Box):
 
         state_title = Gtk.Label(label=_("Estado:"), xalign=0)
         state_title.add_css_class("caption")
-        state_val = Gtk.Label(label=ext.get("state", "DESCONOCIDO"), xalign=0)
         info_grid.attach(state_title, 0, 1, 1, 1)
         info_grid.attach(state_val, 1, 1, 1, 1)
 
@@ -409,18 +421,34 @@ class GnomeExtensionsWidget(Gtk.Box):
         error_lbl.set_text(info_text)
         error_box.set_visible(not error_box.get_visible())
 
-    def _on_extension_toggle(self, switch, state, uuid):
+    def _on_extension_toggle(self, switch, state, uuid, state_val_label=None):
+        new_state_str = "ENABLED" if state else "DISABLED"
+        for ext in self.installed_extensions:
+            if ext["uuid"] == uuid:
+                ext["state"] = new_state_str
+                break
+        if state_val_label:
+            state_val_label.set_text(new_state_str)
+
         def worker():
-            cmd = ["gnome-extensions", "enable" if state else "disable", uuid]
-            subprocess.run(cmd, capture_output=True)
-            GLib.idle_add(self.load_installed_extensions)
+            if state:
+                subprocess.run(["gdbus", "call", "--session", "--dest", "org.gnome.Shell.Extensions", "--object-path", "/org/gnome/Shell/Extensions", "--method", "org.gnome.Shell.Extensions.ReloadExtension", uuid], capture_output=True)
+                subprocess.run(["gnome-extensions", "enable", uuid], capture_output=True)
+                subprocess.run(["gdbus", "call", "--session", "--dest", "org.gnome.Shell.Extensions", "--object-path", "/org/gnome/Shell/Extensions", "--method", "org.gnome.Shell.Extensions.EnableExtension", uuid], capture_output=True)
+            else:
+                subprocess.run(["gnome-extensions", "disable", uuid], capture_output=True)
+                subprocess.run(["gdbus", "call", "--session", "--dest", "org.gnome.Shell.Extensions", "--object-path", "/org/gnome/Shell/Extensions", "--method", "org.gnome.Shell.Extensions.DisableExtension", uuid], capture_output=True)
 
         threading.Thread(target=worker, daemon=True).start()
         return False
 
     def _on_uninstall_extension(self, button, uuid):
         def worker():
+            user_dir = os.path.expanduser(f"~/.local/share/gnome-shell/extensions/{uuid}")
+            subprocess.run(["gdbus", "call", "--session", "--dest", "org.gnome.Shell.Extensions", "--object-path", "/org/gnome/Shell/Extensions", "--method", "org.gnome.Shell.Extensions.UninstallExtension", uuid], capture_output=True)
             subprocess.run(["gnome-extensions", "uninstall", uuid], capture_output=True)
+            if os.path.isdir(user_dir):
+                shutil.rmtree(user_dir, ignore_errors=True)
             GLib.idle_add(self.load_installed_extensions)
 
         threading.Thread(target=worker, daemon=True).start()

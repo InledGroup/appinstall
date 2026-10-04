@@ -212,7 +212,9 @@ X-SwiftInstall={install_type}
             "    with zipfile.ZipFile(tmp_zip, 'r') as zf:\n"
             "        zf.extractall(dest_dir)\n"
             "    subprocess.run(['gnome-extensions', 'install', '--force', tmp_zip], capture_output=True)\n"
+            "    subprocess.run(['gdbus', 'call', '--session', '--dest', 'org.gnome.Shell.Extensions', '--object-path', '/org/gnome/Shell/Extensions', '--method', 'org.gnome.Shell.Extensions.ReloadExtension', target_uuid], capture_output=True)\n"
             "    subprocess.run(['gnome-extensions', 'enable', target_uuid], capture_output=True)\n"
+            "    subprocess.run(['gdbus', 'call', '--session', '--dest', 'org.gnome.Shell.Extensions', '--object-path', '/org/gnome/Shell/Extensions', '--method', 'org.gnome.Shell.Extensions.EnableExtension', target_uuid], capture_output=True)\n"
             "    if os.path.exists(tmp_zip): os.remove(tmp_zip)\n"
             "    print(f'Extensión {target_uuid} instalada con éxito.')\n"
             "except Exception as e:\n"
@@ -264,6 +266,8 @@ X-SwiftInstall={install_type}
                     # Español: Determinar el mensaje de éxito según el contexto
                     if file_path == "system_upgrade":
                         message = _("El sistema se ha actualizado correctamente.")
+                    elif file_path and file_path.startswith("uninstall:"):
+                        message = _("Paquete desinstalado correctamente.")
                     elif file_path and file_path.lower().endswith('.appimage'):
                         filename = os.path.basename(file_path)
                         app_name = os.path.splitext(filename)[0]
@@ -275,9 +279,13 @@ X-SwiftInstall={install_type}
                     
                     GLib.idle_add(on_complete, message, False, "")
                 else:
-                    GLib.idle_add(on_complete, _("Vaya, he encontrado un error al instalar: {}").format(stderr), True, stderr)
+                    if file_path and file_path.startswith("uninstall:"):
+                        GLib.idle_add(on_complete, _("Vaya, he encontrado un error al desinstalar:\n{}").format(stderr), True, stderr)
+                    else:
+                        GLib.idle_add(on_complete, _("Vaya, he encontrado un error al instalar: {}").format(stderr), True, stderr)
             except Exception as e:
-                GLib.idle_add(on_complete, _("Error en la instalación: {}").format(str(e)), True, "")
+                err_msg = _("Error en la desinstalación: {}") if (file_path and file_path.startswith("uninstall:")) else _("Error en la instalación: {}")
+                GLib.idle_add(on_complete, err_msg.format(str(e)), True, "")
 
         thread = threading.Thread(target=_run)
         thread.daemon = True
