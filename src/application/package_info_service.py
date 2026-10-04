@@ -149,6 +149,15 @@ class PackageInfoService:
                         link = info_data.get('link') or matched.get('link', '')
                         info['website'] = f"https://extensions.gnome.org{link}" if link else ""
                     
+                    # Supported Shell Versions & Compatibility
+                    from src.utils.system import check_gnome_shell_compatibility
+                    shell_map = info_data.get('shell_version_map', {})
+                    is_comp, badge_text, tooltip = check_gnome_shell_compatibility(shell_map)
+                    info['is_shell_compatible'] = is_comp
+                    info['shell_compat_badge'] = badge_text
+                    info['shell_compat_tooltip'] = tooltip
+                    info['supported_shell_versions'] = list(shell_map.keys())
+
                     # Downloads count
                     dls = info_data.get('downloads') or matched.get('downloads', 0)
                     if dls:
@@ -180,6 +189,17 @@ class PackageInfoService:
                                 info['cached_screenshots'] = [cached_shot]
         except Exception as e:
             print(f"Error querying EGO for extension info ({ext_id}): {e}")
+
+        if 'is_shell_compatible' not in info and meta_path:
+            try:
+                from src.utils.system import check_gnome_shell_compatibility
+                is_comp, badge_text, tooltip = check_gnome_shell_compatibility(local_meta.get('shell-version', []))
+                info['is_shell_compatible'] = is_comp
+                info['shell_compat_badge'] = badge_text
+                info['shell_compat_tooltip'] = tooltip
+                info['supported_shell_versions'] = local_meta.get('shell-version', [])
+            except Exception:
+                pass
 
         return info
 

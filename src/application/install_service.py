@@ -149,8 +149,19 @@ X-SwiftInstall={install_type}
 
     def get_gnome_extension_install_command(self, uuid: str):
         py_script = (
-            "import urllib.request, json, subprocess, os, sys, re, zipfile, ast\n"
+            "import subprocess, sys, os, urllib.request, json, re, zipfile, ast\n"
             f"uuid = '{uuid}'\n"
+            "try:\n"
+            "    # 1. Primary: Native GNOME Shell DBus InstallRemoteExtension\n"
+            "    res = subprocess.run(['gdbus', 'call', '--session', '--dest', 'org.gnome.Shell.Extensions', '--object-path', '/org/gnome/Shell/Extensions', '--method', 'org.gnome.Shell.Extensions.InstallRemoteExtension', uuid], capture_output=True, text=True)\n"
+            "    if res.returncode == 0 and 'successful' in res.stdout:\n"
+            "        subprocess.run(['gnome-extensions', 'enable', uuid], capture_output=True)\n"
+            "        subprocess.run(['gdbus', 'call', '--session', '--dest', 'org.gnome.Shell.Extensions', '--object-path', '/org/gnome/Shell/Extensions', '--method', 'org.gnome.Shell.Extensions.EnableExtension', uuid], capture_output=True)\n"
+            "        print(f'Extensión {uuid} instalada y activada con éxito.')\n"
+            "        sys.exit(0)\n"
+            "except Exception:\n"
+            "    pass\n"
+            "# 2. Fallback manual download & schema compilation\n"
             "try:\n"
             "    def get_shell_version():\n"
             "        try:\n"
@@ -214,6 +225,7 @@ X-SwiftInstall={install_type}
             "    os.makedirs(dest_dir, exist_ok=True)\n"
             "    with zipfile.ZipFile(tmp_zip, 'r') as zf:\n"
             "        zf.extractall(dest_dir)\n"
+            "    subprocess.run(['chmod', '-R', '755', dest_dir], capture_output=True)\n"
             "    meta_file = os.path.join(dest_dir, 'metadata.json')\n"
             "    if os.path.exists(meta_file):\n"
             "        try:\n"

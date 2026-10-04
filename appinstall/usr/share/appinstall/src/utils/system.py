@@ -3,7 +3,62 @@ import shutil
 import socket
 import subprocess
 import webbrowser
+import re
 from gi.repository import Gtk, Gdk
+
+def get_gnome_shell_version() -> str:
+    """Detect the current GNOME Shell major version (e.g., '50', '47')."""
+    try:
+        out = subprocess.check_output(['gnome-shell', '--version'], timeout=2).decode()
+        m = re.search(r'(\d+)(?:\.(\d+))?', out)
+        if m:
+            return m.group(1)
+    except Exception:
+        pass
+    return "50"
+
+def get_gnome_shell_full_version() -> str:
+    """Detect full GNOME Shell version (e.g., '50.5')."""
+    try:
+        out = subprocess.check_output(['gnome-shell', '--version'], timeout=2).decode()
+        m = re.search(r'(\d+(?:\.\d+)+)', out)
+        if m:
+            return m.group(1)
+    except Exception:
+        pass
+    return ""
+
+def check_gnome_shell_compatibility(shell_versions_or_map, current_version: str = None):
+    """
+    Check if a GNOME extension supports the user's running GNOME shell version.
+    Returns (is_compatible: bool, badge_text: str, tooltip: str)
+    """
+    if current_version is None:
+        current_version = get_gnome_shell_version()
+
+    versions = []
+    if isinstance(shell_versions_or_map, dict):
+        versions = list(shell_versions_or_map.keys())
+    elif isinstance(shell_versions_or_map, (list, set, tuple)):
+        versions = [str(v) for v in shell_versions_or_map]
+
+    if not versions:
+        return True, f"GNOME {current_version}", f"Compatible con GNOME Shell {current_version}"
+
+    # Direct match or major match
+    for v in versions:
+        if v == current_version or v.startswith(f"{current_version}."):
+            return True, f"GNOME {current_version}", f"Certificada para GNOME Shell {current_version}"
+
+    def parse_ver(v_str):
+        try:
+            return tuple(int(p) for p in re.findall(r'\d+', str(v_str)))
+        except Exception:
+            return (0,)
+
+    sorted_v = sorted(versions, key=parse_ver)
+    max_v = sorted_v[-1] if sorted_v else "N/A"
+    return False, f"Hasta GNOME {max_v}", f"Soporta hasta GNOME {max_v} (tu versión es {current_version})"
 
 def has_internet(timeout=3.0):
     """Comprueba rápidamente si hay conexión a internet."""

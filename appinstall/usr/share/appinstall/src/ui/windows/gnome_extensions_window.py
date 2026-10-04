@@ -210,7 +210,8 @@ class GnomeExtensionsWidget(Gtk.Box):
                         "state": state,
                         "version": version,
                         "type": ext_type,
-                        "has_prefs": has_prefs
+                        "has_prefs": has_prefs,
+                        "supported_versions": meta.get("shell-version", [])
                     }
                 except Exception as e:
                     print(f"Error reading extension metadata {meta_path}: {e}")
@@ -270,7 +271,7 @@ class GnomeExtensionsWidget(Gtk.Box):
         icon.set_pixel_size(24)
         row.add_prefix(icon)
 
-        # Header Badges (Version & Type)
+        # Header Badges (Version, Compatibility & Type)
         badge_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         badge_box.set_valign(Gtk.Align.CENTER)
 
@@ -279,6 +280,15 @@ class GnomeExtensionsWidget(Gtk.Box):
             v_badge.add_css_class("badge")
             v_badge.add_css_class("badge-generic")
             badge_box.append(v_badge)
+
+        from src.utils.system import check_gnome_shell_compatibility
+        is_comp, badge_text, tooltip = check_gnome_shell_compatibility(ext.get("supported_versions", []))
+        c_badge = Gtk.Label(label=badge_text)
+        c_badge.add_css_class("badge")
+        c_badge.add_css_class("badge-success" if is_comp else "badge-warning")
+        if tooltip:
+            c_badge.set_tooltip_text(tooltip)
+        badge_box.append(c_badge)
 
         t_badge = Gtk.Label(label="Sistema" if ext["type"] == "system" else "Usuario")
         t_badge.add_css_class("badge")
@@ -642,7 +652,27 @@ class GnomeExtensionsWidget(Gtk.Box):
 
         top_row.append(info_box)
 
-        # Downloads / Popularity badge
+        # Badges box in top row (Downloads + Shell Compatibility)
+        badges_col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        badges_col.set_valign(Gtk.Align.CENTER)
+        badges_col.set_halign(Gtk.Align.END)
+
+        from src.utils.system import check_gnome_shell_compatibility
+        shell_map = ext.get("shell_version_map", {})
+        is_comp, badge_text, tooltip = check_gnome_shell_compatibility(shell_map)
+        
+        c_badge = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        c_badge.add_css_class("badge")
+        c_badge.add_css_class("badge-success" if is_comp else "badge-warning")
+        c_icon = Gtk.Image.new_from_icon_name("emblem-ok-symbolic" if is_comp else "dialog-warning-symbolic")
+        c_icon.set_pixel_size(10)
+        c_badge.append(c_icon)
+        c_lbl = Gtk.Label(label=badge_text)
+        c_badge.append(c_lbl)
+        if tooltip:
+            c_badge.set_tooltip_text(tooltip)
+        badges_col.append(c_badge)
+
         dls = ext.get("downloads", 0)
         if dls:
             try:
@@ -654,12 +684,13 @@ class GnomeExtensionsWidget(Gtk.Box):
             d_badge.add_css_class("badge")
             d_badge.add_css_class("badge-generic")
             d_icon = Gtk.Image.new_from_icon_name("folder-download-symbolic")
-            d_icon.set_pixel_size(12)
+            d_icon.set_pixel_size(10)
             d_badge.append(d_icon)
             d_lbl = Gtk.Label(label=dls_formatted)
             d_badge.append(d_lbl)
-            top_row.append(d_badge)
+            badges_col.append(d_badge)
 
+        top_row.append(badges_col)
 
         card.append(top_row)
 
@@ -702,95 +733,7 @@ class GnomeExtensionsWidget(Gtk.Box):
         return card
 
     def _on_install_ego_extension(self, button, ext, btn_widget):
-        btn_widget.set_label(_("Instalando..."))
-        btn_widget.set_sensitive(False)
-
-        def worker():
-            pk = ext.get("pk")
-            uuid = ext.get("uuid")
-            success = False
-
-            try:
-                # 1. Query extension info for shell version download map
-                info_url = f"https://extensions.gnome.org/extension-info/?pk={pk}"
-                req = urllib.request.Request(info_url, headers={"User-Agent": "AppInstall/1.0"})
-                with urllib.request.urlopen(req, timeout=10) as resp:
-                    info_data = json.loads(resp.read().decode())
-
-                shell_map = info_data.get("shell_version_map", {})
-                if shell_map:
-                    real_uuid = info_data.get("uuid", uuid)
-                    def get_shell_version():
-                        try:
-                            out = subprocess.check_output(['gnome-shell', '--version']).decode()
-                            m = re.search(r'(\d+)(?:\.(\d+))?', out)
-                            if m: return m.group(1)
-                        except: pass
-                        return '47'
-
-                    shell_v = get_shell_version()
-                    def parse_ver(v_str):
-                        try:
-                            return tuple(int(p) for p in re.findall(r'\d+', v_str))
-                        except:
-                            return (0,)
-
-                    sorted_versions = sorted(shell_map.keys(), key=parse_ver)
-                    chosen_tag = shell_map.get(shell_v)
-                    if not chosen_tag:
-                        curr_ver_tuple = parse_ver(shell_v)
-                        compatible = [v for v in sorted_versions if parse_ver(v) <= curr_ver_tuple]
-                        if compatible:
-                            chosen_tag = shell_map[compatible[-1]]
-                        elif sorted_versions:
-                            chosen_tag = shell_map[sorted_versions[-1]]
-
-                    if chosen_tag:
-                        tag_pk = chosen_tag.get("pk") if isinstance(chosen_tag, dict) else chosen_tag
-                        dl_url = f"https://extensions.gnome.org/download-extension/{real_uuid}.shell-extension.zip?version_tag={tag_pk}"
-
-                        # Download zip
-                        import zipfile
-                        zip_path = f"/tmp/{real_uuid}.zip"
-                        dl_req = urllib.request.Request(dl_url, headers={"User-Agent": "AppInstall/1.0"})
-                        with urllib.request.urlopen(dl_req, timeout=20) as dl_resp:
-                            with open(zip_path, "wb") as zf:
-                                zf.write(dl_resp.read())
-
-                        target_uuid = real_uuid
-                        try:
-                            with zipfile.ZipFile(zip_path, "r") as zf:
-                                if "metadata.json" in zf.namelist():
-                                    meta_data = json.loads(zf.read("metadata.json").decode("utf-8"))
-                                    if meta_data.get("uuid"):
-                                        target_uuid = meta_data.get("uuid")
-                        except Exception:
-                            pass
-
-                        dest_dir = os.path.expanduser(f"~/.local/share/gnome-shell/extensions/{target_uuid}")
-                        os.makedirs(dest_dir, exist_ok=True)
-                        with zipfile.ZipFile(zip_path, "r") as zf:
-                            zf.extractall(dest_dir)
-
-                        subprocess.run(["gnome-extensions", "install", "--force", zip_path], capture_output=True)
-                        subprocess.run(["gnome-extensions", "enable", target_uuid], capture_output=True)
-                        success = True
-                        if os.path.exists(zip_path):
-                            os.remove(zip_path)
-            except Exception as e:
-                print(f"Error installing EGO extension {uuid}: {e}")
-
-            GLib.idle_add(self._on_ego_install_finished, btn_widget, success)
-
-        threading.Thread(target=worker, daemon=True).start()
-
-    def _on_ego_install_finished(self, btn_widget, success):
-        if success:
-            btn_widget.set_label(_("Instalada"))
-            btn_widget.remove_css_class("app-card-button")
-            btn_widget.add_css_class("app-card-button-secondary")
-            btn_widget.set_sensitive(False)
-            self.load_installed_extensions()
-        else:
-            btn_widget.set_label(_("Reintentar"))
+        uuid = ext.get("uuid")
+        if uuid:
+            self.main_window.install_package_by_identifier(f"gnome-ext:{uuid}")
             btn_widget.set_sensitive(True)

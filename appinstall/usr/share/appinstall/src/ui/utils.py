@@ -299,37 +299,30 @@ def load_css():
     }
     
     .meta-row-container {
-        border-top: 1px solid alpha(currentColor, 0.1);
-        border-bottom: 1px solid alpha(currentColor, 0.1);
-        padding-top: 10px;
-        padding-bottom: 10px;
+        border-top: 1px solid alpha(currentColor, 0.08);
+        border-bottom: 1px solid alpha(currentColor, 0.08);
+        padding-top: 12px;
+        padding-bottom: 12px;
         margin-top: 8px;
         margin-bottom: 8px;
     }
 
     .meta-column {
-        margin-left: 2px;
-        margin-right: 2px;
+        margin-left: 6px;
+        margin-right: 6px;
     }
 
-    .meta-pill {
-        background-color: alpha(currentColor, 0.08);
-        border-radius: 9999px;
-        padding: 4px 14px;
+    .meta-value-box {
         min-height: 28px;
-        min-width: 60px;
-        margin: 0;
-        color: @window_fg_color;
-        border: none;
     }
 
-    .meta-pill image {
+    .meta-value-text {
+        font-weight: 800;
+        font-size: 1.25em;
         color: @window_fg_color;
     }
 
-    .meta-pill-text {
-        font-weight: bold;
-        font-size: 13px;
+    .meta-value-box image {
         color: @window_fg_color;
     }
 
@@ -337,7 +330,9 @@ def load_css():
         font-size: 11px;
         font-weight: 600;
         color: alpha(currentColor, 0.55);
-        margin-top: 4px;
+        margin-top: 2px;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
     }
 
     .scrolling-text-container {
@@ -409,6 +404,21 @@ def load_css():
     .badge-pulsar {
         background-color: rgba(10, 132, 255, 0.15);
         color: #0a84ff;
+    }
+
+    .badge-success {
+        background-color: rgba(46, 194, 126, 0.18);
+        color: #2ec27e;
+    }
+
+    .badge-warning {
+        background-color: rgba(230, 97, 0, 0.18);
+        color: #e66100;
+    }
+
+    .badge-danger {
+        background-color: rgba(224, 27, 36, 0.18);
+        color: #e01b24;
     }
 
     .badge-generic {

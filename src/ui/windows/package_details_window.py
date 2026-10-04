@@ -198,6 +198,27 @@ class PackageDetailsWidget(Gtk.Box):
                 
             text_vbox.append(dev_box)
             
+        if info.get('source') in ['gnome-ext', 'gnome-extension', 'gnome_extension'] or info.get('uuid'):
+            is_comp = info.get('is_shell_compatible', True)
+            c_badge_text = info.get('shell_compat_badge', 'GNOME 50')
+            c_tooltip = info.get('shell_compat_tooltip', '')
+            
+            badge_h = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            badge_h.set_halign(Gtk.Align.START)
+            
+            c_tag = Gtk.Label(label=c_badge_text)
+            c_tag.add_css_class("badge")
+            c_tag.add_css_class("badge-success" if is_comp else "badge-warning")
+            if c_tooltip:
+                c_tag.set_tooltip_text(c_tooltip)
+            badge_h.append(c_tag)
+            
+            msg_lbl = Gtk.Label(label=_("Compatible con tu versión de GNOME") if is_comp else _("Versión no verificada para tu GNOME"), xalign=0)
+            msg_lbl.add_css_class("subtitle-label")
+            badge_h.append(msg_lbl)
+            
+            text_vbox.append(badge_h)
+
         # Button box (Right-aligned)
         btn_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         btn_box.set_valign(Gtk.Align.CENTER)
@@ -225,30 +246,25 @@ class PackageDetailsWidget(Gtk.Box):
         meta_row.set_homogeneous(True)
         meta_row.set_halign(Gtk.Align.FILL)
         
-        def add_meta_col(pill_content, label_text):
-            col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        def add_meta_col(content, label_text):
+            col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
             col.add_css_class("meta-column")
-            col.set_valign(Gtk.Align.START)
+            col.set_valign(Gtk.Align.CENTER)
             col.set_halign(Gtk.Align.CENTER)
             
-            pill_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-            pill_box.set_halign(Gtk.Align.CENTER)
-            pill_box.set_valign(Gtk.Align.CENTER)
+            val_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            val_box.add_css_class("meta-value-box")
+            val_box.set_halign(Gtk.Align.CENTER)
+            val_box.set_valign(Gtk.Align.CENTER)
             
-            if isinstance(pill_content, Gtk.Widget):
-                pill_box.append(pill_content)
-            elif isinstance(pill_content, str):
-                lbl = Gtk.Label(label=pill_content)
-                lbl.add_css_class("meta-pill-text")
-                pill_box.append(lbl)
+            if isinstance(content, Gtk.Widget):
+                val_box.append(content)
+            elif isinstance(content, str):
+                lbl = Gtk.Label(label=content)
+                lbl.add_css_class("meta-value-text")
+                val_box.append(lbl)
                 
-            pill = Gtk.Frame()
-            pill.add_css_class("meta-pill")
-            pill.set_child(pill_box)
-            pill.set_halign(Gtk.Align.CENTER)
-            pill.set_valign(Gtk.Align.CENTER)
-            
-            col.append(pill)
+            col.append(val_box)
             
             label_sub = Gtk.Label(label=label_text)
             label_sub.add_css_class("meta-column-label")
@@ -263,13 +279,31 @@ class PackageDetailsWidget(Gtk.Box):
         
         # 1. Formato
         source_format = source.upper() if source else _("NATIVO")
-        img_format = Gtk.Image.new_from_icon_name("package-x-generic-symbolic")
-        img_format.set_pixel_size(20)
-        img_format.set_halign(Gtk.Align.CENTER)
-        img_format.set_valign(Gtk.Align.CENTER)
-        add_meta_col(img_format, source_format)
+        format_lbl = Gtk.Label(label=source_format)
+        format_lbl.add_css_class("meta-value-text")
+        add_meta_col(format_lbl, _("Formato"))
         
-        # 2. Descargas (GNOME Extension downloads / App installs)
+        # 2. Compatibilidad GNOME Shell (para extensiones)
+        if source in ['gnome-ext', 'gnome-extension', 'gnome_extension'] or info.get('uuid'):
+            is_comp = info.get('is_shell_compatible', True)
+            compat_badge = info.get('shell_compat_badge', 'GNOME 50')
+            compat_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            compat_box.set_halign(Gtk.Align.CENTER)
+            compat_box.set_valign(Gtk.Align.CENTER)
+            c_ico = Gtk.Image.new_from_icon_name("emblem-ok-symbolic" if is_comp else "dialog-warning-symbolic")
+            c_ico.set_pixel_size(18)
+            c_ico.add_css_class("verified-icon" if is_comp else "badge-warning")
+            compat_box.append(c_ico)
+            c_lbl = Gtk.Label(label=compat_badge)
+            c_lbl.add_css_class("meta-value-text")
+            if not is_comp:
+                c_lbl.add_css_class("badge-warning")
+            compat_box.append(c_lbl)
+            if info.get('shell_compat_tooltip'):
+                compat_box.set_tooltip_text(info.get('shell_compat_tooltip'))
+            add_meta_col(compat_box, _("Compatibilidad"))
+        
+        # 3. Descargas (GNOME Extension downloads / App installs)
         dls = info.get('downloads')
         if dls:
             try:
@@ -281,45 +315,49 @@ class PackageDetailsWidget(Gtk.Box):
             dls_box.set_halign(Gtk.Align.CENTER)
             dls_box.set_valign(Gtk.Align.CENTER)
             dls_icon = Gtk.Image.new_from_icon_name("folder-download-symbolic")
-            dls_icon.set_pixel_size(16)
+            dls_icon.set_pixel_size(18)
             dls_box.append(dls_icon)
             dls_lbl = Gtk.Label(label=dls_formatted)
-            dls_lbl.add_css_class("meta-pill-text")
+            dls_lbl.add_css_class("meta-value-text")
             dls_box.append(dls_lbl)
             add_meta_col(dls_box, _("Descargas"))
 
-        # 3. Puntuación de Seguridad OpenCode (Pulsar Store / Auditoría)
+        # 4. Puntuación de Seguridad OpenCode (Pulsar Store / Auditoría)
         sec_score = info.get('security_score')
         if sec_score and sec_score != 'N/A':
             sec_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
             sec_box.set_halign(Gtk.Align.CENTER)
             sec_box.set_valign(Gtk.Align.CENTER)
             sec_icon = Gtk.Image.new_from_icon_name("security-high-symbolic")
-            sec_icon.set_pixel_size(16)
+            sec_icon.set_pixel_size(18)
             sec_box.append(sec_icon)
             sec_lbl = Gtk.Label(label=f"{sec_score}/100")
-            sec_lbl.add_css_class("meta-pill-text")
+            sec_lbl.add_css_class("meta-value-text")
             sec_box.append(sec_lbl)
             add_meta_col(sec_box, _("Seguridad"))
 
-
-        # 4. Tamaño
+        # 5. Tamaño
         if size_val and size_val != 'N/A':
-            add_meta_col(size_val, _("Descarga"))
+            size_lbl = Gtk.Label(label=size_val)
+            size_lbl.add_css_class("meta-value-text")
+            add_meta_col(size_lbl, _("Tamaño"))
             
-        # 5. Desarrollador
+        # 6. Desarrollador
         dev_name = info.get('developer', '')
-        if dev_name and dev_name != 'N/A':
+        if dev_name and dev_name != 'N/A' and not (source in ['gnome-ext', 'gnome-extension', 'gnome_extension']):
             if len(dev_name) > 15:
                 dev_name = dev_name[:15] + "..."
-            add_meta_col(dev_name, _("Desarrollador"))
+            dev_lbl = Gtk.Label(label=dev_name)
+            dev_lbl.add_css_class("meta-value-text")
+            add_meta_col(dev_lbl, _("Desarrollador"))
             
-        # 6. Verificado
-        if info.get('verified'):
+        # 7. Verificado
+        if info.get('verified') and not (source in ['gnome-ext', 'gnome-extension', 'gnome_extension']):
             img_ver = Gtk.Image.new_from_icon_name("emblem-ok-symbolic")
             img_ver.set_pixel_size(20)
             img_ver.set_halign(Gtk.Align.CENTER)
             img_ver.set_valign(Gtk.Align.CENTER)
+            img_ver.add_css_class("verified-icon")
             add_meta_col(img_ver, _("Verificado"))
             
         if meta_row.get_first_child():
