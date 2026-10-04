@@ -1579,16 +1579,11 @@ class PackageInstaller(Adw.ApplicationWindow):
         threading.Thread(target=_get_info, daemon=True).start()
 
     def _hide_progress_and_error(self):
-        if hasattr(self, 'progress_dialog') and self.progress_dialog:
-            self.progress_dialog.close()
-            self.progress_dialog = None
+        self._close_progress_dialog()
         self.status_label.set_text(_("No he podido obtener detalles del paquete"))
 
     def _present_details_window(self, info):
-        if hasattr(self, 'progress_dialog') and self.progress_dialog:
-            self.progress_dialog.close()
-            self.progress_dialog = None
-            
+        self._close_progress_dialog()
         self.status_label.set_text(_("Detalles de la aplicación cargados"))
         
         if hasattr(self, 'details_widget_instance') and self.details_widget_instance:
@@ -1670,7 +1665,7 @@ class PackageInstaller(Adw.ApplicationWindow):
     def on_skip_analysis_clicked(self):
         # English: Skip package analysis and trigger installation directly
         # Español: Omitir el análisis del paquete e iniciar la instalación de inmediato
-        self.progress_dialog = None
+        self._close_progress_dialog()
         self.status_label.set_text(_("Análisis omitido, instalando..."))
         GLib.idle_add(lambda: self.on_install_clicked(None))
 
