@@ -129,7 +129,7 @@ class PackageDetailsWidget(Gtk.Box):
             if path and os.path.exists(path):
                 try:
                     pix = GdkPixbuf.Pixbuf.new_from_file(path)
-                    if pix and pix.get_width() >= 180 and pix.get_height() >= 100:
+                    if pix and pix.get_width() >= 32 and pix.get_height() >= 16:
                         valid_screenshots.append(path)
                 except Exception:
                     valid_screenshots.append(path)

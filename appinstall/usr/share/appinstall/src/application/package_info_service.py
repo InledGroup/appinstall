@@ -115,83 +115,105 @@ class PackageInfoService:
 
         # 2. Query EGO to enrich description, author, icon, demo screenshot, and downloads
         try:
-            ego_url = f"https://extensions.gnome.org/extension-query/?search={urllib.parse.quote(ext_id)}"
-            req = urllib.request.Request(ego_url, headers={"User-Agent": "AppInstall/1.0"})
-            with urllib.request.urlopen(req, timeout=5) as resp:
-                data = json.loads(resp.read().decode('utf-8'))
-                exts = data.get('extensions', [])
-                matched = None
-                for e in exts:
-                    if e.get('uuid', '').lower() == ext_id.lower() or str(e.get('pk', '')) == str(ext_id):
-                        matched = e
-                        break
-                if not matched:
-                    for e in exts:
-                        if e.get('name', '').strip().lower() == ext_id.strip().lower():
-                            matched = e
-                            break
+            matched = None
+            search_queries = [ext_id]
+            if '@' in ext_id:
+                search_queries.append(ext_id.split('@')[0])
+            if meta_path and local_meta.get('name'):
+                search_queries.append(local_meta.get('name'))
 
+            for q in search_queries:
                 if matched:
-                    pk = matched.get('pk')
-                    info_data = matched
-                    try:
-                        info_url = f"https://extensions.gnome.org/extension-info/?pk={pk}"
-                        info_req = urllib.request.Request(info_url, headers={"User-Agent": "AppInstall/1.0"})
-                        with urllib.request.urlopen(info_req, timeout=5) as info_resp:
-                            info_data = json.loads(info_resp.read().decode('utf-8'))
-                    except Exception:
-                        pass
+                    break
+                try:
+                    ego_url = f"https://extensions.gnome.org/extension-query/?search={urllib.parse.quote(q)}"
+                    req = urllib.request.Request(ego_url, headers={"User-Agent": "AppInstall/1.0"})
+                    with urllib.request.urlopen(req, timeout=5) as resp:
+                        data = json.loads(resp.read().decode('utf-8'))
+                        exts = data.get('extensions', [])
+                        for e in exts:
+                            if e.get('uuid', '').lower() == ext_id.lower() or str(e.get('pk', '')) == str(ext_id):
+                                matched = e
+                                break
+                        if not matched and meta_path and local_meta.get('name'):
+                            for e in exts:
+                                if e.get('name', '').strip().lower() == local_meta.get('name', '').strip().lower():
+                                    matched = e
+                                    break
+                except Exception:
+                    pass
 
-                    desc = info_data.get('description') or matched.get('description', '')
-                    if desc and (not info['description'] or len(desc) > len(info['description'])):
-                        info['description'] = desc
-                    if not info['name'] or info['name'] == ext_id:
-                        info['name'] = info_data.get('name') or matched.get('name', ext_id)
-                    info['developer'] = info_data.get('creator') or matched.get('creator', info['developer'])
-                    if not info.get('website'):
-                        link = info_data.get('link') or matched.get('link', '')
-                        info['website'] = f"https://extensions.gnome.org{link}" if link else ""
-                    
-                    # Supported Shell Versions & Compatibility
-                    from src.utils.system import check_gnome_shell_compatibility
-                    shell_map = info_data.get('shell_version_map', {})
-                    is_comp, badge_text, tooltip = check_gnome_shell_compatibility(shell_map)
-                    info['is_shell_compatible'] = is_comp
-                    info['shell_compat_badge'] = badge_text
-                    info['shell_compat_tooltip'] = tooltip
-                    info['supported_shell_versions'] = list(shell_map.keys())
+            if matched:
+                pk = matched.get('pk')
+                info_data = matched
+                try:
+                    info_url = f"https://extensions.gnome.org/extension-info/?pk={pk}"
+                    info_req = urllib.request.Request(info_url, headers={"User-Agent": "AppInstall/1.0"})
+                    with urllib.request.urlopen(info_req, timeout=5) as info_resp:
+                        info_data = json.loads(info_resp.read().decode('utf-8'))
+                except Exception:
+                    pass
 
-                    # Downloads count
-                    dls = info_data.get('downloads') or matched.get('downloads', 0)
-                    if dls:
-                        info['downloads'] = dls
+                desc = info_data.get('description') or matched.get('description', '')
+                if desc and (not info['description'] or len(desc) > len(info['description'])):
+                    info['description'] = desc
+                if not info['name'] or info['name'] == ext_id:
+                    info['name'] = info_data.get('name') or matched.get('name', ext_id)
+                info['developer'] = info_data.get('creator') or matched.get('creator', info['developer'])
+                if not info.get('website'):
+                    link = info_data.get('link') or matched.get('link', '')
+                    info['website'] = f"https://extensions.gnome.org{link}" if link else ""
+                
+                # Supported Shell Versions & Compatibility
+                from src.utils.system import check_gnome_shell_compatibility
+                shell_map = info_data.get('shell_version_map', {})
+                is_comp, badge_text, tooltip = check_gnome_shell_compatibility(shell_map)
+                info['is_shell_compatible'] = is_comp
+                info['shell_compat_badge'] = badge_text
+                info['shell_compat_tooltip'] = tooltip
+                info['supported_shell_versions'] = list(shell_map.keys())
 
-                    # Icon (supports SVG, GIF, PNG, WebP)
-                    from src.utils.system import get_cached_icon, get_cached_screenshot
-                    icon_rel = info_data.get('icon') or matched.get('icon', '')
-                    if icon_rel and not icon_rel.endswith('plugin.png'):
-                        full_icon_url = f"https://extensions.gnome.org{icon_rel}" if icon_rel.startswith('/') else icon_rel
-                        cached = get_cached_icon(full_icon_url, f"ego_{pk or ext_id}")
-                        if cached and os.path.exists(cached):
-                            info['icon'] = cached
+                # Downloads count
+                dls = info_data.get('downloads') or matched.get('downloads', 0)
+                if dls:
+                    info['downloads'] = dls
 
-                    # Demo Screenshot / Image (get latest screenshot)
-                    screenshot_rel = info_data.get('screenshot') or matched.get('screenshot', '')
-                    if screenshot_rel and not screenshot_rel.endswith('plugin.png') and screenshot_rel != icon_rel:
-                        full_shot_url = f"https://extensions.gnome.org{screenshot_rel}" if screenshot_rel.startswith('/') else screenshot_rel
-                        cached_shot = get_cached_screenshot(full_shot_url, f"ego_shot_{pk or ext_id}")
-                        if cached_shot and os.path.exists(cached_shot):
-                            try:
-                                import gi
-                                gi.require_version('GdkPixbuf', '2.0')
-                                from gi.repository import GdkPixbuf
-                                pix = GdkPixbuf.Pixbuf.new_from_file(cached_shot)
-                                if pix and pix.get_width() >= 180 and pix.get_height() >= 100:
-                                    info['cached_screenshots'] = [cached_shot]
-                            except Exception:
+                # Icon (supports SVG, GIF, PNG, WebP)
+                from src.utils.system import get_cached_icon, get_cached_screenshot
+                icon_rel = info_data.get('icon') or matched.get('icon', '')
+                if icon_rel and not icon_rel.endswith('plugin.png'):
+                    full_icon_url = f"https://extensions.gnome.org{icon_rel}" if icon_rel.startswith('/') else icon_rel
+                    cached = get_cached_icon(full_icon_url, f"ego_{pk or ext_id}")
+                    if cached and os.path.exists(cached):
+                        info['icon'] = cached
+
+                # Demo Screenshot / Image (get latest screenshot)
+                screenshot_rel = info_data.get('screenshot') or matched.get('screenshot', '')
+                if screenshot_rel and not screenshot_rel.endswith('plugin.png') and screenshot_rel != icon_rel:
+                    full_shot_url = f"https://extensions.gnome.org{screenshot_rel}" if screenshot_rel.startswith('/') else screenshot_rel
+                    cached_shot = get_cached_screenshot(full_shot_url, f"ego_shot_{pk or ext_id}")
+                    if cached_shot and os.path.exists(cached_shot):
+                        try:
+                            import gi
+                            gi.require_version('GdkPixbuf', '2.0')
+                            from gi.repository import GdkPixbuf
+                            pix = GdkPixbuf.Pixbuf.new_from_file(cached_shot)
+                            if pix and pix.get_width() >= 32 and pix.get_height() >= 16:
                                 info['cached_screenshots'] = [cached_shot]
+                        except Exception:
+                            info['cached_screenshots'] = [cached_shot]
         except Exception as e:
             print(f"Error querying EGO for extension info ({ext_id}): {e}")
+
+        # Local extension icon discovery fallback (e.g. cruz-symbolic.svg, icon.svg, etc.)
+        if info.get('icon') in ['application-x-addon-symbolic', ''] and meta_path:
+            ext_dir = os.path.dirname(meta_path)
+            for fname in os.listdir(ext_dir):
+                if fname.endswith('-symbolic.svg') or fname in ['icon.svg', 'icon.png', 'logo.svg', 'logo.png'] or (fname.endswith('.svg') and 'screenshot' not in fname):
+                    fpath = os.path.join(ext_dir, fname)
+                    if os.path.isfile(fpath):
+                        info['icon'] = fpath
+                        break
 
         if 'is_shell_compatible' not in info and meta_path:
             try:
