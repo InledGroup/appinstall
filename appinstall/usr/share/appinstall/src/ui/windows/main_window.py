@@ -877,11 +877,11 @@ class PackageInstaller(Adw.ApplicationWindow):
         btn = Gtk.Button(label=_("Ver") if source != 'gnome-extension' else _("Explorar"))
         btn.add_css_class("app-card-button")
         btn.set_halign(Gtk.Align.END)
-        btn.connect("clicked", lambda b: self.on_recommendation_clicked(app_data))
+        btn.connect("clicked", lambda b, data=app_data: self.on_recommendation_clicked(data))
         card.append(btn)
 
         click_gesture = Gtk.GestureClick()
-        click_gesture.connect("released", lambda g, n, x, y: self.on_recommendation_clicked(app_data))
+        click_gesture.connect("released", lambda g, n, x, y, data=app_data: self.on_recommendation_clicked(data))
         card.add_controller(click_gesture)
 
         return card
@@ -993,12 +993,12 @@ class PackageInstaller(Adw.ApplicationWindow):
         ver_btn = Gtk.Button(label=_("Ver"))
         ver_btn.add_css_class("app-card-button")
         ver_btn.set_valign(Gtk.Align.CENTER)
-        ver_btn.connect("clicked", lambda b: self.on_recommendation_clicked(app_data))
+        ver_btn.connect("clicked", lambda b, data=app_data: self.on_recommendation_clicked(data))
         box.append(ver_btn)
         
         # Connect click gesture to the box to open install page from anywhere on the card
         click_gesture = Gtk.GestureClick()
-        click_gesture.connect("released", lambda g, n, x, y: self.on_recommendation_clicked(app_data))
+        click_gesture.connect("released", lambda g, n, x, y, data=app_data: self.on_recommendation_clicked(data))
         box.add_controller(click_gesture)
         
         # Add hover controller to trigger text marquee scrolling
@@ -1056,12 +1056,12 @@ class PackageInstaller(Adw.ApplicationWindow):
         ver_btn = Gtk.Button(label=_("Ver"))
         ver_btn.add_css_class("app-card-button")
         ver_btn.set_halign(Gtk.Align.CENTER)
-        ver_btn.connect("clicked", lambda b: self.on_recommendation_clicked(app_data))
+        ver_btn.connect("clicked", lambda b, data=app_data: self.on_recommendation_clicked(data))
         card.append(ver_btn)
         
         # Make the entire top-free card clickable
         click_gesture = Gtk.GestureClick()
-        click_gesture.connect("released", lambda g, n, x, y: self.on_recommendation_clicked(app_data))
+        click_gesture.connect("released", lambda g, n, x, y, data=app_data: self.on_recommendation_clicked(data))
         card.add_controller(click_gesture)
         
         return card

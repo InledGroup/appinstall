@@ -726,8 +726,9 @@ class GnomeExtensionsWidget(Gtk.Box):
         card.append(action_row)
 
         # Make card clickable to view details
+        target_uuid = ext.get("uuid", "")
         gesture = Gtk.GestureClick()
-        gesture.connect("released", lambda g, n, x, y: self.main_window.show_package_details(f"gnome-ext:{ext.get('uuid')}", is_local=False))
+        gesture.connect("released", lambda g, n, x, y, u=target_uuid: self.main_window.show_package_details(f"gnome-ext:{u}", is_local=False))
         card.add_controller(gesture)
 
         return card

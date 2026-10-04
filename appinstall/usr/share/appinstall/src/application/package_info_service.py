@@ -125,8 +125,11 @@ class PackageInfoService:
                     if e.get('uuid', '').lower() == ext_id.lower() or str(e.get('pk', '')) == str(ext_id):
                         matched = e
                         break
-                if not matched and exts:
-                    matched = exts[0]
+                if not matched:
+                    for e in exts:
+                        if e.get('name', '').strip().lower() == ext_id.strip().lower():
+                            matched = e
+                            break
 
                 if matched:
                     pk = matched.get('pk')
