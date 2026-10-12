@@ -7,6 +7,8 @@ from gi.repository import Gtk, GLib, Adw, Gdk, Pango
 from src.infrastructure.services.localization import _
 from src.utils.constants import CURRENT_VERSION
 from src.utils.system import get_safe_window_size, safe_open_url, has_internet, HAS_BREW, BREW_PATH
+from src.application import prompt_engine
+from src.utils.terminal import open_last_failure_in_terminal
 from src.ui.components.update_dialog import UpdateDialog
 
 # Import other windows
@@ -109,7 +111,13 @@ class PackageInstaller(Adw.ApplicationWindow):
         self.info_service = info_service
         self.search_service = search_service
         self.file_path = file_to_open
-        
+
+        # English: Any package manager question asked during an operation is
+        # answered here with a two-button popup (see prompt_engine)
+        # Español: Cualquier pregunta del gestor de paquetes durante una
+        # operación se responde aquí con un popup de dos botones (ver prompt_engine)
+        prompt_engine.set_prompt_handler(self._answer_package_question)
+
         self.set_title("App Install")
         self.set_icon_name("es.inled.AppInstall")
 
@@ -1769,12 +1777,15 @@ class PackageInstaller(Adw.ApplicationWindow):
         
         cmd = self.pkg_manager.upgrade_system()
         import shutil
+        import shlex
         if shutil.which('flatpak'):
             if cmd and len(cmd) >= 2 and cmd[0] == 'pkexec':
-                inner_cmd = " ".join(cmd[1:])
+                # English: Quote each argument so scripts ('sh -c ...') survive
+                # Español: Comillas en cada argumento para que los scripts ('sh -c ...') se mantengan
+                inner_cmd = shlex.join(cmd[1:])
                 cmd = ['pkexec', 'sh', '-c', f"{inner_cmd} && (flatpak update -y || true)"]
             elif cmd:
-                inner_cmd = " ".join(cmd)
+                inner_cmd = shlex.join(cmd)
                 cmd = ['sh', '-c', f"{inner_cmd} && (flatpak update -y || true)"]
         self.install_service.run_installation(cmd, "system_upgrade", self.update_progress_ui, self.on_upgrade_system_complete, on_log=self.on_operation_log)
 
@@ -1852,6 +1863,120 @@ class PackageInstaller(Adw.ApplicationWindow):
         self.progress_bar.set_fraction(new_val)
         return False
 
+    def _answer_package_question(self, question, default_yes, yes_letter, no_letter):
+        """Popup con dos botones para una pregunta del gestor de paquetes.
+
+        Se llama desde el hilo de la operación y bloquea hasta que el usuario
+        responda. Devuelve True/False, o None para usar la respuesta por
+        defecto (si nadie contesta o el diálogo se cierra).
+        """
+        done = threading.Event()
+        result = {'yes': None}
+
+        def _on_response(dialog, response):
+            result['yes'] = (response == 'yes')
+            done.set()
+
+        def _show():
+            try:
+                dialog = Adw.AlertDialog(
+                    heading=_("El instalador te hace una pregunta"),
+                    body=question
+                )
+                dialog.add_response("no", _("No ({})").format(no_letter.upper()))
+                dialog.add_response("yes", _("Sí ({})").format(yes_letter.upper()))
+                dialog.set_default_response("yes" if default_yes else "no")
+                if default_yes:
+                    dialog.set_response_appearance("yes", Adw.ResponseAppearance.SUGGESTED)
+                else:
+                    dialog.set_response_appearance("no", Adw.ResponseAppearance.SUGGESTED)
+                dialog.connect("response", _on_response)
+                dialog.present(self)
+            except Exception:
+                # English: No popup possible -> keep the default answer
+                # Español: sin popup posible -> se mantiene la respuesta por defecto
+                result['yes'] = None
+                done.set()
+            return False
+
+        GLib.idle_add(_show)
+        # English: If the popup is closed without answering, keep the default
+        # (the thread cannot know the dialog was dismissed, hence the timeout)
+        # Español: si el popup se cierra sin responder, se mantiene la opción
+        # por defecto (el hilo no puede saber que el diálogo se cerró)
+        if not done.wait(timeout=60):
+            return None
+        return result['yes']
+
+    def _present_result_dialog(self, dialog, is_error, log_text=""):
+        # English: On failure, offer viewing detailed logs and reopening in a terminal
+        # Español: ante un fallo, ofrecer ver los registros detallados y reabrir en una terminal
+        if is_error:
+            if log_text:
+                dialog._log_text = str(log_text)
+                dialog.add_response("logs", _("Ver detalles del registro"))
+            if prompt_engine.get_last_failure():
+                dialog.add_response("terminal", _("Abrir en una terminal"))
+        dialog.add_response("ok", "OK")
+        dialog.set_default_response("ok")
+        dialog.connect("response", self._on_result_dialog_response)
+        dialog.present(self)
+
+    def _on_result_dialog_response(self, dialog, response):
+        if response == "terminal":
+            open_last_failure_in_terminal()
+        elif response == "logs":
+            self._show_error_log_dialog(getattr(dialog, "_log_text", ""))
+
+    def _show_error_log_dialog(self, log_text):
+        if not log_text:
+            return
+        log_win = Adw.Window(transient_for=self, modal=True)
+        log_win.set_title(_("Detalles del error / Registro"))
+        log_win.set_default_size(680, 420)
+        
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        box.set_margin_top(16)
+        box.set_margin_bottom(16)
+        box.set_margin_start(16)
+        box.set_margin_end(16)
+        
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_vexpand(True)
+        scroll.set_hexpand(True)
+        
+        text_view = Gtk.TextView()
+        text_view.set_editable(False)
+        text_view.set_cursor_visible(False)
+        text_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+        text_view.set_monospace(True)
+        buffer = text_view.get_buffer()
+        buffer.set_text(log_text)
+        scroll.set_child(text_view)
+        box.append(scroll)
+        
+        btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        btn_box.set_halign(Gtk.Align.END)
+        
+        copy_btn = Gtk.Button(label=_("Copiar registro"))
+        def _on_copy(b):
+            try:
+                cb = Gdk.Display.get_default().get_clipboard()
+                cb.set(log_text)
+                copy_btn.set_label(_("¡Copiado!"))
+            except Exception:
+                pass
+        copy_btn.connect("clicked", _on_copy)
+        btn_box.append(copy_btn)
+        
+        close_btn = Gtk.Button(label=_("Cerrar"))
+        close_btn.connect("clicked", lambda b: log_win.close())
+        btn_box.append(close_btn)
+        
+        box.append(btn_box)
+        log_win.set_content(box)
+        log_win.present()
+
     def on_installation_complete(self, message, is_error=False, stderr_output=""):
         self.progress_bar.set_fraction(1.0)
         self.status_label.set_text(message)
@@ -1864,9 +1989,7 @@ class PackageInstaller(Adw.ApplicationWindow):
         else:
             dialog = Adw.AlertDialog(heading=_("He terminado la instalación"), body=message)
         
-        dialog.add_response("ok", "OK")
-        dialog.set_default_response("ok")
-        dialog.present(self)
+        self._present_result_dialog(dialog, is_error, log_text=stderr_output or message)
         self.set_buttons_sensitive(True)
 
     def on_uninstall_complete(self, message, is_error=False, stderr_output=""):
@@ -1879,9 +2002,7 @@ class PackageInstaller(Adw.ApplicationWindow):
         else:
             dialog = Adw.AlertDialog(heading=_("Desinstalación completada"), body=message)
         
-        dialog.add_response("ok", "OK")
-        dialog.set_default_response("ok")
-        dialog.present(self)
+        self._present_result_dialog(dialog, is_error, log_text=stderr_output or message)
         self.set_buttons_sensitive(True)
         if self.file_path and self.main_stack.get_visible_child_name() == "package_details":
             GLib.idle_add(lambda: self.show_package_details(identifier=self.file_path, is_local=False))
@@ -1896,9 +2017,7 @@ class PackageInstaller(Adw.ApplicationWindow):
         else:
             dialog = Adw.AlertDialog(heading=_("He corregido las dependencias"), body=message)
         
-        dialog.add_response("ok", "OK")
-        dialog.set_default_response("ok")
-        dialog.present(self)
+        self._present_result_dialog(dialog, is_error, log_text=message)
         self.set_buttons_sensitive(True)
 
     def on_upgrade_system_complete(self, message, is_error=False, stderr_output=""):
@@ -1913,9 +2032,7 @@ class PackageInstaller(Adw.ApplicationWindow):
         else:
             dialog = Adw.AlertDialog(heading=_("He terminado de actualizar el sistema"), body=message)
         
-        dialog.add_response("ok", "OK")
-        dialog.set_default_response("ok")
-        dialog.present(self)
+        self._present_result_dialog(dialog, is_error, log_text=stderr_output or message)
         self.set_buttons_sensitive(True)
 
     def set_buttons_sensitive(self, sensitive):

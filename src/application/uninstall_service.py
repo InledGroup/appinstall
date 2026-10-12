@@ -1,11 +1,12 @@
-import subprocess
 import threading
 import os
 from gi.repository import GLib
 from src.domain.ports import PackageManager
+from src.application import prompt_engine
 from src.infrastructure.adapters.flatpak_adapter import FlatpakAdapter
 from src.infrastructure.adapters.snap_adapter import SnapAdapter
 from src.infrastructure.adapters.aur_adapter import AurAdapter
+from src.infrastructure.services.localization import _
 
 class UninstallService:
     def __init__(self, package_manager: PackageManager):
@@ -13,6 +14,11 @@ class UninstallService:
         self.flatpak_adapter = FlatpakAdapter()
         self.snap_adapter = SnapAdapter()
         self.aur_adapter = AurAdapter()
+        # English: Last command/environment and any question the manager asked
+        # Español: Último comando/entorno y cualquier pregunta del gestor
+        self.last_cmd = None
+        self.last_env = None
+        self.blocked_prompt = None
 
     def get_uninstall_command(self, package_name, is_appimage=False, is_brew=False, is_pwa=False, brew_path=None, is_flatpak=False, is_snap=False, is_aur=False):
         if is_flatpak or package_name.startswith('flatpak:'):
@@ -56,29 +62,34 @@ class UninstallService:
         def _run():
             try:
                 env = self._prepare_env()
-                process = subprocess.Popen(
-                    cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                    universal_newlines=True, bufsize=1
+                self.last_cmd = list(cmd)
+                self.last_env = env
+                self.blocked_prompt = None
+
+                def emit(line):
+                    if on_log:
+                        GLib.idle_add(on_log, line)
+                    elif on_progress:
+                        GLib.idle_add(on_progress)
+
+                returncode, log_lines, blocked = prompt_engine.run_command(
+                    cmd, env=env, on_log=emit
                 )
-                
-                log_lines = []
-                for line in process.stdout:
-                    stripped = line.rstrip('\n')
-                    if stripped.strip():
-                        log_lines.append(stripped)
-                        if on_log:
-                            GLib.idle_add(on_log, stripped)
-                        elif on_progress:
-                            GLib.idle_add(on_progress)
-                
-                process.wait()
-                returncode = process.returncode
+                self.blocked_prompt = blocked
+
+                if returncode == 0 and not blocked:
+                    prompt_engine.clear_failure()
+                else:
+                    prompt_engine.record_failure(self.last_cmd, env)
+
                 stderr = "\n".join(log_lines[-20:]) if log_lines else ""
-                
+
                 if returncode == 0:
                     if on_complete:
                         GLib.idle_add(on_complete, True, None)
                 else:
+                    if blocked:
+                        stderr = _("El gestor de paquetes ha hecho una pregunta que necesitaba tu respuesta:\n{}").format(blocked)
                     if on_complete:
                         GLib.idle_add(on_complete, False, stderr or "Error en la ejecución del comando de desinstalación")
             except Exception as e:

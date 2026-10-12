@@ -1,9 +1,9 @@
 import os
-import subprocess
 import threading
 import shutil
 import re
 from gi.repository import GLib
+from src.application import prompt_engine
 from src.utils.system import HAS_BREW, BREW_PATH
 from src.infrastructure.adapters.flatpak_adapter import FlatpakAdapter
 from src.infrastructure.adapters.snap_adapter import SnapAdapter
@@ -19,6 +19,11 @@ class InstallService:
         self.snap_adapter = SnapAdapter()
         self.aur_adapter = AurAdapter()
         self.pulsar_adapter = PulsarStoreAdapter()
+        # English: Last command/environment and any question the manager asked
+        # Español: Último comando/entorno y cualquier pregunta del gestor
+        self.last_cmd = None
+        self.last_env = None
+        self.blocked_prompt = None
 
     def get_pwa_command(self, url):
         """Busca el mejor navegador para ejecutar una PWA."""
@@ -282,21 +287,31 @@ X-SwiftInstall={install_type}
         return env
 
     def _run_process_streaming(self, cmd, on_log):
-        """Ejecuta un comando y emite cada línea de salida a on_log."""
-        log_lines = []
+        """Ejecuta un comando y emite cada línea de salida a on_log.
+
+        La stdin queda conectada a una tubería para que, si el gestor de
+        paquetes hace una pregunta, se pueda responder desde la interfaz
+        (ver prompt_engine). Si la pregunta no es de tipo sí/no, se detiene
+        el proceso y se guarda el comando para reabrirlo en una terminal.
+        """
         env = self._prepare_env()
-        process = subprocess.Popen(
-            cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            universal_newlines=True, bufsize=1
+        self.last_cmd = list(cmd)
+        self.last_env = env
+        self.blocked_prompt = None
+
+        def emit(line):
+            if on_log:
+                GLib.idle_add(on_log, line)
+
+        returncode, log_lines, blocked = prompt_engine.run_command(
+            cmd, env=env, on_log=emit
         )
-        for line in process.stdout:
-            stripped = line.rstrip('\n')
-            if stripped.strip():
-                log_lines.append(stripped)
-                if on_log:
-                    GLib.idle_add(on_log, stripped)
-        process.wait()
-        return process.returncode, "\n".join(log_lines[-50:])
+        self.blocked_prompt = blocked
+        if returncode == 0 and not blocked:
+            prompt_engine.clear_failure()
+        else:
+            prompt_engine.record_failure(self.last_cmd, env)
+        return returncode, "\n".join(log_lines[-50:])
 
     def run_installation(self, cmd, file_path, on_progress, on_complete, on_log=None):
         def _run():
@@ -321,7 +336,9 @@ X-SwiftInstall={install_type}
                     
                     GLib.idle_add(on_complete, message, False, "")
                 else:
-                    if file_path and file_path.startswith("uninstall:"):
+                    if self.blocked_prompt:
+                        GLib.idle_add(on_complete, _("El gestor de paquetes ha hecho una pregunta que necesitaba tu respuesta:\n{}").format(self.blocked_prompt), True, stderr)
+                    elif file_path and file_path.startswith("uninstall:"):
                         GLib.idle_add(on_complete, _("Vaya, he encontrado un error al desinstalar:\n{}").format(stderr), True, stderr)
                     else:
                         GLib.idle_add(on_complete, _("Vaya, he encontrado un error al instalar: {}").format(stderr), True, stderr)
@@ -340,6 +357,8 @@ X-SwiftInstall={install_type}
                 
                 if returncode == 0:
                     GLib.idle_add(on_complete, _("He arreglado las dependencias"))
+                elif self.blocked_prompt:
+                    GLib.idle_add(on_complete, _("El gestor de paquetes ha hecho una pregunta que necesitaba tu respuesta:\n{}").format(self.blocked_prompt), True)
                 else:
                     GLib.idle_add(on_complete, _("Vaya, un error al corregir dependencias: {}").format(stderr), True)
             except Exception as e:

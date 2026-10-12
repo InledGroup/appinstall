@@ -25,17 +25,36 @@ class AptAdapter(PackageManager):
         except:
             return []
 
+    def _apt_cmd(self, *args, confold=False):
+        # English: Run apt-get in non-interactive mode: no debconf questions and
+        # keep existing conffiles without prompting (the usual dpkg question)
+        # Español: Ejecutar apt-get en modo no interactivo: sin preguntas de
+        # debconf y conservando los conffiles existentes sin preguntar
+        cmd = ['pkexec', '/usr/bin/env', 'DEBIAN_FRONTEND=noninteractive', 'apt-get']
+        if confold:
+            cmd += ['-o', 'Dpkg::Options::=--force-confold']
+        cmd += list(args)
+        return cmd
+
     def install(self, package: str) -> List[str]:
-        return ['pkexec', 'apt-get', 'install', '-y', package]
+        return self._apt_cmd('install', '-y', package, confold=True)
 
     def install_multiple(self, packages: List[str]) -> List[str]:
-        return ['pkexec', 'apt-get', 'install', '-y'] + packages
+        return self._apt_cmd('install', '-y', *packages, confold=True)
 
     def install_local(self, file_path: str) -> List[str]:
-        return ['pkexec', 'dpkg', '-i', file_path]
+        # English: Use apt-get for .deb files so dependencies are resolved;
+        # otherwise keep dpkg -i with the conffile prompt disabled
+        # Español: usar apt-get para .deb para que resuelva dependencias;
+        # en el resto, dpkg -i con la pregunta de conffiles desactivada
+        if file_path.lower().endswith('.deb'):
+            if '/' not in file_path:
+                file_path = './' + file_path
+            return self._apt_cmd('install', '-y', file_path, confold=True)
+        return ['pkexec', 'dpkg', '-i', '--force-confold', file_path]
 
     def uninstall(self, package: str) -> List[str]:
-        return ['pkexec', 'apt-get', 'remove', '-y', package]
+        return self._apt_cmd('remove', '-y', package)
 
     def update_cache(self) -> List[str]:
         return ['pkexec', 'apt-get', 'update']
@@ -44,10 +63,10 @@ class AptAdapter(PackageManager):
         return ['pkexec', 'apt-get', 'clean']
 
     def autoremove(self) -> List[str]:
-        return ['pkexec', 'apt-get', 'autoremove', '-y']
+        return self._apt_cmd('autoremove', '-y')
 
     def fix_broken(self) -> List[str]:
-        return ['pkexec', 'apt-get', 'install', '-f', '-y']
+        return self._apt_cmd('install', '-f', '-y', confold=True)
 
     def get_cache_directory(self) -> str:
         return "/var/cache/apt/archives"
@@ -129,10 +148,10 @@ class AptAdapter(PackageManager):
         return info
 
     def install_clamav(self) -> List[str]:
-        return ['pkexec', 'apt-get', 'install', '-y', 'clamav', 'clamav-daemon', 'clamav-freshclam']
+        return self._apt_cmd('install', '-y', 'clamav', 'clamav-daemon', 'clamav-freshclam', confold=True)
 
     def upgrade_system(self) -> List[str]:
         # English: Run package index update followed by system upgrade
         # Español: Ejecutar la actualización del índice de paquetes seguida de la actualización del sistema
-        return ['pkexec', 'sh', '-c', 'apt-get update && apt-get dist-upgrade -y']
+        return ['pkexec', 'sh', '-c', 'DEBIAN_FRONTEND=noninteractive apt-get update && DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::=--force-confold dist-upgrade -y']
 

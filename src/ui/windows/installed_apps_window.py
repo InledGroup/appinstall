@@ -5,6 +5,8 @@ import requests
 from gi.repository import Gtk, GLib, Adw, Gdk
 from src.infrastructure.services.localization import _
 from src.utils.system import get_safe_window_size, HAS_BREW, BREW_PATH
+from src.application import prompt_engine
+from src.utils.terminal import open_last_failure_in_terminal
 from src.ui.windows.progress_window import ProgressWindow
 
 class InstalledAppsWidget(Gtk.Box):
@@ -593,9 +595,16 @@ class InstalledAppsWidget(Gtk.Box):
                 heading=_("Error en la desinstalación"),
                 body=f"{message}\n\n{error_message or ''}"
             )
+            if prompt_engine.get_last_failure():
+                dialog.add_response("terminal", _("Abrir en una terminal"))
             dialog.add_response("ok", _("OK"))
             dialog.set_default_response("ok")
+            dialog.connect("response", self._on_uninstall_result_response)
             self.status_label.set_text(_("Uy... ha habido un error cuando estaba desinstalándote la app"))
         
         dialog.present(self.get_root())
         return False
+
+    def _on_uninstall_result_response(self, dialog, response):
+        if response == "terminal":
+            open_last_failure_in_terminal()

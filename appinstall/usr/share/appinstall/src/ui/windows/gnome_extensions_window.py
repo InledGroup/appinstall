@@ -152,8 +152,37 @@ class GnomeExtensionsWidget(Gtk.Box):
 
         threading.Thread(target=worker, daemon=True).start()
 
+    def _query_runtime_extensions(self):
+        try:
+            res = subprocess.run(
+                ["gdbus", "call", "--session", "--dest", "org.gnome.Shell.Extensions",
+                 "--object-path", "/org/gnome/Shell/Extensions",
+                 "--method", "org.gnome.Shell.Extensions.ListExtensions"],
+                capture_output=True, text=True, timeout=3
+            )
+            if res.returncode == 0:
+                raw = res.stdout.strip()
+                results = {}
+                pattern = re.compile(r"'([^']+@[^']+)':\s*\{(.*?)\}(?=,\s*'|\)$)", re.DOTALL)
+                for match in pattern.finditer(raw):
+                    uuid = match.group(1)
+                    block = match.group(2)
+                    state_m = re.search(r"'state':\s*<(\d+)", block)
+                    err_m = re.search(r"'error':\s*<'([^']*)'>", block)
+                    state_num = int(state_m.group(1)) if state_m else None
+                    err_str = err_m.group(1) if err_m else ""
+                    results[uuid] = {
+                        "state_num": state_num,
+                        "error": err_str
+                    }
+                return results
+        except Exception as e:
+            print(f"Error querying runtime extensions: {e}")
+        return {}
+
     def _query_installed_extensions(self):
         exts_map = {}
+        runtime_data = self._query_runtime_extensions()
         
         # 1. Query enabled extensions
         enabled_uuids = set()
@@ -201,13 +230,24 @@ class GnomeExtensionsWidget(Gtk.Box):
                         os.path.exists(os.path.join(ext_dir, "prefs.js")) or 
                         os.path.exists(os.path.join(ext_dir, "prefs.ui"))
                     )
-                    state = "ENABLED" if uuid in enabled_uuids else "DISABLED"
+
+                    r_info = runtime_data.get(uuid, {})
+                    r_state = r_info.get("state_num")
+                    r_err = r_info.get("error", "")
+
+                    if r_state == 3 or r_err:
+                        state = "ERROR"
+                    elif uuid in enabled_uuids or r_state == 1:
+                        state = "ENABLED"
+                    else:
+                        state = "DISABLED"
 
                     exts_map[uuid] = {
                         "uuid": uuid,
                         "name": name,
                         "description": desc,
                         "state": state,
+                        "error": r_err,
                         "version": version,
                         "type": ext_type,
                         "has_prefs": has_prefs,
@@ -295,6 +335,14 @@ class GnomeExtensionsWidget(Gtk.Box):
         t_badge.add_css_class("badge-system" if ext["type"] == "system" else "badge-flatpak")
         badge_box.append(t_badge)
 
+        if ext.get("error") or ext.get("state") == "ERROR":
+            err_badge = Gtk.Label(label=_("ERROR"))
+            err_badge.add_css_class("badge")
+            err_badge.add_css_class("badge-warning")
+            if ext.get("error"):
+                err_badge.set_tooltip_text(ext["error"])
+            badge_box.append(err_badge)
+
         row.add_suffix(badge_box)
 
         # Enable/Disable Switch on the header row
@@ -341,14 +389,22 @@ class GnomeExtensionsWidget(Gtk.Box):
 
         details_box.append(info_grid)
 
-        # Error / Diagnosis message box (hidden by default)
+        # Error / Diagnosis message box
         error_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         error_box.add_css_class("card")
-        error_box.set_visible(False)
+        error_box.set_margin_top(4)
         error_lbl = Gtk.Label(label="", xalign=0)
         error_lbl.set_wrap(True)
         error_lbl.set_selectable(True)
         error_box.append(error_lbl)
+
+        if ext.get("error"):
+            error_lbl.set_markup(f"<span color='#e01b24' weight='bold'>⚠️ Error:</span> {GLib.markup_escape_text(ext['error'])}")
+            error_box.set_visible(True)
+            row.set_expanded(True)
+        else:
+            error_box.set_visible(False)
+
         details_box.append(error_box)
 
         # Bottom Action buttons row with descriptive text
