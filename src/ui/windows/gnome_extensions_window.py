@@ -303,6 +303,11 @@ class GnomeExtensionsWidget(Gtk.Box):
 
     def create_installed_row(self, ext):
         row = Adw.ExpanderRow()
+        # AdwActionRow parses title/subtitle as markup by default. Extension
+        # names are plain text and may contain '&' or '<' (e.g. "FlyDrop &
+        # Dynamic Shelf"), which made GTK fail with "Failed to set text ...
+        # from markup". Disable markup for these rows.
+        row.set_use_markup(False)
         row.set_title(ext["name"])
         row.set_subtitle(ext["uuid"])
 

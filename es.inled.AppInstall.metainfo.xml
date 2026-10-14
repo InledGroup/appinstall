@@ -32,6 +32,18 @@
     <binary>appinstall</binary>
   </provides>
   <releases>
+    <release version="22.20" date="2026-10-14">
+      <description>
+        <p>Actualización con mejoras en el gestor de extensiones GNOME y correcciones de estabilidad.</p>
+        <ul>
+          <li>Gestor de extensiones GNOME: pestaña de instaladas y exploración en extensions.gnome.org</li>
+          <li>Indicación de compatibilidad con la versión de GNOME Shell</li>
+          <li>Instalador nativo de extensiones por DBus</li>
+          <li>Corrección del escapado de nombres con caracteres especiales (&amp;)</li>
+          <li>Correcciones de errores y mejoras de rendimiento</li>
+        </ul>
+      </description>
+    </release>
     <release version="10.0" date="2026-05-08">
       <description>
         <p>Gran actualización a la versión 10:</p>
