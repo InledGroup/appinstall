@@ -58,7 +58,7 @@ class UninstallService:
         env["APPINSTALL_SUDO"] = "pkexec"
         return env
 
-    def run_uninstall(self, cmd, on_progress=None, on_complete=None, on_log=None):
+    def run_uninstall(self, cmd, on_progress=None, on_complete=None, on_log=None, cancel_token=None):
         def _run():
             try:
                 env = self._prepare_env()
@@ -73,9 +73,14 @@ class UninstallService:
                         GLib.idle_add(on_progress)
 
                 returncode, log_lines, blocked = prompt_engine.run_command(
-                    cmd, env=env, on_log=emit
+                    cmd, env=env, on_log=emit, cancel_token=cancel_token
                 )
                 self.blocked_prompt = blocked
+
+                if cancel_token is not None and cancel_token.was_terminated():
+                    if on_complete:
+                        GLib.idle_add(on_complete, False, _("Operación cancelada por el usuario."))
+                    return
 
                 if returncode == 0 and not blocked:
                     prompt_engine.clear_failure()

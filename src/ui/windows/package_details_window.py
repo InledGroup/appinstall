@@ -603,8 +603,152 @@ class PackageDetailsWidget(Gtk.Box):
             pkgbuild_view.get_buffer().set_text(pkgbuild)
             pkgbuild_scroll.set_child(pkgbuild_view)
             pkgbuild_card.append(pkgbuild_scroll)
+
+            # English: Send the PKGBUILD to Google AI Mode to have it reviewed
+            # Español: Enviar el PKGBUILD a Google AI Mode para que lo analice
+            pkgbuild_ai_btn = Gtk.Button(label=_("Analizar PKGBUILD con IA"))
+            pkgbuild_ai_btn.add_css_class("suggested-action")
+            pkgbuild_ai_btn.set_halign(Gtk.Align.START)
+            pkgbuild_ai_btn.connect("clicked", lambda b, p=pkgbuild, n=info.get('name', ''): self.on_analyze_pkgbuild_clicked(n, p))
+            pkgbuild_card.append(pkgbuild_ai_btn)
             
             main_box.append(pkgbuild_card)
+
+        # 6. Flatpak Plugins / Addons Section
+        self._append_flatpak_plugins(main_box, info.get('plugins') or [])
+
+    def on_analyze_pkgbuild_clicked(self, package_name, pkgbuild):
+        """Abre el PKGBUILD en Google AI Mode para analizarlo antes de instalar."""
+        from src.utils.system import analyze_pkgbuild_with_ai
+
+        if analyze_pkgbuild_with_ai(pkgbuild, package_name):
+            message = _("PKGBUILD enviado a Google AI Mode")
+        else:
+            message = _("No se pudo abrir Google AI Mode en el navegador")
+
+        try:
+            self.parent_window.status_label.set_text(message)
+        except Exception:
+            pass
+
+    def _append_flatpak_plugins(self, main_box, plugins):
+        """Muestra la lista de plugins/extensiones disponibles para una app Flatpak."""
+        if not plugins:
+            return
+
+        plugins_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        plugins_card.add_css_class("card")
+
+        plugins_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        plugins_icon = Gtk.Image.new_from_icon_name("application-x-addon-symbolic")
+        plugins_icon.set_pixel_size(24)
+        plugins_header.append(plugins_icon)
+
+        plugins_title_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        plugins_title_box.set_hexpand(True)
+
+        plugins_title = Gtk.Label(label=_("Plugins y extensiones"), xalign=0)
+        plugins_title.add_css_class("title-label")
+        plugins_title_box.append(plugins_title)
+
+        plugins_count = Gtk.Label(label=_("{} disponibles para esta aplicación").format(len(plugins)), xalign=0)
+        plugins_count.add_css_class("subtitle-label")
+        plugins_title_box.append(plugins_count)
+
+        plugins_header.append(plugins_title_box)
+        plugins_card.append(plugins_header)
+
+        from src.utils.system import create_app_icon_widget
+
+        plugins_grid = Gtk.Grid()
+        plugins_grid.set_column_spacing(16)
+        plugins_grid.set_row_spacing(10)
+        plugins_grid.set_column_homogeneous(True)
+
+        for index, plugin in enumerate(plugins[:24]):
+            if not isinstance(plugin, dict):
+                continue
+
+            row = index // 2
+            col = index % 2
+
+            plugin_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+            plugin_box.set_hexpand(True)
+
+            icon_widget = create_app_icon_widget(
+                plugin.get('icon', ''),
+                size=40,
+                fallback="application-x-addon-symbolic",
+                package_id=plugin.get('id', 'plugin'),
+            )
+            plugin_box.append(icon_widget)
+
+            plugin_text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+            plugin_text.set_hexpand(True)
+
+            plugin_name = Gtk.Label(label=plugin.get('name') or plugin.get('id', ''), xalign=0)
+            plugin_name.set_ellipsize(Pango.EllipsizeMode.END)
+            plugin_name.set_max_width_chars(30)
+            plugin_text.append(plugin_name)
+
+            summary = plugin.get('summary', '')
+            if summary:
+                plugin_summary = Gtk.Label(label=summary, xalign=0)
+                plugin_summary.add_css_class("subtitle-label")
+                plugin_summary.set_ellipsize(Pango.EllipsizeMode.END)
+                plugin_summary.set_max_width_chars(40)
+                plugin_summary.set_tooltip_text(summary)
+                plugin_text.append(plugin_summary)
+
+            plugin_box.append(plugin_text)
+
+            # English: Button to install the plugin, or to reinstall it when
+            # it is already installed on the system
+            # Español: Botón para instalar el plugin, o para reinstalarlo
+            # cuando ya está instalado en el sistema
+            is_installed = bool(plugin.get('installed'))
+            plugin_button = Gtk.Button()
+            plugin_button.add_css_class("flat")
+            plugin_button.set_valign(Gtk.Align.CENTER)
+            plugin_button.set_tooltip_text(
+                _("Reinstalar el plugin {}").format(plugin.get('name') or plugin.get('id', ''))
+                if is_installed else
+                _("Instalar el plugin {}").format(plugin.get('name') or plugin.get('id', ''))
+            )
+            if is_installed:
+                plugin_button.set_icon_name("view-refresh-symbolic")
+            else:
+                plugin_button.set_icon_name("system-software-install-symbolic")
+            plugin_button.connect(
+                "clicked",
+                lambda b, pid=plugin.get('id', ''), pname=plugin.get('name') or plugin.get('id', ''):
+                    self.on_plugin_install_clicked(pid, pname)
+            )
+            plugin_box.append(plugin_button)
+
+            plugins_grid.attach(plugin_box, col, row, 1, 1)
+
+        plugins_card.append(plugins_grid)
+        main_box.append(plugins_card)
+
+    def on_plugin_install_clicked(self, app_id, name=""):
+        """Instala o reinstala un plugin de Flatpak.
+
+        English: Installs or reinstalls a Flatpak plugin. The work is done by
+        the main window so the progress shows up in the bottom bar.
+        Español: Instala o reinstala un plugin de Flatpak. Lo hace la ventana
+        principal para que el progreso aparezca en la barra inferior.
+        """
+        if not app_id:
+            return
+        parent = getattr(self, 'parent_window', None)
+        if parent is not None and hasattr(parent, 'install_flatpak_plugin'):
+            parent.install_flatpak_plugin(app_id, name)
+            return
+        try:
+            self.parent_window.status_label.set_text(_("Instalando plugin {}...").format(name or app_id))
+        except Exception:
+            pass
 
     def on_install_clicked(self, button):
         self.on_install_callback()

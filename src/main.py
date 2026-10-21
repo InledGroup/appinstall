@@ -15,6 +15,11 @@ from src.infrastructure.adapters.factory import get_package_manager
 from src.utils.constants import CURRENT_VERSION
 from src.config import CLI_NAME
 
+# English: Unique application id, also used to detect a running instance
+# Español: Identificador único de la aplicación, también usado para detectar
+# una instancia ya en marcha
+APPLICATION_ID = "es.inled.AppInstall"
+
 from src.application.install_service import InstallService
 from src.application.update_check_service import UpdateCheckService
 from src.application.package_info_service import PackageInfoService
@@ -182,7 +187,7 @@ from src.ui.windows.main_window import PackageInstaller
 class AppInstallApp(Adw.Application):
     def __init__(self, file_to_open=None):
         super().__init__(
-            application_id="es.inled.AppInstall",
+            application_id=APPLICATION_ID,
             flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE | Gio.ApplicationFlags.HANDLES_OPEN
         )
         self.connect("activate", self.on_activate)
@@ -251,6 +256,39 @@ class AppInstallApp(Adw.Application):
             self.file_to_open = None
         win.present()
 
+
+def get_running_instance_pid():
+    """Devuelve el PID de otra instancia de AppInstall ya en marcha (o None).
+
+    English: Returns the PID of another AppInstall instance already running,
+    so the user understands why a new launch does not open a second window.
+    Español: Devuelve el PID de otra instancia de AppInstall ya en marcha,
+    para que el usuario entienda por qué un nuevo arranque no abre una
+    segunda ventana.
+    """
+    try:
+        bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+        owner = bus.call_sync(
+            "org.freedesktop.DBus", "/org/freedesktop/DBus",
+            "org.freedesktop.DBus", "GetNameOwner",
+            GLib.Variant("(s)", (APPLICATION_ID,)),
+            GLib.VariantType("(s)"),
+            Gio.DBusCallFlags.NONE, 1500, None
+        ).unpack()[0]
+        if not owner:
+            return None
+        pid = bus.call_sync(
+            "org.freedesktop.DBus", "/org/freedesktop/DBus",
+            "org.freedesktop.DBus", "GetConnectionUnixProcessID",
+            GLib.Variant("(s)", (owner,)),
+            GLib.VariantType("(u)"),
+            Gio.DBusCallFlags.NONE, 1500, None
+        ).unpack()[0]
+        return int(pid)
+    except Exception:
+        return None
+
+
 def main():
     from src.cli import handle_cli_args, _show_help
     from src.cli_core import COMMANDS
@@ -258,6 +296,10 @@ def main():
     # No arguments → launch GUI
     if len(sys.argv) < 2:
         app = AppInstallApp()
+        running_pid = get_running_instance_pid()
+        if running_pid:
+            print(f"App Install ya está en ejecución (PID {running_pid}). "
+                  f"Se está levantando la ventana existente.")
         return app.run(sys.argv)
 
     arg = sys.argv[1]
@@ -272,6 +314,10 @@ def main():
 
     if resolved:
         app = AppInstallApp(file_to_open=resolved)
+        running_pid = get_running_instance_pid()
+        if running_pid:
+            print(f"App Install ya está en ejecución (PID {running_pid}). "
+                  f"Se está levantando la ventana existente.")
         return app.run(sys.argv)
 
     # Unknown argument → show error and help

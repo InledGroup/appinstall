@@ -95,6 +95,85 @@ def safe_open_url(url):
         print(f"Error opening URL: {str(e)}")
         return False
 
+
+def get_ai_language_instruction():
+    """Instrucción para que la IA responda en el idioma del usuario.
+
+    English: Builds the instruction that tells Google AI Mode to answer in the
+    language configured in the system, so the user always gets the answer in
+    their own language.
+    Español: Construye la instrucción que le indica a Google AI Mode que
+    responda en el idioma configurado en el sistema, para que el usuario
+    siempre reciba la respuesta en su propio idioma.
+    """
+    from src.infrastructure.services.localization import _, get_current_language
+
+    lang = get_current_language() or 'en'
+    return _("Responde siempre en el idioma del usuario (idioma: {lang}).").format(lang=lang)
+
+
+def build_google_ai_mode_url(query: str, prompt_prefix: str = "") -> str:
+    """Construye una URL de Google AI Mode (udm=50) con la consulta del usuario.
+
+    English: Builds a Google AI Mode URL that opens the query in the
+    default browser of the system. The query always carries an instruction to
+    answer in the language of the user.
+    Español: Construye una URL de Google AI Mode que abre la consulta en el
+    navegador predeterminado del sistema. La consulta siempre incluye una
+    instrucción para responder en el idioma del usuario.
+    """
+    import urllib.parse
+    query = (query or "").strip()
+    if not query:
+        return ""
+
+    parts = []
+    if prompt_prefix and prompt_prefix.strip():
+        parts.append(prompt_prefix.strip())
+    parts.append(get_ai_language_instruction())
+    parts.append(query)
+
+    return "https://www.google.com/search?udm=50&q=" + urllib.parse.quote_plus("\n\n".join(parts))
+
+
+def open_google_ai_mode(query: str, prompt_prefix: str = "") -> bool:
+    """Abre Google AI Mode en una pestaña nueva del navegador del sistema."""
+    url = build_google_ai_mode_url(query, prompt_prefix)
+    if not url:
+        return False
+    return safe_open_url(url)
+
+
+# English: Maximum number of characters of a PKGBUILD sent to the AI
+# Español: Número máximo de caracteres del PKGBUILD enviados a la IA
+MAX_AI_PKGBUILD_CHARS = 20000
+
+
+def analyze_pkgbuild_with_ai(pkgbuild: str, package_name: str = "") -> bool:
+    """Abre un PKGBUILD del AUR en Google AI Mode para poder analizarlo.
+
+    English: Sends the PKGBUILD to Google AI Mode (udm=50) in a new tab of
+    the system default browser so the user can review it before installing.
+    Español: Envía el PKGBUILD a Google AI Mode (udm=50) en una pestaña nueva
+    del navegador predeterminado del sistema para revisarlo antes de instalar.
+    """
+    from src.infrastructure.services.localization import _
+
+    if not pkgbuild or not pkgbuild.strip():
+        return False
+
+    prompt = _(
+        "Analiza el siguiente PKGBUILD de Arch Linux (AUR). "
+        "Explica qué hace el paquete, qué comandos ejecuta al compilarlo, "
+        "señala cualquier archivo o comando sospechoso y enumera los riesgos de instalarlo. "
+        "Indica si te parece seguro instalarlo."
+    )
+    if package_name:
+        prompt = _("Paquete AUR: {}").format(package_name) + "\n\n" + prompt
+    prompt += "\n\n```\n" + pkgbuild.strip()[:MAX_AI_PKGBUILD_CHARS] + "\n```"
+
+    return open_google_ai_mode(prompt)
+
 def get_safe_window_size(default_width, default_height, scale_factor=0.8):
     """Obtiene un tamaño de ventana seguro que no exceda los límites de la pantalla."""
     try:

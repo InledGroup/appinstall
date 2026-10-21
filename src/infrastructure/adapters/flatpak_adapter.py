@@ -2,11 +2,16 @@ import os
 import subprocess
 import shutil
 import requests
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict
 from src.domain.ports import PackageManager
 from src.utils.system import get_cached_icon
 
 class FlatpakAdapter(PackageManager):
+    # English: Maximum number of plugins enriched with name and icon
+    # Español: Número máximo de plugins enriquecidos con nombre e icono
+    MAX_PLUGINS = 24
+
     def __init__(self):
         self._meta_cache = {}
 
@@ -183,6 +188,31 @@ class FlatpakAdapter(PackageManager):
         # Usamos pkexec para instalar de forma global, o flatpak sin pkexec si es de usuario
         return ['pkexec', 'flatpak', 'install', '-y', 'flathub', package]
 
+    def install_addon(self, package: str) -> List[str]:
+        """Comando para instalar o reinstalar un plugin (addon) de Flatpak.
+
+        English: Command used to install a Flatpak plugin. The --reinstall
+        flag removes the addon first when it was already installed, so the
+        same command works to install it and to reinstall it.
+        Español: Comando para instalar un plugin (addon) de Flatpak. La opción
+        --reinstall lo elimina antes si ya estaba instalado, así que el mismo
+        comando sirve para instalarlo y para reinstalarlo.
+        """
+        return ['pkexec', 'flatpak', 'install', '-y', '--reinstall', 'flathub', package]
+
+    def is_installed(self, package: str) -> bool:
+        """Comprueba si una app o plugin de Flatpak ya está instalado."""
+        if not package or not self.is_available():
+            return False
+        try:
+            result = subprocess.run(
+                ['flatpak', 'info', package],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10
+            )
+            return result.returncode == 0
+        except Exception:
+            return False
+
     def install_multiple(self, packages: List[str]) -> List[str]:
         return ['pkexec', 'flatpak', 'install', '-y', 'flathub'] + packages
 
@@ -310,7 +340,134 @@ class FlatpakAdapter(PackageManager):
         except Exception as e:
             print(f"Error fetching Flatpak dependencies for {package_name}: {e}")
             
+        # 5. Plugins / extensiones compatibles con la aplicación
+        info['plugins'] = self.get_addons(package_name)
+            
         return info
+
+    def get_addons(self, package_name: str) -> List[Dict[str, str]]:
+        """Devuelve los plugins (addons) compatibles con una aplicación Flatpak.
+
+        Flathub expone los plugins en /api/v2/addon/<app_id>. Cada plugin es
+        una app de Flathub que amplía la funcionalidad de la aplicación base.
+        """
+        if not package_name:
+            return []
+
+        addon_ids = []
+        try:
+            url = f"https://flathub.org/api/v2/addon/{package_name}"
+            r = requests.get(url, headers={"User-Agent": "AppInstall/1.0"}, timeout=6)
+            if r.status_code != 200:
+                return []
+            raw = r.json()
+            if not isinstance(raw, list):
+                return []
+            seen = set()
+            for item in raw:
+                if isinstance(item, str):
+                    addon_id = item
+                elif isinstance(item, dict):
+                    addon_id = item.get('id') or item.get('app_id') or ''
+                else:
+                    continue
+                if addon_id and addon_id not in seen:
+                    seen.add(addon_id)
+                    addon_ids.append(addon_id)
+        except Exception as e:
+            print(f"Error fetching Flatpak addons for {package_name}: {e}")
+            return []
+
+        if not addon_ids:
+            return []
+
+        addon_ids = addon_ids[:self.MAX_PLUGINS]
+
+        # English: Enrich every plugin with its name and icon (in parallel)
+        # Español: Enriquecer cada plugin con su nombre e icono (en paralelo)
+        details = {}
+        try:
+            with ThreadPoolExecutor(max_workers=6) as pool:
+                futures = {pool.submit(self._fetch_addon_info, aid): aid for aid in addon_ids}
+                for future in as_completed(futures):
+                    aid = futures[future]
+                    try:
+                        details[aid] = future.result() or {}
+                    except Exception:
+                        details[aid] = {}
+        except Exception as e:
+            print(f"Error enriching Flatpak addons for {package_name}: {e}")
+
+        plugins = []
+        # English: Know which plugins are already installed to offer a
+        # "reinstall" button instead of "install"
+        # Español: Saber qué plugins ya están instalados para ofrecer un
+        # botón de "reinstalar" en lugar de "instalar"
+        installed = set()
+        try:
+            installed = set(self.list_installed())
+        except Exception:
+            installed = set()
+
+        for aid in addon_ids:
+            info = details.get(aid, {})
+            plugins.append({
+                'id': aid,
+                'name': info.get('name') or aid,
+                'summary': info.get('summary', ''),
+                'icon': info.get('icon', ''),
+                'installed': aid in installed,
+            })
+        return plugins
+
+    def _fetch_addon_info(self, addon_id: str) -> Dict[str, str]:
+        """Obtiene nombre, resumen e icono de un plugin de Flathub."""
+        try:
+            url = f"https://flathub.org/api/v2/appstream/{addon_id}"
+            r = requests.get(url, headers={"User-Agent": "AppInstall/1.0"}, timeout=6)
+            if r.status_code == 200:
+                data = r.json()
+                icon_url = data.get('icon') or self._pick_icon_url(data.get('icons'))
+                cached_icon = ""
+                if icon_url:
+                    try:
+                        cached_icon = get_cached_icon(icon_url, f"addon_{addon_id}")
+                    except Exception:
+                        cached_icon = ""
+                return {
+                    'name': data.get('name') or addon_id,
+                    'summary': data.get('summary', ''),
+                    'icon': cached_icon,
+                }
+        except Exception as e:
+            print(f"Error fetching addon info for {addon_id}: {e}")
+        return {}
+
+    @staticmethod
+    def _pick_icon_url(icons) -> str:
+        """Elige la URL del icono más grande disponible en appstream.
+
+        Flathub no siempre rellena el campo 'icon' de los addons, pero sí
+        publica la lista 'icons' con sus tamaños.
+        """
+        if not isinstance(icons, list):
+            return ""
+        best_url = ""
+        best_size = -1
+        for entry in icons:
+            if not isinstance(entry, dict):
+                continue
+            entry_url = entry.get('url')
+            if not entry_url:
+                continue
+            try:
+                size = int(entry.get('width') or 0)
+            except Exception:
+                size = 0
+            if size > best_size:
+                best_size = size
+                best_url = entry_url
+        return best_url
 
     def get_local_file_info(self, file_path: str) -> Dict[str, str]:
         # Para archivos locales de tipo flatpakref o bundle

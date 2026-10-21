@@ -4,6 +4,7 @@ import re
 import select
 import signal
 import subprocess
+import threading
 import time
 
 # English: Detects and answers interactive questions made by package managers.
@@ -189,14 +190,83 @@ def _terminate(process):
             continue
 
 
-def run_command(cmd, env=None, on_log=None, ask_user=None, timeout=None):
+class CancelToken:
+    """Permite cancelar un comando en curso desde la interfaz.
+
+    English: Shared token used to stop a running command from the UI. The
+    token is safe to use from another thread: cancelling it terminates the
+    process group of the command that is currently running.
+    Español: Token compartido para detener un comando en curso desde la
+    interfaz. Es seguro usarlo desde otro hilo: al cancelarlo se termina el
+    grupo de procesos del comando que esté en marcha.
+    """
+
+    def __init__(self):
+        self._event = threading.Event()
+        self._lock = threading.Lock()
+        self._process = None
+        self._terminated = False
+
+    def is_cancelled(self):
+        """Devuelve True si el usuario ya pidió cancelar la operación."""
+        return self._event.is_set()
+
+    def was_terminated(self):
+        """Devuelve True si el proceso llegó a ser detenido de verdad.
+
+        English: A cancellation can be requested too late, when the command
+        had already finished. This tells if the process was really killed.
+        Español: Se puede pedir la cancelación demasiado tarde, cuando el
+        comando ya había terminado. Esto indica si el proceso llegó a ser
+        detenido de verdad.
+        """
+        with self._lock:
+            return self._terminated
+
+    def cancel(self):
+        """Marca la operación como cancelada y detiene el proceso en marcha."""
+        process = None
+        terminate = False
+        with self._lock:
+            self._event.set()
+            process = self._process
+            if process is not None:
+                try:
+                    alive = process.poll() is None
+                except Exception:
+                    alive = True
+                if alive:
+                    self._terminated = True
+                    terminate = True
+        if terminate:
+            _terminate(process)
+
+    def attach(self, process):
+        """Registra el proceso en marcha; si ya se canceló, lo detiene."""
+        with self._lock:
+            self._process = process
+            already_cancelled = self._event.is_set()
+            if already_cancelled:
+                self._terminated = True
+        if already_cancelled:
+            _terminate(process)
+
+    def detach(self, process):
+        """Olvida el proceso en marcha (ya terminó)."""
+        with self._lock:
+            if self._process is process:
+                self._process = None
+
+
+def run_command(cmd, env=None, on_log=None, ask_user=None, timeout=None, cancel_token=None):
     """Run `cmd` with its stdin connected to a pipe so package manager
     questions can be answered.
 
     Returns (returncode, log_lines, blocked_question). `blocked_question` is
     only set when the process waited for an answer we cannot give (password,
     option menu...); in that case the process is stopped and the UI can offer
-    to reopen the command in a real terminal.
+    to reopen the command in a real terminal. When `cancel_token` is given and
+    the user cancels it, the process is stopped and the function returns.
     """
     # Español: Ejecuta `cmd` con la stdin conectada a una tubería para poder
     # responder las preguntas del gestor de paquetes. Devuelve
@@ -206,6 +276,9 @@ def run_command(cmd, env=None, on_log=None, ask_user=None, timeout=None):
         cmd, env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT, bufsize=0, start_new_session=True
     )
+
+    if cancel_token is not None:
+        cancel_token.attach(process)
 
     log_lines = []
 
@@ -233,6 +306,12 @@ def run_command(cmd, env=None, on_log=None, ask_user=None, timeout=None):
 
     try:
         while True:
+            if cancel_token is not None and cancel_token.is_cancelled():
+                # English: The user asked to stop: kill the process group
+                # Español: El usuario pidió parar: mata el grupo de procesos
+                _terminate(process)
+                break
+
             if timeout and (time.monotonic() - started) > timeout:
                 _terminate(process)
                 break
@@ -322,6 +401,8 @@ def run_command(cmd, env=None, on_log=None, ask_user=None, timeout=None):
                 _terminate(process)
                 break
     finally:
+        if cancel_token is not None:
+            cancel_token.detach(process)
         try:
             process.stdin.close()
         except Exception:

@@ -286,7 +286,7 @@ X-SwiftInstall={install_type}
         env["APPINSTALL_SUDO"] = "pkexec"
         return env
 
-    def _run_process_streaming(self, cmd, on_log):
+    def _run_process_streaming(self, cmd, on_log, cancel_token=None):
         """Ejecuta un comando y emite cada línea de salida a on_log.
 
         La stdin queda conectada a una tubería para que, si el gestor de
@@ -304,7 +304,7 @@ X-SwiftInstall={install_type}
                 GLib.idle_add(on_log, line)
 
         returncode, log_lines, blocked = prompt_engine.run_command(
-            cmd, env=env, on_log=emit
+            cmd, env=env, on_log=emit, cancel_token=cancel_token
         )
         self.blocked_prompt = blocked
         if returncode == 0 and not blocked:
@@ -313,11 +313,15 @@ X-SwiftInstall={install_type}
             prompt_engine.record_failure(self.last_cmd, env)
         return returncode, "\n".join(log_lines[-50:])
 
-    def run_installation(self, cmd, file_path, on_progress, on_complete, on_log=None):
+    def run_installation(self, cmd, file_path, on_progress, on_complete, on_log=None, cancel_token=None):
         def _run():
             try:
-                returncode, stderr = self._run_process_streaming(cmd, on_log)
-                
+                returncode, stderr = self._run_process_streaming(cmd, on_log, cancel_token)
+
+                if cancel_token is not None and cancel_token.was_terminated():
+                    GLib.idle_add(on_complete, _("Operación cancelada por el usuario."), False, stderr)
+                    return
+
                 if returncode == 0:
                     # English: Determine success message based on context
                     # Español: Determinar el mensaje de éxito según el contexto
@@ -350,19 +354,50 @@ X-SwiftInstall={install_type}
         thread.daemon = True
         thread.start()
 
-    def run_fix_deps(self, cmd, on_progress, on_complete, on_log=None):
+    def run_plugin_installation(self, cmd, plugin_name, on_progress, on_complete, on_log=None, cancel_token=None):
+        """Instala (o reinstala) un plugin de Flatpak.
+
+        English: Installs or reinstalls a Flatpak plugin, reporting the result
+        through the same callback used by the rest of the operations.
+        Español: Instala (o reinstala) un plugin de Flatpak, notifying the
+        result through the same callback used by the rest of operations.
+        """
         def _run():
             try:
-                returncode, stderr = self._run_process_streaming(cmd, on_log)
-                
+                returncode, stderr = self._run_process_streaming(cmd, on_log, cancel_token)
+
+                if cancel_token is not None and cancel_token.was_terminated():
+                    GLib.idle_add(on_complete, _("Operación cancelada por el usuario."), False, stderr)
+                    return
+
                 if returncode == 0:
-                    GLib.idle_add(on_complete, _("He arreglado las dependencias"))
-                elif self.blocked_prompt:
-                    GLib.idle_add(on_complete, _("El gestor de paquetes ha hecho una pregunta que necesitaba tu respuesta:\n{}").format(self.blocked_prompt), True)
+                    GLib.idle_add(on_complete, _("El plugin {} se ha instalado correctamente.").format(plugin_name), False, "")
                 else:
-                    GLib.idle_add(on_complete, _("Vaya, un error al corregir dependencias: {}").format(stderr), True)
+                    GLib.idle_add(on_complete, _("Vaya, he encontrado un error al instalar el plugin {}: {}").format(plugin_name, stderr), True, stderr)
             except Exception as e:
-                GLib.idle_add(on_complete, _("Error al corregir dependencias: {}").format(str(e)), True)
+                GLib.idle_add(on_complete, _("Error al instalar el plugin {}: {}").format(plugin_name, str(e)), True, "")
+
+        thread = threading.Thread(target=_run)
+        thread.daemon = True
+        thread.start()
+
+    def run_fix_deps(self, cmd, on_progress, on_complete, on_log=None, cancel_token=None):
+        def _run():
+            try:
+                returncode, stderr = self._run_process_streaming(cmd, on_log, cancel_token)
+
+                if cancel_token is not None and cancel_token.was_terminated():
+                    GLib.idle_add(on_complete, _("Operación cancelada por el usuario."), False, "")
+                    return
+
+                if returncode == 0:
+                    GLib.idle_add(on_complete, _("He arreglado las dependencias"), False, "")
+                elif self.blocked_prompt:
+                    GLib.idle_add(on_complete, _("El gestor de paquetes ha hecho una pregunta que necesitaba tu respuesta:\n{}").format(self.blocked_prompt), True, "")
+                else:
+                    GLib.idle_add(on_complete, _("Vaya, un error al corregir dependencias: {}").format(stderr), True, "")
+            except Exception as e:
+                GLib.idle_add(on_complete, _("Error al corregir dependencias: {}").format(str(e)), True, "")
 
         thread = threading.Thread(target=_run)
         thread.daemon = True

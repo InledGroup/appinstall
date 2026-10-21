@@ -6,10 +6,11 @@ import requests
 from gi.repository import Gtk, GLib, Adw, Gdk, Pango
 from src.infrastructure.services.localization import _
 from src.utils.constants import CURRENT_VERSION
-from src.utils.system import get_safe_window_size, safe_open_url, has_internet, HAS_BREW, BREW_PATH
+from src.utils.system import get_safe_window_size, safe_open_url, has_internet, HAS_BREW, BREW_PATH, open_google_ai_mode, analyze_pkgbuild_with_ai
 from src.application import prompt_engine
 from src.utils.terminal import open_last_failure_in_terminal
 from src.ui.components.update_dialog import UpdateDialog
+from src.ui.components.operation_bar import OperationBar
 
 # Import other windows
 from .installed_apps_window import InstalledAppsWidget
@@ -121,6 +122,10 @@ class PackageInstaller(Adw.ApplicationWindow):
         self.set_title("App Install")
         self.set_icon_name("es.inled.AppInstall")
 
+        # English: Identifier of the most recently started operation
+        # Español: Identificador de la última operación iniciada
+        self._last_operation_id = None
+
         width, height = get_safe_window_size(950, 650, 0.95)
         self.set_default_size(width, height)
         self.add_css_class("main-window")
@@ -135,7 +140,14 @@ class PackageInstaller(Adw.ApplicationWindow):
     def setup_ui(self):
         # 1. Main outer layout container: Gtk.Box (Horizontal)
         main_layout = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        self.set_content(main_layout)
+
+        # English: Toast overlay to show short messages (e.g. the browser
+        # window that was just opened) without stealing the focus.
+        # Español: Capa de avisos para mostrar mensajes breves (por ejemplo la
+        # ventana del navegador que se acaba de abrir) sin robar el foco.
+        self.toast_overlay = Adw.ToastOverlay()
+        self.toast_overlay.set_child(main_layout)
+        self.set_content(self.toast_overlay)
 
         # --- Sidebar (Left Pane) ---
         sidebar_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
@@ -214,40 +226,14 @@ class PackageInstaller(Adw.ApplicationWindow):
         content_wrapper.append(self.content_stack)
 
         # --- Bottom Progress & Activity Bar ---
-        self.bottom_progress_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-        self.bottom_progress_box.add_css_class("bottom-status-bar")
-        self.bottom_progress_box.set_visible(False)
-
-        top_status_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
-        top_status_row.set_valign(Gtk.Align.CENTER)
-        
-        self.bottom_spinner = Gtk.Spinner()
-        self.bottom_spinner.set_size_request(16, 16)
-        top_status_row.append(self.bottom_spinner)
-
-        self.bottom_title_label = Gtk.Label(label="", xalign=0)
-        self.bottom_title_label.add_css_class("status-title-label")
-        top_status_row.append(self.bottom_title_label)
-
-        self.bottom_log_label = Gtk.Label(label="", xalign=0)
-        self.bottom_log_label.add_css_class("status-log-label")
-        from gi.repository import Pango
-        self.bottom_log_label.set_ellipsize(Pango.EllipsizeMode.END)
-        self.bottom_log_label.set_hexpand(True)
-        top_status_row.append(self.bottom_log_label)
-
-        self.bottom_skip_button = Gtk.Button(label=_("Omitir"))
-        self.bottom_skip_button.add_css_class("flat")
-        self.bottom_skip_button.set_visible(False)
-        top_status_row.append(self.bottom_skip_button)
-
-        self.bottom_progress_box.append(top_status_row)
-
-        self.bottom_progress_bar = Gtk.ProgressBar()
-        self.bottom_progress_bar.add_css_class("bottom-progress-bar")
-        self.bottom_progress_box.append(self.bottom_progress_bar)
-
-        content_wrapper.append(self.bottom_progress_box)
+        # English: One row per running operation, so concurrent processes get
+        # their own progress bar and never cancel each other out.
+        # Español: Una fila por operación en curso, así los procesos
+        # concurrentes tienen su propia barra y no se anulan entre sí.
+        self.operation_bar = OperationBar()
+        content_wrapper.append(self.operation_bar)
+        # Alias histórico: otras ventanas siguen usando este atributo
+        self.bottom_progress_box = self.operation_bar
         main_layout.append(content_wrapper)
 
         # Create original store content (Header Stack + ToolbarView + main_stack)
@@ -446,6 +432,52 @@ class PackageInstaller(Adw.ApplicationWindow):
         self.main_box.set_margin_top(24); self.main_box.set_margin_bottom(24)
         self.main_box.set_margin_start(24); self.main_box.set_margin_end(24)
         clamp.set_child(self.main_box)
+
+        # --- Google AI Mode Search Card ---
+        # English: Ask Google AI Mode which app you need and open the answer
+        # in the default browser of the system.
+        # Español: Preguntar a Google AI Mode qué app necesitas y abrir la
+        # respuesta en el navegador predeterminado del sistema.
+        ai_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        ai_card.add_css_class("card")
+        ai_card.set_margin_bottom(8)
+
+        ai_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+
+        ai_icon = Gtk.Image.new_from_icon_name("system-search-symbolic")
+        ai_icon.set_pixel_size(28)
+        ai_header.append(ai_icon)
+
+        ai_text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        ai_text_box.set_hexpand(True)
+
+        ai_title = Gtk.Label(label=_("¿Qué aplicación necesitas?"), xalign=0)
+        ai_title.add_css_class("title-label")
+        ai_text_box.append(ai_title)
+
+        ai_desc = Gtk.Label(label=_("Pregunta a Google AI Mode qué app necesitas para lo que buscas y luego instálala con un clic."), xalign=0)
+        ai_desc.add_css_class("subtitle-label")
+        ai_desc.set_wrap(True)
+        ai_text_box.append(ai_desc)
+
+        ai_header.append(ai_text_box)
+        ai_card.append(ai_header)
+
+        ai_entry_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+
+        self.ai_search_entry = Gtk.Entry()
+        self.ai_search_entry.set_placeholder_text(_("Por ejemplo: app para editar fotos o crear PDF..."))
+        self.ai_search_entry.set_hexpand(True)
+        self.ai_search_entry.connect("activate", lambda e: self.on_ai_mode_search_clicked(e))
+        ai_entry_row.append(self.ai_search_entry)
+
+        ai_search_btn = Gtk.Button(label=_("Buscar con IA"))
+        ai_search_btn.add_css_class("suggested-action")
+        ai_search_btn.connect("clicked", self.on_ai_mode_search_clicked)
+        ai_entry_row.append(ai_search_btn)
+
+        ai_card.append(ai_entry_row)
+        self.main_box.append(ai_card)
 
         # English: Offline warning banner (hidden until we detect no internet)
         # Español: Aviso de modo sin conexión (oculto hasta detectar que no hay internet)
@@ -680,6 +712,55 @@ class PackageInstaller(Adw.ApplicationWindow):
         
         # Fetch Recommendations in the background
         self.load_store_recommendations()
+
+    def on_ai_mode_search_clicked(self, widget=None):
+        # English: Open the user's query in Google AI Mode (udm=50) using the
+        # default browser of the system, in a new tab.
+        # Español: Abrir la consulta del usuario en Google AI Mode (udm=50) con
+        # el navegador predeterminado del sistema, en una pestaña nueva.
+        entry = getattr(self, 'ai_search_entry', None)
+        query = entry.get_text().strip() if entry is not None else ""
+
+        if not query:
+            if entry is not None:
+                entry.grab_focus()
+            self.status_label.set_text(_("Escribe qué aplicación necesitas antes de buscar con IA"))
+            return
+
+        prompt = _(
+            "Encuentra una aplicación de escritorio para Linux que cubra esta necesidad. "
+            "Dime el nombre exacto del paquete, si está disponible en Flatpak, AUR, Snap o en los "
+            "repositorios oficiales, y el comando exacto para instalarla."
+        )
+
+        if open_google_ai_mode(query, prompt_prefix=prompt):
+            entry.set_text("")
+            self.status_label.set_text(_("Consulta abierta en Google AI Mode"))
+            # English: GNOME does not always raise the new browser window, so
+            # tell the user where to look for it.
+            # Español: GNOME no siempre trae la ventana nueva del navegador al
+            # frente, así que le avisamos de dónde tiene que mirarla.
+            self._show_toast(_("Se ha abierto una ventana nueva en tu navegador"))
+        else:
+            self.status_label.set_text(_("No se pudo abrir Google AI Mode en el navegador"))
+            self._show_toast(_("No se pudo abrir Google AI Mode en el navegador"))
+
+    def _show_toast(self, message, timeout=2):
+        """Muestra un aviso breve en la ventana (2 segundos por defecto).
+
+        English: Shows a short message inside the app. It is used to tell the
+        user that the browser was opened, because GNOME does not always focus
+        the new window.
+        Español: Muestra un aviso breve dentro de la aplicación. Se usa para
+        avisar de que el navegador se ha abierto, porque GNOME no siempre
+        enfoca la ventana nueva.
+        """
+        try:
+            toast = Adw.Toast.new(message)
+            toast.set_timeout(timeout)
+            self.toast_overlay.add_toast(toast)
+        except Exception as e:
+            print(f"Error mostrando el aviso: {e}")
 
     def on_search_entry_activated(self, entry):
         text = entry.get_text().strip()
@@ -1526,7 +1607,10 @@ class PackageInstaller(Adw.ApplicationWindow):
             
         self.file_path = identifier
         self.status_label.set_text(_("Obteniendo información de la aplicación..."))
-        self._show_progress(_("Analizando paquete..."), skip_callback=self.on_skip_analysis_clicked)
+        op_id = self._show_progress(
+            _("Analizando paquete..."),
+            skip_callback=lambda: self.on_skip_analysis_clicked(op_id),
+        )
         
         def _get_info():
             try:
@@ -1581,19 +1665,19 @@ class PackageInstaller(Adw.ApplicationWindow):
                     info['is_installed'] = is_installed
                     info['identifier'] = identifier
                     
-                GLib.idle_add(self._present_details_window, info)
+                GLib.idle_add(self._present_details_window, info, op_id)
             except Exception as e:
                 print(f"Error getting package info: {e}")
-                GLib.idle_add(self._hide_progress_and_error)
+                GLib.idle_add(self._hide_progress_and_error, op_id)
             
         threading.Thread(target=_get_info, daemon=True).start()
 
-    def _hide_progress_and_error(self):
-        self._close_progress_dialog()
+    def _hide_progress_and_error(self, op_id=None):
+        self._close_progress_dialog(op_id)
         self.status_label.set_text(_("No he podido obtener detalles del paquete"))
 
-    def _present_details_window(self, info):
-        self._close_progress_dialog()
+    def _present_details_window(self, info, op_id=None):
+        self._close_progress_dialog(op_id)
         self.status_label.set_text(_("Detalles de la aplicación cargados"))
         
         if hasattr(self, 'details_widget_instance') and self.details_widget_instance:
@@ -1638,21 +1722,33 @@ class PackageInstaller(Adw.ApplicationWindow):
     def uninstall_package_from_details(self, name, source):
         if source in ['gnome-ext', 'gnome-extension']:
             self.set_buttons_sensitive(False)
-            self._show_progress(_("Desinstalando extensión..."))
+            token = prompt_engine.CancelToken()
+            op_id = self._show_progress(_("Desinstalando extensión..."), cancel_token=token)
             user_dir = os.path.expanduser(f"~/.local/share/gnome-shell/extensions/{name}")
             cmd = [
                 "sh", "-c",
                 f"(gdbus call --session --dest org.gnome.Shell.Extensions --object-path /org/gnome/Shell/Extensions --method org.gnome.Shell.Extensions.UninstallExtension '{name}' || true) && "
                 f"(gnome-extensions uninstall '{name}' || true) && rm -rf '{user_dir}'"
             ]
-            self.install_service.run_installation(cmd, f"uninstall:gnome-ext:{name}", self.update_progress_ui, self.on_uninstall_complete, on_log=self.on_operation_log)
+            self.install_service.run_installation(
+                cmd, f"uninstall:gnome-ext:{name}", self.update_progress_ui,
+                self._operation_callback(op_id, self.on_uninstall_complete, token),
+                on_log=self._operation_log_handler(op_id),
+                cancel_token=token,
+            )
             return
 
         if source == 'pulsar':
             self.set_buttons_sensitive(False)
-            self._show_progress(_("Desinstalando paquete..."))
+            token = prompt_engine.CancelToken()
+            op_id = self._show_progress(_("Desinstalando paquete..."), cancel_token=token)
             cmd = self.info_service.pulsar_adapter.uninstall(name)
-            self.install_service.run_installation(cmd, f"uninstall:pulsar:{name}", self.update_progress_ui, self.on_uninstall_complete, on_log=self.on_operation_log)
+            self.install_service.run_installation(
+                cmd, f"uninstall:pulsar:{name}", self.update_progress_ui,
+                self._operation_callback(op_id, self.on_uninstall_complete, token),
+                on_log=self._operation_log_handler(op_id),
+                cancel_token=token,
+            )
             return
 
         is_flatpak = (source == 'flatpak')
@@ -1672,10 +1768,10 @@ class PackageInstaller(Adw.ApplicationWindow):
             is_brew=is_brew
         )
 
-    def on_skip_analysis_clicked(self):
+    def on_skip_analysis_clicked(self, op_id=None):
         # English: Skip package analysis and trigger installation directly
         # Español: Omitir el análisis del paquete e iniciar la instalación de inmediato
-        self._close_progress_dialog()
+        self._close_progress_dialog(op_id)
         self.status_label.set_text(_("Análisis omitido, instalando..."))
         GLib.idle_add(lambda: self.on_install_clicked(None))
 
@@ -1721,6 +1817,8 @@ class PackageInstaller(Adw.ApplicationWindow):
             body=_("Este paquete se compilará e instalará desde el Arch User Repository. Revisa el PKGBUILD: cualquier archivo se ejecuta con tus permisos.")
         )
         if pkgbuild:
+            extra_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+
             scrolled = Gtk.ScrolledWindow()
             scrolled.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
             scrolled.set_size_request(-1, 300)
@@ -1730,13 +1828,31 @@ class PackageInstaller(Adw.ApplicationWindow):
             view.add_css_class("pkgbuild-view")
             view.get_buffer().set_text(pkgbuild)
             scrolled.set_child(view)
-            dialog.set_extra_child(scrolled)
+            extra_box.append(scrolled)
+
+            # English: Send the PKGBUILD to Google AI Mode to have it reviewed
+            # Español: Enviar el PKGBUILD a Google AI Mode para que lo analice
+            ai_btn = Gtk.Button(label=_("Analizar PKGBUILD con IA"))
+            ai_btn.add_css_class("suggested-action")
+            ai_btn.set_halign(Gtk.Align.CENTER)
+            ai_btn.connect("clicked", lambda b, n=pkg_name, p=pkgbuild: self._analyze_pkgbuild_with_ai(n, p))
+            extra_box.append(ai_btn)
+
+            dialog.set_extra_child(extra_box)
         dialog.add_response("cancel", _("Cancelar"))
         dialog.add_response("install", _("Instalar"))
         dialog.set_default_response("cancel")
         dialog.set_response_appearance("install", Adw.ResponseAppearance.SUGGESTED)
         dialog.connect("response", self._on_aur_confirm_response)
         dialog.present(self)
+
+    def _analyze_pkgbuild_with_ai(self, package_name, pkgbuild):
+        # English: Open the PKGBUILD in Google AI Mode for a safety review
+        # Español: Abrir el PKGBUILD en Google AI Mode para revisar su seguridad
+        if analyze_pkgbuild_with_ai(pkgbuild, package_name):
+            self.status_label.set_text(_("PKGBUILD enviado a Google AI Mode"))
+        else:
+            self.status_label.set_text(_("No se pudo abrir Google AI Mode en el navegador"))
 
     def _on_aur_confirm_response(self, dialog, response):
         if response == "install":
@@ -1751,20 +1867,72 @@ class PackageInstaller(Adw.ApplicationWindow):
         self.set_buttons_sensitive(False)
         self.status_label.set_text(_("Instalando..."))
         self.progress_bar.set_fraction(0.0)
-        
-        self._show_progress(_("Instalando..."))
-        
-        self.install_service.run_installation(cmd, self.file_path, self.update_progress_ui, self.on_installation_complete, on_log=self.on_operation_log)
+
+        token = prompt_engine.CancelToken()
+        op_id = self._show_progress(_("Instalando..."), cancel_token=token)
+
+        self.install_service.run_installation(
+            cmd, self.file_path, self.update_progress_ui,
+            self._operation_callback(op_id, self.on_installation_complete, token),
+            on_log=self._operation_log_handler(op_id),
+            cancel_token=token,
+        )
+
+    def install_flatpak_plugin(self, app_id, name=""):
+        """Instala o reinstala un plugin (addon) de Flatpak.
+
+        English: Installs or reinstalls a Flatpak plugin from the plugin list
+        of the details view, showing the progress in the bottom bar.
+        Español: Instala o reinstala un plugin (addon) de Flatpak desde la
+        lista de plugins de la ficha, mostrando el progreso en la barra
+        inferior.
+        """
+        if not app_id:
+            return
+
+        plugin_name = name or app_id
+        self.set_buttons_sensitive(False)
+        self.status_label.set_text(_("Instalando plugin {}...").format(plugin_name))
+        self.progress_bar.set_fraction(0.0)
+
+        token = prompt_engine.CancelToken()
+        op_id = self._show_progress(_("Instalando plugin {}...").format(plugin_name), cancel_token=token)
+
+        cmd = self.install_service.flatpak_adapter.install_addon(app_id)
+        self.install_service.run_plugin_installation(
+            cmd, plugin_name, self.update_progress_ui,
+            self._operation_callback(op_id, self.on_plugin_install_complete, token),
+            on_log=self._operation_log_handler(op_id),
+            cancel_token=token,
+        )
+
+    def on_plugin_install_complete(self, message, is_error=False, stderr_output=""):
+        self.progress_bar.set_fraction(1.0)
+        self.status_label.set_text(message)
+
+        if is_error:
+            dialog = Adw.AlertDialog(heading=_("¡Un error al instalar el plugin!"), body=message)
+        else:
+            dialog = Adw.AlertDialog(heading=_("He instalado el plugin"), body=message)
+
+        self._present_result_dialog(dialog, is_error, log_text=stderr_output or message)
+        self._sync_buttons_state()
 
     def on_fix_deps_clicked(self, widget):
         self.set_buttons_sensitive(False)
         self.status_label.set_text(_("Corregir errores"))
         self.progress_bar.set_fraction(0.0)
-        
-        self._show_progress(_("Corregir errores"))
-        
+
+        token = prompt_engine.CancelToken()
+        op_id = self._show_progress(_("Corregir errores"), cancel_token=token)
+
         cmd = self.pkg_manager.fix_broken()
-        self.install_service.run_fix_deps(cmd, self.update_progress_ui, self.on_fix_deps_complete, on_log=self.on_operation_log)
+        self.install_service.run_fix_deps(
+            cmd, self.update_progress_ui,
+            self._operation_callback(op_id, self.on_fix_deps_complete, token),
+            on_log=self._operation_log_handler(op_id),
+            cancel_token=token,
+        )
 
     def on_upgrade_system_clicked(self, widget):
         # English: Trigger full system update and upgrade (including Flatpak)
@@ -1773,8 +1941,9 @@ class PackageInstaller(Adw.ApplicationWindow):
         self.status_label.set_text(_("Actualizando el sistema..."))
         self.progress_bar.set_fraction(0.0)
         
-        self._show_progress(_("Actualizando el sistema..."))
-        
+        token = prompt_engine.CancelToken()
+        op_id = self._show_progress(_("Actualizando el sistema..."), cancel_token=token)
+
         cmd = self.pkg_manager.upgrade_system()
         import shutil
         import shlex
@@ -1787,7 +1956,12 @@ class PackageInstaller(Adw.ApplicationWindow):
             elif cmd:
                 inner_cmd = shlex.join(cmd)
                 cmd = ['sh', '-c', f"{inner_cmd} && (flatpak update -y || true)"]
-        self.install_service.run_installation(cmd, "system_upgrade", self.update_progress_ui, self.on_upgrade_system_complete, on_log=self.on_operation_log)
+        self.install_service.run_installation(
+            cmd, "system_upgrade", self.update_progress_ui,
+            self._operation_callback(op_id, self.on_upgrade_system_complete, token),
+            on_log=self._operation_log_handler(op_id),
+            cancel_token=token,
+        )
 
     def on_apps_clicked(self, widget):
         self.sidebar_list.select_row(self.sidebar_list.get_row_at_index(1))
@@ -1806,59 +1980,126 @@ class PackageInstaller(Adw.ApplicationWindow):
         self.set_buttons_sensitive(False)
         self.status_label.set_text(_("Instalando..."))
         self.progress_bar.set_fraction(0.0)
-        
-        self._show_progress(_("Instalando {}...").format(display_name))
-        
+
+        token = prompt_engine.CancelToken()
+        op_id = self._show_progress(_("Instalando {}...").format(display_name), cancel_token=token)
+
         cmd = self.install_service.get_appimage_install_command(self.file_path, display_name, icon_path)
-        self.install_service.run_installation(cmd, self.file_path, self.update_progress_ui, self.on_installation_complete, on_log=self.on_operation_log)
+        self.install_service.run_installation(
+            cmd, self.file_path, self.update_progress_ui,
+            self._operation_callback(op_id, self.on_installation_complete, token),
+            on_log=self._operation_log_handler(op_id),
+            cancel_token=token,
+        )
 
     def proceed_with_pwa_installation(self, display_name, url, icon_path):
         self.set_buttons_sensitive(False)
         self.status_label.set_text(_("Creando PWA..."))
         self.progress_bar.set_fraction(0.0)
-        
-        self._show_progress(_("Creando PWA {}...").format(display_name))
-        
+
+        token = prompt_engine.CancelToken()
+        op_id = self._show_progress(_("Creando PWA {}...").format(display_name), cancel_token=token)
+
         cmd = self.install_service.get_pwa_install_command(display_name, url, icon_path)
-        self.install_service.run_installation(cmd, None, self.update_progress_ui, self.on_installation_complete, on_log=self.on_operation_log)
+        self.install_service.run_installation(
+            cmd, None, self.update_progress_ui,
+            self._operation_callback(op_id, self.on_installation_complete, token),
+            on_log=self._operation_log_handler(op_id),
+            cancel_token=token,
+        )
 
     def on_operation_log(self, line):
-        if hasattr(self, 'bottom_log_label') and self.bottom_log_label:
-            GLib.idle_add(self.bottom_log_label.set_text, line)
-        if hasattr(self, 'bottom_progress_bar') and self.bottom_progress_bar:
-            GLib.idle_add(self.bottom_progress_bar.pulse)
+        # English: Legacy entry point, sends the log line to the latest operation
+        # Español: Entrada heredada, envía la línea de registro a la última operación
+        op_id = getattr(self, '_last_operation_id', None)
+        if op_id is not None:
+            self.operation_bar.set_log(op_id, line)
 
-    def _close_progress_dialog(self):
-        if hasattr(self, 'bottom_progress_box') and self.bottom_progress_box:
-            self.bottom_spinner.stop()
-            self.bottom_progress_box.set_visible(False)
-            self.bottom_title_label.set_text("")
-            self.bottom_log_label.set_text("")
+    def _operation_log_handler(self, op_id):
+        # English: Log handler bound to a concrete operation
+        # Español: Manejador de registro asociado a una operación concreta
+        def _handler(line):
+            self.operation_bar.set_log(op_id, line)
+        return _handler
 
-    def _show_progress(self, message, skip_callback=None):
-        if hasattr(self, 'bottom_progress_box') and self.bottom_progress_box:
-            self.bottom_progress_box.set_visible(True)
-            self.bottom_spinner.start()
-            self.bottom_title_label.set_text(message)
-            self.bottom_log_label.set_text("")
-            self.bottom_progress_bar.set_fraction(0.0)
-            
-            if skip_callback:
-                self.bottom_skip_button.set_visible(True)
-                if hasattr(self, '_skip_handler_id') and self._skip_handler_id:
-                    try:
-                        self.bottom_skip_button.disconnect(self._skip_handler_id)
-                    except Exception:
-                        pass
-                self._skip_handler_id = self.bottom_skip_button.connect("clicked", lambda b: skip_callback())
-            else:
-                self.bottom_skip_button.set_visible(False)
-        return None
+    def _operation_callback(self, op_id, handler, cancel_token=None):
+        # English: Wraps a completion callback so its operation row is removed
+        # Español: Envuelve un callback de finalización para quitar su fila
+        def _callback(message, is_error=False, stderr_output=""):
+            cancelled = cancel_token is not None and cancel_token.was_terminated()
+            self._finish_operation(op_id)
+            if cancelled:
+                # English: The user stopped it: no error dialog, just a note
+                # Español: El usuario lo paró: sin diálogo de error, solo un aviso
+                self.status_label.set_text(_("Operación cancelada"))
+                self._sync_buttons_state()
+                return
+            handler(message, is_error, stderr_output)
+        return _callback
+
+    def _cancel_operation(self, op_id, cancel_token=None):
+        # English: Stops a running operation from the bottom bar
+        # Español: Detiene una operación en curso desde la barra inferior
+        if op_id is None:
+            return
+
+        row = self.operation_bar.get_row(op_id)
+        if row is not None:
+            row.set_cancelling()
+            row.set_title(_("Cancelando..."))
+
+        if cancel_token is not None:
+            try:
+                cancel_token.cancel()
+            except Exception as e:
+                print(f"Error cancelando la operación: {e}")
+
+        self.status_label.set_text(_("Cancelando la operación..."))
+
+    def _finish_operation(self, op_id):
+        # English: Removes a single operation from the bottom bar
+        # Español: Elimina una operación concreta de la barra inferior
+        if op_id is None:
+            return
+        self.operation_bar.finish(op_id)
+        self._sync_buttons_state()
+
+    def _close_progress_dialog(self, op_id=None):
+        # English: Closes one operation, or all of them when no id is given
+        # Español: Cierra una operación, o todas si no se indica identificador
+        if op_id is None:
+            self.operation_bar.finish_all()
+        else:
+            self.operation_bar.finish(op_id)
+
+    def _show_progress(self, message, skip_callback=None, cancel_token=None):
+        # English: Starts a new operation and returns its id. Every operation
+        # has its own row, so concurrent installs do not cancel each other.
+        # Español: Inicia una operación nueva y devuelve su identificador.
+        # Cada operación tiene su propia fila, así las instalaciones
+        # simultáneas no se anulan entre sí.
+        op_id = None
+
+        def _on_cancel():
+            self._cancel_operation(op_id, cancel_token)
+
+        op_id = self.operation_bar.start(
+            message,
+            skip_callback=skip_callback,
+            cancel_callback=_on_cancel if cancel_token is not None else None,
+        )
+        self._last_operation_id = op_id
+        return op_id
+
+    def _sync_buttons_state(self):
+        # English: Buttons are only restored when no operation is running
+        # Español: Los botones solo se reactivan si no queda ninguna operación
+        if not self.operation_bar.has_operations():
+            self.set_buttons_sensitive(True)
 
     def update_progress_ui(self):
-        if hasattr(self, 'bottom_progress_bar') and self.bottom_progress_bar:
-            new_value = min(1.0, self.bottom_progress_bar.get_fraction() + 0.04)
-            self.bottom_progress_bar.set_fraction(new_value)
+        # English: The bottom bars pulse on their own timer now
+        # Español: Las barras inferiores ahora laten solas con su temporizador
         new_val = min(1.0, self.progress_bar.get_fraction() + 0.01)
         self.progress_bar.set_fraction(new_val)
         return False
@@ -1980,9 +2221,6 @@ class PackageInstaller(Adw.ApplicationWindow):
     def on_installation_complete(self, message, is_error=False, stderr_output=""):
         self.progress_bar.set_fraction(1.0)
         self.status_label.set_text(message)
-        
-        # Always dismiss the progress window so the alert/error dialog is presented directly on top
-        self._close_progress_dialog()
 
         if is_error:
             dialog = Adw.AlertDialog(heading=_("¡Un error en la instalación!"), body=message)
@@ -1990,12 +2228,11 @@ class PackageInstaller(Adw.ApplicationWindow):
             dialog = Adw.AlertDialog(heading=_("He terminado la instalación"), body=message)
         
         self._present_result_dialog(dialog, is_error, log_text=stderr_output or message)
-        self.set_buttons_sensitive(True)
+        self._sync_buttons_state()
 
     def on_uninstall_complete(self, message, is_error=False, stderr_output=""):
         self.progress_bar.set_fraction(1.0)
         self.status_label.set_text(message)
-        self._close_progress_dialog()
 
         if is_error:
             dialog = Adw.AlertDialog(heading=_("¡Un error en la desinstalación!"), body=message)
@@ -2003,29 +2240,27 @@ class PackageInstaller(Adw.ApplicationWindow):
             dialog = Adw.AlertDialog(heading=_("Desinstalación completada"), body=message)
         
         self._present_result_dialog(dialog, is_error, log_text=stderr_output or message)
-        self.set_buttons_sensitive(True)
+        self._sync_buttons_state()
         if self.file_path and self.main_stack.get_visible_child_name() == "package_details":
             GLib.idle_add(lambda: self.show_package_details(identifier=self.file_path, is_local=False))
 
-    def on_fix_deps_complete(self, message, is_error=False):
+    def on_fix_deps_complete(self, message, is_error=False, stderr_output=""):
         self.progress_bar.set_fraction(1.0)
         self.status_label.set_text(message)
-        self._close_progress_dialog()
 
         if is_error:
             dialog = Adw.AlertDialog(heading=_("¡Un error al corregir las dependencias!"), body=message)
         else:
             dialog = Adw.AlertDialog(heading=_("He corregido las dependencias"), body=message)
         
-        self._present_result_dialog(dialog, is_error, log_text=message)
-        self.set_buttons_sensitive(True)
+        self._present_result_dialog(dialog, is_error, log_text=stderr_output or message)
+        self._sync_buttons_state()
 
     def on_upgrade_system_complete(self, message, is_error=False, stderr_output=""):
         # English: Handle system upgrade completion dialog and state reset
         # Español: Manejar el diálogo de finalización de actualización del sistema y reinicio de estado
         self.progress_bar.set_fraction(1.0)
         self.status_label.set_text(message)
-        self._close_progress_dialog()
 
         if is_error:
             dialog = Adw.AlertDialog(heading=_("¡Un error al actualizar el sistema!"), body=message)
@@ -2033,7 +2268,7 @@ class PackageInstaller(Adw.ApplicationWindow):
             dialog = Adw.AlertDialog(heading=_("He terminado de actualizar el sistema"), body=message)
         
         self._present_result_dialog(dialog, is_error, log_text=stderr_output or message)
-        self.set_buttons_sensitive(True)
+        self._sync_buttons_state()
 
     def set_buttons_sensitive(self, sensitive):
         for attr in ('install_button', 'fix_deps_button', 'pwa_button', 'upgrade_system_button'):

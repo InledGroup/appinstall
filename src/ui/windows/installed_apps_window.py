@@ -506,8 +506,16 @@ class InstalledAppsWidget(Gtk.Box):
         self.progress_bar.set_visible(True)
         self.status_label.set_text(_("Desinstalando {}...").format(package_name))
         
+        # English: Each uninstall gets its own row in the bottom bar
+        # Español: Cada desinstalación tiene su propia fila en la barra inferior
+        op_id = None
+        token = prompt_engine.CancelToken()
         if hasattr(self.parent_window, '_show_progress'):
-            self.parent_window._show_progress(_("Desinstalando {}...").format(package_name))
+            op_id = self.parent_window._show_progress(
+                _("Desinstalando {}...").format(package_name), cancel_token=token
+            )
+        self._uninstall_op_id = op_id
+        self._uninstall_token = token
 
         cmd = self.uninstall_service.get_uninstall_command(
             package_name, is_appimage, is_brew, is_pwa, BREW_PATH,
@@ -516,13 +524,17 @@ class InstalledAppsWidget(Gtk.Box):
         self.uninstall_service.run_uninstall(
             cmd,
             on_progress=self.update_uninstall_progress,
-            on_complete=lambda success, error: self.uninstall_complete(package_name, success, is_appimage, is_brew, is_pwa, is_flatpak, is_snap, is_aur, error),
-            on_log=self.on_uninstall_log
+            on_complete=lambda success, error: self.uninstall_complete(op_id, package_name, success, is_appimage, is_brew, is_pwa, is_flatpak, is_snap, is_aur, error),
+            on_log=self.on_uninstall_log,
+            cancel_token=token,
         )
         return False
     
     def on_uninstall_log(self, line):
-        if hasattr(self.parent_window, 'on_operation_log'):
+        op_id = getattr(self, '_uninstall_op_id', None)
+        if op_id is not None and hasattr(self.parent_window, '_operation_log_handler'):
+            self.parent_window._operation_log_handler(op_id)(line)
+        elif hasattr(self.parent_window, 'on_operation_log'):
             self.parent_window.on_operation_log(line)
         self.update_uninstall_progress()
 
@@ -535,16 +547,27 @@ class InstalledAppsWidget(Gtk.Box):
             self.parent_window.update_progress_ui()
         return False
 
-    def uninstall_complete(self, package_name, success, is_appimage=False, is_brew=False, is_pwa=False, is_flatpak=False, is_snap=False, is_aur=False, error_message=None):
+    def uninstall_complete(self, op_id, package_name, success, is_appimage=False, is_brew=False, is_pwa=False, is_flatpak=False, is_snap=False, is_aur=False, error_message=None):
         self.search_entry.set_sensitive(True)
         self.stop_loading = False
 
-        if hasattr(self.parent_window, '_close_progress_dialog'):
-            self.parent_window._close_progress_dialog()
+        # English: The user stopped the uninstall from the bottom bar
+        # Español: El usuario paró la desinstalación desde la barra inferior
+        token = getattr(self, '_uninstall_token', None)
+        cancelled = token is not None and token.was_terminated()
+
+        if hasattr(self.parent_window, '_finish_operation'):
+            self.parent_window._finish_operation(op_id)
+        elif hasattr(self.parent_window, '_close_progress_dialog'):
+            self.parent_window._close_progress_dialog(op_id)
 
         self.progress_bar.set_visible(False)
         self.progress_bar.set_fraction(0.0)
-        
+
+        if cancelled:
+            self.status_label.set_text(_("Operación cancelada"))
+            return
+
         # Esperar un breve momento para que la animación de cierre termine
         GLib.timeout_add(200, self._show_uninstall_result, package_name, success, is_appimage, is_brew, is_pwa, is_flatpak, is_snap, is_aur, error_message)
 

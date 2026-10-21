@@ -3,6 +3,7 @@ import threading
 from gi.repository import Gtk, GLib, Adw
 from src.infrastructure.services.localization import _
 from src.utils.system import get_safe_window_size
+from src.application import prompt_engine
 
 from .progress_window import ProgressWindow
 
@@ -294,10 +295,14 @@ class AntivirusWidget(Gtk.Box):
                 self.progress_bar.set_fraction(0.0)
                 self.status_label.set_text(_("Instalando ClamAV..."))
                 
+                op_id = None
+                token = prompt_engine.CancelToken()
                 if hasattr(self.parent_window, '_show_progress'):
-                    self.parent_window._show_progress(_("Instalando ClamAV..."))
-                
-                self.antivirus_service.install_clamav(self.update_install_progress, self.update_status_label, self.install_clam_complete)
+                    op_id = self.parent_window._show_progress(_("Instalando ClamAV..."), cancel_token=token)
+                self._clam_op_id = op_id
+                self._clam_token = token
+
+                self.antivirus_service.install_clamav(self.update_install_progress, self.update_status_label, self.install_clam_complete, cancel_token=token)
         except Exception as e:
             print(f"Dialog error: {e}")
 
@@ -307,16 +312,29 @@ class AntivirusWidget(Gtk.Box):
 
     def update_status_label(self, message):
         self.status_label.set_text(message)
-        if hasattr(self.parent_window, 'on_operation_log'):
+        op_id = getattr(self, '_clam_op_id', None)
+        if op_id is not None and hasattr(self.parent_window, '_operation_log_handler'):
+            self.parent_window._operation_log_handler(op_id)(message)
+        elif hasattr(self.parent_window, 'on_operation_log'):
             self.parent_window.on_operation_log(message)
         return False
 
     def install_clam_complete(self, success, error_msg):
-        if hasattr(self.parent_window, '_close_progress_dialog'):
-            self.parent_window._close_progress_dialog()
-            
+        if hasattr(self.parent_window, '_finish_operation'):
+            self.parent_window._finish_operation(getattr(self, '_clam_op_id', None))
+        elif hasattr(self.parent_window, '_close_progress_dialog'):
+            self.parent_window._close_progress_dialog(getattr(self, '_clam_op_id', None))
+
         self.progress_bar.set_visible(False)
         self.install_clam_button.set_sensitive(True)
+
+        # English: The user stopped the installation from the bottom bar
+        # Español: El usuario paró la instalación desde la barra inferior
+        token = getattr(self, '_clam_token', None)
+        if token is not None and token.was_terminated():
+            self.status_label.set_text(_("Operación cancelada"))
+            return False
+
         if success:
             self.status_label.set_text(_("ClamAV instalado correctamente"))
             GLib.timeout_add(1000, lambda: self.antivirus_service.check_clamav_status(self.on_clam_status_complete))
@@ -331,8 +349,10 @@ class AntivirusWidget(Gtk.Box):
         self.progress_bar.set_fraction(0.0)
         self.status_label.set_text(_("Actualizando definiciones de virus..."))
         
+        op_id = None
         if hasattr(self.parent_window, '_show_progress'):
-            self.parent_window._show_progress(_("Actualizando definiciones de virus..."))
+            op_id = self.parent_window._show_progress(_("Actualizando definiciones de virus..."))
+        self._defs_op_id = op_id
         
         self.antivirus_service.update_definitions(self.update_defs_progress, self.update_definitions_complete)
 
@@ -341,8 +361,10 @@ class AntivirusWidget(Gtk.Box):
         return False
 
     def update_definitions_complete(self, success, error_msg):
-        if hasattr(self.parent_window, '_close_progress_dialog'):
-            self.parent_window._close_progress_dialog()
+        if hasattr(self.parent_window, '_finish_operation'):
+            self.parent_window._finish_operation(getattr(self, '_defs_op_id', None))
+        elif hasattr(self.parent_window, '_close_progress_dialog'):
+            self.parent_window._close_progress_dialog(getattr(self, '_defs_op_id', None))
             
         self.progress_bar.set_visible(False)
         self.update_button.set_sensitive(True)
@@ -374,8 +396,10 @@ class AntivirusWidget(Gtk.Box):
         self.status_label.set_text(_("Iniciando análisis antivirus..."))
         self.results_text.get_buffer().set_text("")
         
+        op_id = None
         if hasattr(self.parent_window, '_show_progress'):
-            self.parent_window._show_progress(_("Analizando virus..."))
+            op_id = self.parent_window._show_progress(_("Analizando virus..."))
+        self._scan_op_id = op_id
         
         if self.quick_scan_radio.get_active():
             scan_paths = [os.path.expanduser("~"), "/tmp", "/var/tmp"]
@@ -395,13 +419,18 @@ class AntivirusWidget(Gtk.Box):
         buffer = self.results_text.get_buffer()
         buffer.insert(buffer.get_end_iter(), text)
         self.results_text.scroll_to_mark(buffer.get_insert(), 0.0, False, 0.0, 0.0)
-        if hasattr(self.parent_window, 'on_operation_log'):
+        op_id = getattr(self, '_scan_op_id', None)
+        if op_id is not None and hasattr(self.parent_window, '_operation_log_handler'):
+            self.parent_window._operation_log_handler(op_id)(text.strip())
+        elif hasattr(self.parent_window, 'on_operation_log'):
             self.parent_window.on_operation_log(text.strip())
         return False
 
     def scan_complete(self, success, infected_count, scanned_count, stderr):
-        if hasattr(self.parent_window, '_close_progress_dialog'):
-            self.parent_window._close_progress_dialog()
+        if hasattr(self.parent_window, '_finish_operation'):
+            self.parent_window._finish_operation(getattr(self, '_scan_op_id', None))
+        elif hasattr(self.parent_window, '_close_progress_dialog'):
+            self.parent_window._close_progress_dialog(getattr(self, '_scan_op_id', None))
             
         self.progress_bar.set_fraction(1.0)
         self.scan_button.set_sensitive(True)

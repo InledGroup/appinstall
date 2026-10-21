@@ -1,6 +1,11 @@
 import os
 from gi.repository import Gtk, Gdk
 
+# Prioridad con la que se registra la hoja de estilos de la aplicación.
+# Tiene que ser mayor que GTK_STYLE_PROVIDER_PRIORITY_USER (800) para que
+# el CSS del tema del usuario no pise las clases propias de la app.
+APP_CSS_PRIORITY = Gtk.STYLE_PROVIDER_PRIORITY_USER + 100
+
 def load_css():
     css_provider = Gtk.CssProvider()
     
@@ -443,10 +448,20 @@ def load_css():
     
     try:
         css_provider.load_from_string(css_data)
+        # English: The user's own theme stylesheet (~/.config/gtk-4.0/gtk.css)
+        # is registered with GTK_STYLE_PROVIDER_PRIORITY_USER, so it used to
+        # override the rules of the application (for example the ".card"
+        # class, which the theme also defines). Loading our stylesheet with
+        # a higher priority keeps the app looking the same with any theme.
+        # Español: La hoja de estilos del tema del usuario
+        # (~/.config/gtk-4.0/gtk.css) se registra con prioridad USER y
+        # pisaba las reglas de la aplicación (por ejemplo la clase ".card",
+        # que el tema también define). Cargamos nuestra hoja con una
+        # prioridad superior para que la app se vea igual con cualquier tema.
         Gtk.StyleContext.add_provider_for_display(
             Gdk.Display.get_default(),
             css_provider,
-            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+            APP_CSS_PRIORITY
         )
     except Exception as e:
         print(f"Error al cargar el CSS: {e}")

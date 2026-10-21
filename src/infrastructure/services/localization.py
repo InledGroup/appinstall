@@ -2,6 +2,11 @@ import os
 import locale
 import gettext
 
+# English: Effective language of the interface, filled in by setup_localization()
+# Español: Idioma efectivo de la interfaz, lo rellena setup_localization()
+_current_language = 'en'
+
+
 def setup_localization():
     # Buscar el directorio de traducciones en las ubicaciones habituales
     base = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -31,6 +36,9 @@ def setup_localization():
     # si 'C' va dentro de la lista 'languages', así que debe normalizarse antes.
     if lang_clean.lower() in ('c', 'posix', ''):
         lang_clean = 'en'
+
+    global _current_language
+    _current_language = lang_clean
 
     # Si el sistema está en español, los textos del código fuente ya son en español
     if lang_clean.lower().startswith('es'):
@@ -63,4 +71,17 @@ def setup_localization():
     return gettext.gettext
 
 _ = setup_localization()
+
+
+def get_current_language():
+    """Devuelve el código del idioma efectivo de la interfaz (es, en, fr...).
+
+    English: Returns the effective interface language code, so features that
+    talk to an external service (like Google AI Mode) can ask it to answer in
+    the language of the user.
+    Español: Devuelve el código del idioma efectivo de la interfaz, para que
+    las funciones que hablan con un servicio externo (como Google AI Mode)
+    puedan pedirle que responda en el idioma del usuario.
+    """
+    return _current_language
 
