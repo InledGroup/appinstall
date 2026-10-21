@@ -11,9 +11,17 @@ def load_css():
     
     # CSS adaptativo moderno para GNOME / Libadwaita (Soporte perfecto Modo Claro y Oscuro)
     css_data = """
+    /* La ventana no pinta su propio fondo: así el tema del sistema (y el
+       blur de blur-my-shell) se aplican detrás del contenido. Los widgets
+       y botones de abajo sí mantienen los estilos de la app. */
     .main-window {
-        background-color: @window_bg_color;
+        background-color: transparent;
         color: @window_fg_color;
+    }
+
+    .main-window .background,
+    .main-window > .background {
+        background-color: transparent;
     }
     
     .header-bar {
@@ -21,8 +29,10 @@ def load_css():
         border-bottom: 1px solid alpha(currentColor, 0.08);
     }
     
+    /* Fondo casi transparente: solo un punto más oscuro que el fondo del
+       sistema (que deja ver el blur) más el borde, para diferenciarla. */
     .card {
-        background-color: @card_bg_color;
+        background-color: alpha(@card_bg_color, 0.22);
         color: @card_fg_color;
         border-radius: 12px;
         padding: 18px;
@@ -91,6 +101,15 @@ def load_css():
     .list-row {
         border-radius: 8px;
         margin: 2px;
+    }
+
+    /* La lista de "Mis Aplicaciones" (vista de desinstalar) no pinta su
+       propio fondo: GTK4 le da @view_bg_color opaco por defecto. Sin esa
+       regla tapaba el fondo del sistema y su blur. */
+    .installed-apps-list,
+    .installed-apps-list > row,
+    .installed-apps-list listrow {
+        background-color: transparent;
     }
     
     .file-chooser-button {
@@ -172,7 +191,7 @@ def load_css():
     }
     
     .top-free-card {
-        background-color: @card_bg_color;
+        background-color: alpha(@card_bg_color, 0.22);
         color: @card_fg_color;
         border-radius: 14px;
         padding: 14px;
@@ -279,7 +298,7 @@ def load_css():
     }
 
     .bottom-status-bar {
-        background-color: @card_bg_color;
+        background-color: alpha(@card_bg_color, 0.3);
         border-top: 1px solid alpha(currentColor, 0.08);
         padding: 6px 14px 10px 14px;
     }
