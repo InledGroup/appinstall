@@ -37,6 +37,8 @@ jobs:
           cp start.py appinstall/usr/share/appinstall/
           cp styles.css appinstall/usr/share/appinstall/
           cp appimage.png appinstall/usr/share/appinstall/
+          # Recomendaciones curadas del inicio (la app la busca en /usr/share/appinstall/)
+          cp recommendations.json appinstall/usr/share/appinstall/
           
           # Integración del sistema
           mkdir -p appinstall/usr/share/applications/
