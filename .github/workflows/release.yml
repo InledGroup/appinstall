@@ -5,6 +5,8 @@ on:
     branches:
       - main
       - master
+  # Permite republicar la release manualmente desde la pestaña Actions
+  workflow_dispatch:
 
 permissions:
   contents: write
