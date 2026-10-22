@@ -8,6 +8,12 @@ import shutil
 
 from src.infrastructure.services.localization import _
 
+try:
+    import fcntl
+except ImportError:  # pragma: no cover - solo Linux
+    fcntl = None
+
+
 class DaemonService:
     """Demonio de segundo plano para comprobación y aplicación automática de actualizaciones en Pulsar OS."""
 
@@ -15,6 +21,13 @@ class DaemonService:
         os.path.expanduser("~/.config/appinstall/config.json"),
         "/etc/appinstall/config.json"
     ]
+
+    # Fichero de bloqueo: evita que corran varios ciclos simultáneamente
+    # (el demonio de sesión y la aplicación abierta a la vez, por ejemplo).
+    LOCK_PATH = os.path.expanduser("~/.cache/appinstall/autoupdate.lock")
+
+    # Horas entre comprobaciones automáticas
+    INTERVAL_HOURS = 6
 
     def is_auto_update_enabled(self) -> bool:
         """Comprueba si el usuario tiene activadas las actualizaciones automáticas."""
@@ -29,6 +42,24 @@ class DaemonService:
                     print(f"[Daemon] Error leyendo configuración ({path}): {e}")
         # Activadas de forma predeterminada
         return True
+
+    def _acquire_lock(self):
+        """Bloquea la instancia única del ciclo. Devuelve el descriptor o None."""
+        if fcntl is None:
+            return None
+        try:
+            os.makedirs(os.path.dirname(self.LOCK_PATH), exist_ok=True)
+            fd = os.open(self.LOCK_PATH, os.O_CREAT | os.O_RDWR, 0o644)
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except OSError:
+                os.close(fd)
+                return None
+            os.truncate(fd, 0)
+            os.write(fd, str(os.getpid()).encode())
+            return fd
+        except OSError:
+            return None
 
     def check_cpu_performance(self) -> tuple[bool, str]:
         """Evalúa si el procesador del equipo tiene la potencia suficiente para compilar/actualizar en segundo plano."""
@@ -65,7 +96,7 @@ class DaemonService:
         try:
             load1, _, _ = os.getloadavg()
             if load1 > (cores * 1.5):
-                return False, f"Carga del sistema demasiado alta ({load1:.2f} para {cores} núcleos)"
+                return False, f"Carga del sistema demasiada alta ({load1:.2f} para {cores} núcleos)"
         except Exception:
             pass
 
@@ -91,6 +122,107 @@ class DaemonService:
             try:
                 subprocess.run(["notify-send", "-a", "App Install", "-i", icon, title, message], timeout=5)
             except Exception:
+                pass
+
+    # ── Instalación de actualizaciones del sistema ──────────────────────────
+
+    def _sudo_prefix(self):
+        """Comando para obtener privilegios (pkexec en escritorios con polkit)."""
+        if os.geteuid() == 0:
+            return []
+        if shutil.which("pkexec"):
+            return ["pkexec"]
+        return None
+
+    def install_system_updates(self) -> int:
+        """English: Actually install the pending system updates, asking polkit
+        for the required privileges. Returns the number of packages updated.
+        Español: Instala realmente las actualizaciones pendientes del sistema,
+        pidiendo los privilegios necesarios a polkit."""
+        prefix = self._sudo_prefix()
+        if prefix is None:
+            print("[Daemon] Sin pkexec ni privilegios: solo se notificarán las actualizaciones.")
+            return 0
+
+        updated = 0
+
+        # Debian / Ubuntu / Pulsar OS
+        if shutil.which("apt-get"):
+            try:
+                subprocess.run(prefix + ["apt-get", "update", "-qq"],
+                               capture_output=True, timeout=300)
+                res = subprocess.run(
+                    prefix + ["apt-get", "upgrade", "-y", "-o", "Dpkg::Options::=--force-confold"],
+                    capture_output=True, timeout=1800)
+                if res.returncode == 0:
+                    updated += 1
+                    print("[Daemon] APT actualizado correctamente.")
+                else:
+                    print(f"[Daemon] APT devolvió {res.returncode}.")
+            except Exception as e:
+                print(f"[Daemon] Error actualizando con APT: {e}")
+
+        # Arch Linux / Pacman
+        if shutil.which("pacman"):
+            try:
+                res = subprocess.run(prefix + ["pacman", "-Syu", "--noconfirm"],
+                                     capture_output=True, timeout=1800)
+                if res.returncode == 0:
+                    updated += 1
+                    print("[Daemon] Pacman actualizado correctamente.")
+                else:
+                    print(f"[Daemon] Pacman devolvió {res.returncode}.")
+            except Exception as e:
+                print(f"[Daemon] Error actualizando con Pacman: {e}")
+
+        # Fedora / DNF
+        if shutil.which("dnf"):
+            try:
+                res = subprocess.run(prefix + ["dnf", "upgrade", "-y"],
+                                     capture_output=True, timeout=1800)
+                if res.returncode == 0:
+                    updated += 1
+                    print("[Daemon] DNF actualizado correctamente.")
+            except Exception as e:
+                print(f"[Daemon] Error actualizando con DNF: {e}")
+
+        return updated
+
+    # ── Ciclo del demonio ───────────────────────────────────────────────────
+
+    def run_loop(self, first_delay_seconds: int = 180, interval_hours: float = None):
+        """English: Keep running update cycles in the background. The config is
+        re-read on every cycle, so toggling automatic updates in the app takes
+        effect without restarting anything. Only one instance runs at a time.
+        Español: Mantiene en segundo plano un ciclo de actualizaciones
+        periódico. La configuración se relée en cada ciclo, así que activar o
+        desactivar las actualizaciones automáticas en la aplicación surte
+        efecto sin reiniciar nada. Solo corre una instancia a la vez."""
+        interval = interval_hours or self.INTERVAL_HOURS
+        lock = self._acquire_lock()
+        if lock is None:
+            print("[Daemon] Ya hay otro ciclo de actualizaciones automáticas en marcha.")
+            return
+
+        print(f"[Daemon] Bucle iniciado. Primera comprobación en {first_delay_seconds}s, "
+              f"después cada {interval}h.")
+        if first_delay_seconds > 0:
+            time.sleep(first_delay_seconds)
+
+        try:
+            while True:
+                if self.is_auto_update_enabled():
+                    try:
+                        self.run_check_and_update(initial_delay=0)
+                    except Exception as e:
+                        print(f"[Daemon] Error en el ciclo de actualizaciones: {e}")
+                else:
+                    print("[Daemon] Actualizaciones automáticas desactivadas. Esperando...")
+                time.sleep(interval * 3600)
+        finally:
+            try:
+                os.close(lock)
+            except OSError:
                 pass
 
     def run_check_and_update(self, initial_delay: int = 180):
@@ -131,8 +263,6 @@ class DaemonService:
         # Debian / Ubuntu / Pulsar OS APT
         if shutil.which("apt-get"):
             try:
-                if os.geteuid() == 0:
-                    subprocess.run(["apt-get", "update", "-qq"], capture_output=True, timeout=120)
                 check = subprocess.run(["apt", "list", "--upgradable"], capture_output=True, text=True, timeout=60)
                 lines = [l for l in check.stdout.strip().splitlines() if "/" in l and "Listing..." not in l]
                 if lines:
@@ -144,8 +274,6 @@ class DaemonService:
         # Arch Linux / Pacman
         if shutil.which("pacman"):
             try:
-                if os.geteuid() == 0:
-                    subprocess.run(["pacman", "-Sy"], capture_output=True, timeout=120)
                 check = subprocess.run(["pacman", "-Qu"], capture_output=True, text=True, timeout=60)
                 lines = [l for l in check.stdout.strip().splitlines() if l.strip()]
                 if lines:
@@ -164,16 +292,20 @@ class DaemonService:
             except Exception as e:
                 print(f"[Daemon] Error comprobando DNF: {e}")
 
-        # Flatpak
+        # Flatpak (no necesita privilegios)
         if shutil.which("flatpak"):
             try:
-                upg_flat = subprocess.run(["flatpak", "update", "-y", "--noninteractive"], capture_output=True, timeout=180)
+                upg_flat = subprocess.run(["flatpak", "update", "-y", "--noninteractive"], capture_output=True, timeout=600)
                 if upg_flat.returncode == 0:
                     out_text = upg_flat.stdout.decode('utf-8', errors='ignore')
                     if "Nothing to do" not in out_text and out_text.strip():
                         updated = True
             except Exception as e:
                 print(f"[Daemon] Error actualizando Flatpak: {e}")
+
+        # Actualizaciones del sistema (ahora sí se instalan, no solo se notifican)
+        if updates_available_count > 0 and self.install_system_updates() > 0:
+            updated = True
 
         if updated:
             print("[Daemon] Sistema actualizado correctamente.")

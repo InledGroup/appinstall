@@ -8,6 +8,7 @@ from src.infrastructure.services.localization import _
 from src.utils.constants import CURRENT_VERSION
 from src.utils.system import get_safe_window_size, safe_open_url, has_internet, HAS_BREW, BREW_PATH, open_google_ai_mode, analyze_pkgbuild_with_ai
 from src.application import prompt_engine
+from src.application.recommendations_service import RecommendationsService
 from src.utils.terminal import open_last_failure_in_terminal
 from src.ui.components.update_dialog import UpdateDialog
 from src.ui.components.operation_bar import OperationBar
@@ -111,6 +112,12 @@ class PackageInstaller(Adw.ApplicationWindow):
         self.pkg_manager = pkg_manager
         self.info_service = info_service
         self.search_service = search_service
+        # Recomendaciones curadas del inicio (recommendations.json del repo)
+        self.recommendations_service = RecommendationsService()
+        # Hilo del ciclo de actualizaciones automáticas (si está activado)
+        self._auto_update_thread = None
+        # Identificador de la operación de comprobación de actualizaciones
+        self._updates_check_op_id = None
         self.file_path = file_to_open
 
         # English: Any package manager question asked during an operation is
@@ -350,6 +357,12 @@ class PackageInstaller(Adw.ApplicationWindow):
         self.updates_widget = self.setup_updates_widget()
         self.content_stack.add_named(self.updates_widget, "updates")
 
+        # Si las actualizaciones automáticas están activadas, arrancar el ciclo
+        # en segundo plano (solo si no lo está haciendo ya el demonio de sesión,
+        # gracias al bloqueo de instancia única del DaemonService).
+        if self._load_auto_update():
+            GLib.timeout_add_seconds(5, self._ensure_auto_update_loop)
+
         # 5. Cleanup Widget
         cleanup_service = CleanupService(self.pkg_manager)
         self.cleanup_widget = SystemCleanupWidget(self, cleanup_service)
@@ -504,120 +517,16 @@ class PackageInstaller(Adw.ApplicationWindow):
         self.offline_banner.set_visible(False)
         self.main_box.append(self.offline_banner)
         
-        # 0. Destacados de Pulsar Store Section
-        self.pulsar_highlights_section_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        pulsar_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        
-        pulsar_title = Gtk.Label(label=_("Destacados de Pulsar Store"), xalign=0)
-        pulsar_title.add_css_class("store-section-title")
-        pulsar_title.set_hexpand(True)
-        pulsar_header.append(pulsar_title)
+        # 0. Secciones de recomendaciones curadas (recommendations.json)
+        # English: One section per entry in the curated recommendations file
+        # published in the repository, filtered by what this host can install.
+        # Español: Una sección por cada entrada del archivo de recomendaciones
+        # curadas publicado en el repositorio, filtradas por lo que este equipo
+        # puede instalar realmente.
+        self.recommended_sections_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        self.recommended_sections_box.set_margin_top(4)
+        self.main_box.append(self.recommended_sections_box)
 
-        ver_pulsar_btn = Gtk.Button(label=_("Ver catálogo"))
-        ver_pulsar_btn.add_css_class("flat")
-        ver_pulsar_btn.connect("clicked", lambda b: self.navigate_to_page("pulsar_store"))
-        pulsar_header.append(ver_pulsar_btn)
-        self.pulsar_highlights_section_box.append(pulsar_header)
-
-        scrolled_pulsar = Gtk.ScrolledWindow()
-        scrolled_pulsar.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.NEVER)
-        self.pulsar_highlights_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=14)
-        self.pulsar_highlights_box.set_margin_top(4)
-        self.pulsar_highlights_box.set_margin_bottom(8)
-        scrolled_pulsar.set_child(self.pulsar_highlights_box)
-        self.pulsar_highlights_section_box.append(scrolled_pulsar)
-        self.main_box.append(self.pulsar_highlights_section_box)
-
-        # 0.5 GNOME Extensions Section (if GNOME desktop)
-        if is_gnome_desktop():
-            self.gnome_highlights_section_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-            gnome_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-
-            gnome_title = Gtk.Label(label=_("Extensiones GNOME destacadas"), xalign=0)
-            gnome_title.add_css_class("store-section-title")
-            gnome_title.set_hexpand(True)
-            gnome_header.append(gnome_title)
-
-            ver_gnome_btn = Gtk.Button(label=_("Explorar todas"))
-            ver_gnome_btn.add_css_class("flat")
-            ver_gnome_btn.connect("clicked", lambda b: self.navigate_to_page("gnome_extensions"))
-            gnome_header.append(ver_gnome_btn)
-            self.gnome_highlights_section_box.append(gnome_header)
-
-            scrolled_gnome = Gtk.ScrolledWindow()
-            scrolled_gnome.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.NEVER)
-            self.gnome_highlights_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=14)
-            self.gnome_highlights_box.set_margin_top(4)
-            self.gnome_highlights_box.set_margin_bottom(8)
-            scrolled_gnome.set_child(self.gnome_highlights_box)
-            self.gnome_highlights_section_box.append(scrolled_gnome)
-            self.main_box.append(self.gnome_highlights_section_box)
-
-        # 1. Apps imprescindibles Section (from Flathub)
-        self.popular_section_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        popular_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        popular_title = Gtk.Label(label=_("Apps imprescindibles"), xalign=0)
-        popular_title.add_css_class("store-section-title")
-        popular_header.append(popular_title)
-        self.popular_section_box.append(popular_header)
-        
-        self.popular_grid = Gtk.Grid()
-        self.popular_grid.set_column_spacing(24)
-        self.popular_grid.set_row_spacing(16)
-        self.popular_grid.set_column_homogeneous(True)
-        self.popular_section_box.append(self.popular_grid)
-        self.main_box.append(self.popular_section_box)
-        
-        self.popular_spinner = Gtk.Spinner()
-        self.popular_spinner.set_size_request(24, 24)
-        self.popular_spinner.set_halign(Gtk.Align.CENTER)
-        self.popular_spinner.start()
-        self.popular_section_box.append(self.popular_spinner)
-        
-        # 2. Lo mejor de la semana Section (from Flathub)
-        self.trending_section_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        trending_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        trending_title = Gtk.Label(label=_("Lo mejor de la semana"), xalign=0)
-        trending_title.add_css_class("store-section-title")
-        trending_header.append(trending_title)
-        self.trending_section_box.append(trending_header)
-        
-        self.trending_grid = Gtk.Grid()
-        self.trending_grid.set_column_spacing(24)
-        self.trending_grid.set_row_spacing(16)
-        self.trending_grid.set_column_homogeneous(True)
-        self.trending_section_box.append(self.trending_grid)
-        self.main_box.append(self.trending_section_box)
-        
-        self.trending_spinner = Gtk.Spinner()
-        self.trending_spinner.set_size_request(24, 24)
-        self.trending_spinner.set_halign(Gtk.Align.CENTER)
-        self.trending_spinner.start()
-        self.trending_section_box.append(self.trending_spinner)
-        
-        # 3. Top apps gratis Section (from Flathub)
-        self.top_free_section_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        top_free_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        top_free_title = Gtk.Label(label=_("Top apps gratis"), xalign=0)
-        top_free_title.add_css_class("store-section-title")
-        top_free_header.append(top_free_title)
-        self.top_free_section_box.append(top_free_header)
-        
-        scrolled_top_free = Gtk.ScrolledWindow()
-        scrolled_top_free.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.NEVER)
-        self.top_free_horizontal_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16)
-        self.top_free_horizontal_box.set_margin_top(8)
-        self.top_free_horizontal_box.set_margin_bottom(8)
-        scrolled_top_free.set_child(self.top_free_horizontal_box)
-        self.top_free_section_box.append(scrolled_top_free)
-        self.main_box.append(self.top_free_section_box)
-        
-        self.top_free_spinner = Gtk.Spinner()
-        self.top_free_spinner.set_size_request(24, 24)
-        self.top_free_spinner.set_halign(Gtk.Align.CENTER)
-        self.top_free_spinner.start()
-        self.top_free_section_box.append(self.top_free_spinner)
-        
         # 4. Local File Installation Banner (Moved to bottom)
         local_install_card = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16)
         local_install_card.add_css_class("card")
@@ -821,90 +730,74 @@ class PackageInstaller(Adw.ApplicationWindow):
             self.content_stack.set_visible_child_name(page_name)
 
     def load_store_recommendations(self):
-        def _fetch():
-            if not self.search_service:
-                return
+        """English: Render the curated sections from recommendations.json.
 
-            if not has_internet():
-                GLib.idle_add(self.show_offline_banner)
-                return
-
+        The file is published in the repository, so new sections can be added
+        without touching code. Each app declares its source (flatpak, apt, aur,
+        pulsar, gnome-extension, ...) and it is only shown when this host can
+        actually install it.
+        Español: Dibuja en el inicio las secciones definidas en
+        recommendations.json. Cada app declara su fuente y solo se muestra si
+        este equipo puede instalarla realmente.
+        """
+        sections = []
+        if self.recommendations_service is not None:
             try:
-                # Fetch popular apps (17 total, to use 12 for popular, 5 for top free)
-                popular_all = self.search_service.get_popular_apps(limit=17)
-                popular = popular_all[:12]
-                top_free = popular_all[12:17] if len(popular_all) > 12 else popular_all[:5]
-
-                # Fetch trending apps (12)
-                trending = self.search_service.get_trending_apps(limit=12)
-
-                # Fetch Pulsar Store highlights (6)
-                pulsar_highlights = self.search_service.get_pulsar_store_highlights(limit=6)
-
-                # Fetch GNOME Extensions highlights (6) if on GNOME
-                gnome_highlights = self.search_service.get_gnome_extensions_highlights(limit=6) if is_gnome_desktop() else []
+                sections = self.recommendations_service.load_sections()
             except Exception as e:
-                print(f"Error loading store recommendations: {e}")
-                popular_all = []
-                trending = []
-                pulsar_highlights = []
-                gnome_highlights = []
+                print(f"Error loading recommendations.json: {e}")
 
-            if not popular_all and not trending and not pulsar_highlights:
-                GLib.idle_add(self.show_offline_banner)
-            else:
-                GLib.idle_add(self.populate_recommendations, popular, trending, top_free, pulsar_highlights, gnome_highlights)
+        GLib.idle_add(self._render_recommended_sections, sections)
 
-        threading.Thread(target=_fetch, daemon=True).start()
+    def _render_recommended_sections(self, sections):
+        """English: Draw one section per entry of the curated JSON file.
+        Español: Dibuja una sección por cada entrada del JSON curado."""
+        if not hasattr(self, 'recommended_sections_box'):
+            return
 
-    def _stop_recommendation_spinners(self):
-        # English: Stop and remove the loading spinners of the store sections
-        # Español: Detener y quitar los indicadores de carga de las secciones de la tienda
-        if hasattr(self, 'popular_spinner') and self.popular_spinner:
-            try:
-                self.popular_spinner.stop()
-                self.popular_section_box.remove(self.popular_spinner)
-            except: pass
+        child = self.recommended_sections_box.get_first_child()
+        while child is not None:
+            nxt = child.get_next_sibling()
+            self.recommended_sections_box.remove(child)
+            child = nxt
 
-        if hasattr(self, 'trending_spinner') and self.trending_spinner:
-            try:
-                self.trending_spinner.stop()
-                self.trending_section_box.remove(self.trending_spinner)
-            except: pass
+        if not sections:
+            return
 
-        if hasattr(self, 'top_free_spinner') and self.top_free_spinner:
-            try:
-                self.top_free_spinner.stop()
-                self.top_free_section_box.remove(self.top_free_spinner)
-            except: pass
+        for section in sections:
+            section_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+
+            header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            title = Gtk.Label(label=section.get('title') or _('Recomendados'), xalign=0)
+            title.add_css_class("store-section-title")
+            title.set_hexpand(True)
+            header.append(title)
+            section_box.append(header)
+
+            desc = section.get('desc') or ''
+            if desc:
+                desc_lbl = Gtk.Label(label=desc, xalign=0)
+                desc_lbl.add_css_class("subtitle-label")
+                desc_lbl.set_wrap(True)
+                section_box.append(desc_lbl)
+
+            cards = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=14)
+            cards.set_margin_top(4)
+            cards.set_margin_bottom(8)
+            scrolled = Gtk.ScrolledWindow()
+            scrolled.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.NEVER)
+            scrolled.set_child(cards)
+            section_box.append(scrolled)
+
+            self._fill_horizontal_cards(cards, section.get('apps', []))
+            self.recommended_sections_box.append(section_box)
 
     def show_offline_banner(self):
-        # English: Show the offline warning on the home screen
+        # English: Show the offline warning on the home screen (still used by
+        # the remote search fallback)
         # Español: Mostrar el aviso de modo sin conexión en la pantalla de inicio
-        self._stop_recommendation_spinners()
         if hasattr(self, 'offline_banner'):
             self.offline_banner.set_visible(True)
-
-    def populate_recommendations(self, popular, trending, top_free, pulsar_highlights=None, gnome_highlights=None):
-        # Stop and remove spinners if they exist
-        self._stop_recommendation_spinners()
-            
-        # Populate Pulsar Store highlights
-        if pulsar_highlights and hasattr(self, 'pulsar_highlights_box'):
-            self._fill_horizontal_cards(self.pulsar_highlights_box, pulsar_highlights)
-
-        # Populate GNOME Extensions highlights
-        if gnome_highlights and hasattr(self, 'gnome_highlights_box'):
-            self._fill_horizontal_cards(self.gnome_highlights_box, gnome_highlights)
-
-        # Populate popular (Mac App Store ranked two-column list, 1..N)
-        self._fill_ranked_columns(self.popular_grid, popular[:12])
-        
-        # Populate trending (Mac App Store ranked two-column list, 1..N)
-        self._fill_ranked_columns(self.trending_grid, trending[:12])
-        
-        # Populate top free (Mac App Store ranked two-column list, 1..N)
-        self._fill_ranked_columns(self.top_free_horizontal_box, top_free[:6])
 
     def _fill_horizontal_cards(self, container, items):
         child = container.get_first_child()
@@ -976,81 +869,6 @@ class PackageInstaller(Adw.ApplicationWindow):
         card.add_controller(click_gesture)
 
         return card
-
-    def _fill_ranked_columns(self, container, apps):
-        """English: Fill a container with a Mac App Store style ranked
-        two-column list (number, icon, name, GET button per row).
-        Español: Rellena un contenedor con una lista numerada en dos columnas
-        estilo Mac App Store (número, icono, nombre, botón Obtener)."""
-        # Clear previous content
-        child = container.get_first_child()
-        while child:
-            container.remove(child)
-            child = container.get_first_child()
-
-        half = (len(apps) + 1) // 2
-        for col_idx, chunk in enumerate((apps[:half], apps[half:])):
-            list_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-            list_box.set_hexpand(True)
-            list_box.set_valign(Gtk.Align.START)
-            # Gtk.Grid containers need explicit attach(); Gtk.Box just appends
-            if isinstance(container, Gtk.Grid):
-                container.attach(list_box, col_idx, 0, 1, 1)
-            else:
-                container.append(list_box)
-
-            for rank, app in enumerate(chunk, start=(1 if col_idx == 0 else half + 1)):
-                if list_box.get_first_child():
-                    sep = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
-                    sep.add_css_class("store-rank-sep")
-                    list_box.append(sep)
-                list_box.append(self.create_ranked_row(app, rank))
-
-    def create_ranked_row(self, app_data, rank):
-        row_btn = Gtk.Button()
-        row_btn.add_css_class("store-rank-row")
-        row_btn.set_has_frame(False)
-        row_btn.set_halign(Gtk.Align.FILL)
-
-        hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
-        row_btn.set_child(hbox)
-
-        rank_lbl = Gtk.Label(label=str(rank), xalign=0.5)
-        rank_lbl.add_css_class("store-rank-number")
-        rank_lbl.set_valign(Gtk.Align.CENTER)
-        hbox.append(rank_lbl)
-
-        # Rounded App Icon (supports local files, cached icons, and symbolic names)
-        from src.utils.system import create_app_icon_widget
-        icon_path = app_data.get('icon', '')
-        icon = create_app_icon_widget(icon_path, size=44, fallback="system-software-install-symbolic", package_id=app_data.get('name', 'app'))
-        icon.set_valign(Gtk.Align.CENTER)
-        icon.add_css_class("app-card-icon")
-        hbox.append(icon)
-
-        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
-        vbox.set_hexpand(True)
-        vbox.set_valign(Gtk.Align.CENTER)
-        hbox.append(vbox)
-
-        name_lbl = Gtk.Label(label=app_data.get('display_name', ''), xalign=0)
-        name_lbl.add_css_class("store-rank-name")
-        name_lbl.set_ellipsize(Pango.EllipsizeMode.END)
-        vbox.append(name_lbl)
-
-        sub_lbl = Gtk.Label(label=app_data.get('desc', ''), xalign=0)
-        sub_lbl.add_css_class("store-rank-sub")
-        sub_lbl.set_ellipsize(Pango.EllipsizeMode.END)
-        vbox.append(sub_lbl)
-
-        get_btn = Gtk.Button(label=_("Obtener"))
-        get_btn.add_css_class("app-card-button")
-        get_btn.set_valign(Gtk.Align.CENTER)
-        get_btn.connect("clicked", lambda b: self.on_recommendation_clicked(app_data))
-        hbox.append(get_btn)
-
-        row_btn.connect("clicked", lambda b: self.on_recommendation_clicked(app_data))
-        return row_btn
 
     def create_app_grid_item(self, app_data):
         box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
@@ -1291,13 +1109,44 @@ class PackageInstaller(Adw.ApplicationWindow):
         except Exception as e:
             print(f"Error saving auto_update configuration: {e}")
             switch.set_active(not state)  # revertir el interruptor
+            return True
+
+        # El daemon relee la configuración en cada ciclo, así que con activar
+        # el interruptor basta para que empiecen a llegar las actualizaciones.
+        if state:
+            self._ensure_auto_update_loop()
         return True
+
+    def _ensure_auto_update_loop(self):
+        """English: Start the background auto-update loop if it is not running.
+
+        The daemon re-reads the configuration on every cycle, so turning the
+        switch on is enough to start receiving automatic updates.
+        Español: Arranca en segundo plano el ciclo de actualizaciones
+        automáticas si no está ya corriendo.
+        """
+        if getattr(self, "_auto_update_thread", None) and self._auto_update_thread.is_alive():
+            return
+
+        def _run():
+            try:
+                from src.application.daemon_service import DaemonService
+                DaemonService().run_loop(first_delay_seconds=10)
+            except Exception as e:
+                print(f"Error in auto-update worker: {e}")
+
+        self._auto_update_thread = threading.Thread(target=_run, daemon=True)
+        self._auto_update_thread.start()
 
     def trigger_updates_check(self):
         self.updates_spinner.start()
         self.updates_spinner.set_visible(True)
         self.updates_status_label.set_text(_("Comprobando actualizaciones..."))
         self.upgrade_all_btn.set_sensitive(False)
+
+        # Barra de progreso inferior mientras se busca
+        if self._updates_check_op_id is None:
+            self._updates_check_op_id = self._show_progress(_("Buscando actualizaciones..."))
         
         child = self.updates_listbox.get_first_child()
         while child:
@@ -1444,6 +1293,7 @@ class PackageInstaller(Adw.ApplicationWindow):
     def show_updates_results(self, appinstall_upgradable, latest_app_version, upgradable_pkgs, upgradable_flatpaks=None, upgradable_pulsar=None, upgradable_extensions=None):
         self.updates_spinner.stop()
         self.updates_spinner.set_visible(False)
+        self._finish_updates_check_progress()
         
         upgradable_flatpaks = upgradable_flatpaks or []
         upgradable_pulsar = upgradable_pulsar or []
@@ -1472,11 +1322,15 @@ class PackageInstaller(Adw.ApplicationWindow):
             for f in upgradable_flatpaks:
                 self.add_update_row(f, _("Actualización disponible en Flathub"), icon_name="package-x-generic-symbolic")
 
-            for pkg in upgradable_pkgs[:100]:
+            # Lista completa: se muestran todas las actualizaciones disponibles
+            for pkg in upgradable_pkgs:
                 self.add_update_row(pkg, _("Actualización disponible de los repositorios del sistema"))
-                
-            if len(upgradable_pkgs) > 100:
-                self.add_update_row("...", _("Y {} actualizaciones más...").format(len(upgradable_pkgs) - 100))
+
+    def _finish_updates_check_progress(self):
+        """Quita la barra de progreso de la comprobación de actualizaciones."""
+        if self._updates_check_op_id is not None:
+            self._finish_operation(self._updates_check_op_id)
+            self._updates_check_op_id = None
 
     def add_update_row(self, name, description, is_app=False, icon_name=None):
         row = Gtk.ListBoxRow()
@@ -1508,6 +1362,7 @@ class PackageInstaller(Adw.ApplicationWindow):
     def show_updates_error(self):
         self.updates_spinner.stop()
         self.updates_spinner.set_visible(False)
+        self._finish_updates_check_progress()
         self.updates_status_icon.set_from_icon_name("dialog-error-symbolic")
         self.updates_status_label.set_text(_("Error al comprobar actualizaciones"))
         

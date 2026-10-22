@@ -945,16 +945,28 @@ def cmd_fix():
 
 
 def cmd_daemon(args=None):
-    """Run background auto-updater daemon."""
+    """Run background auto-updater daemon.
+
+    English: Keeps checking and applying updates in the background (every few
+    hours) unless the user turned automatic updates off.
+    Español: Mantiene en segundo plano la comprobación y aplicación de
+    actualizaciones (cada pocas horas), salvo que el usuario haya desactivado
+    las actualizaciones automáticas.
+    """
     from src.application.daemon_service import DaemonService
     delay = 180
+    run_once = False
     if args:
         if isinstance(args, str):
             args = [args]
         if any(a in ('--no-delay', '--run-once', '-1', 'now') for a in args):
             delay = 0
+        run_once = any(a in ('--run-once', '-1') for a in args)
     daemon = DaemonService()
-    daemon.run_check_and_update(initial_delay=delay)
+    if run_once:
+        daemon.run_check_and_update(initial_delay=delay)
+    else:
+        daemon.run_loop(first_delay_seconds=delay)
     return True
 
 

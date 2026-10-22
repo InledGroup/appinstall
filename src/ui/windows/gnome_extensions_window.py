@@ -31,6 +31,9 @@ class GnomeExtensionsWidget(Gtk.Box):
         self.main_window = main_window
         self.installed_extensions = []
         self.ego_search_results = []
+        # Extensiones que estaban activadas al pulsar "Desactivar activas";
+        # sirven para reactivar exactamente las mismas después.
+        self._enabled_snapshot = None
 
         self.setup_ui()
         self.load_installed_extensions()
@@ -129,6 +132,14 @@ class GnomeExtensionsWidget(Gtk.Box):
         self.installed_search_entry.set_hexpand(True)
         self.installed_search_entry.connect("search-changed", self._on_installed_filter_changed)
         search_box.append(self.installed_search_entry)
+
+        # Botón para desactivar/reactivar en bloque las que estaban activadas
+        self.toggle_all_btn = Gtk.Button()
+        self.toggle_all_btn.add_css_class("suggested-action")
+        self.toggle_all_btn.connect("clicked", self._on_toggle_all_enabled)
+        self._update_toggle_all_button()
+        search_box.append(self.toggle_all_btn)
+
         box.append(search_box)
 
         # List Container
@@ -261,6 +272,113 @@ class GnomeExtensionsWidget(Gtk.Box):
     def _on_installed_loaded(self, exts):
         self.installed_extensions = exts
         self.render_installed_list()
+        self._update_toggle_all_button()
+
+    def _update_toggle_all_button(self):
+        """English: Update the label/state of the bulk enable-disable button.
+        Español: Actualiza el texto y el estado del botón de activar/desactivar
+        todas las extensiones.
+
+        The button disables the extensions that are enabled right now, keeping
+        a snapshot so it can enable exactly those again afterwards (extensions
+        that were already disabled stay disabled).
+        """
+        enabled = [e["uuid"] for e in self.installed_extensions
+                   if e.get("state") == "ENABLED"]
+
+        if self._enabled_snapshot is not None:
+            self.toggle_all_btn.set_label(
+                _("Reactivar las {} que estaban activas").format(len(self._enabled_snapshot)))
+            self.toggle_all_btn.set_tooltip_text(
+                _("Vuelve a activar solo las extensiones que estaban activadas antes, "
+                  "sin tocar las que ya estaban desactivadas."))
+            self.toggle_all_btn.set_sensitive(True)
+        else:
+            self.toggle_all_btn.set_label(
+                _("Desactivar las {} activas").format(len(enabled)))
+            self.toggle_all_btn.set_tooltip_text(
+                _("Desactiva todas las extensiones que ahora mismo están activadas. "
+                  "Después podrás volver a activar exactamente las mismas."))
+            self.toggle_all_btn.set_sensitive(bool(enabled))
+
+    def _on_toggle_all_enabled(self, button):
+        """English: Bulk disable/enable the extensions that were enabled.
+        Español: Desactiva o reactiva en bloque las extensiones que estaban
+        activadas."""
+        if self._enabled_snapshot is None:
+            uuids = [e["uuid"] for e in self.installed_extensions
+                     if e.get("state") == "ENABLED"]
+            if not uuids:
+                return
+            self._enabled_snapshot = list(uuids)
+            self.toggle_all_btn.set_sensitive(False)
+            self._apply_extension_state_many(uuids, False)
+        else:
+            uuids = list(self._enabled_snapshot)
+            self._enabled_snapshot = None
+            self.toggle_all_btn.set_sensitive(False)
+            self._apply_extension_state_many(uuids, True)
+
+    def _apply_extension_state_many(self, uuids, enabled):
+        """English: Enable/disable a list of extensions in a background thread.
+        Español: Activa o desactiva una lista de extensiones en un hilo de
+        segundo plano."""
+        def worker():
+            for uuid in uuids:
+                self._set_extension_enabled_sync(uuid, enabled)
+            GLib.idle_add(self.load_installed_extensions)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _set_extension_enabled_sync(self, uuid, enabled):
+        """English: Apply the enabled/disabled state of one extension.
+        Español: Aplica el estado activado/desactivado de una extensión."""
+        if enabled:
+            for base in [os.path.expanduser("~/.local/share/gnome-shell/extensions"),
+                         "/usr/share/gnome-shell/extensions"]:
+                s_dir = os.path.join(base, uuid, "schemas")
+                if os.path.isdir(s_dir):
+                    subprocess.run(["glib-compile-schemas", s_dir], capture_output=True)
+            subprocess.run(["gdbus", "call", "--session", "--dest", "org.gnome.Shell.Extensions", "--object-path", "/org/gnome/Shell/Extensions", "--method", "org.gnome.Shell.Extensions.ReloadExtension", uuid], capture_output=True)
+            subprocess.run(["gnome-extensions", "enable", uuid], capture_output=True)
+            subprocess.run(["gdbus", "call", "--session", "--dest", "org.gnome.Shell.Extensions", "--object-path", "/org/gnome/Shell/Extensions", "--method", "org.gnome.Shell.Extensions.EnableExtension", uuid], capture_output=True)
+            self._gsettings_add_enabled(uuid)
+        else:
+            subprocess.run(["gnome-extensions", "disable", uuid], capture_output=True)
+            subprocess.run(["gdbus", "call", "--session", "--dest", "org.gnome.Shell.Extensions", "--object-path", "/org/gnome/Shell/Extensions", "--method", "org.gnome.Shell.Extensions.DisableExtension", uuid], capture_output=True)
+            self._gsettings_remove_enabled(uuid)
+
+    @staticmethod
+    def _gsettings_read_enabled():
+        """Lee la lista gsettings org.gnome.shell enabled-extensions."""
+        import ast
+        res = subprocess.run(["gsettings", "get", "org.gnome.shell", "enabled-extensions"],
+                             capture_output=True, text=True)
+        if res.returncode != 0:
+            return None
+        try:
+            arr = ast.literal_eval(res.stdout.strip())
+            return arr if isinstance(arr, list) else None
+        except Exception:
+            return None
+
+    def _gsettings_add_enabled(self, uuid):
+        try:
+            arr = self._gsettings_read_enabled()
+            if arr is not None and uuid not in arr:
+                arr.append(uuid)
+                subprocess.run(["gsettings", "set", "org.gnome.shell", "enabled-extensions", str(arr)], capture_output=True)
+        except Exception:
+            pass
+
+    def _gsettings_remove_enabled(self, uuid):
+        try:
+            arr = self._gsettings_read_enabled()
+            if arr is not None and uuid in arr:
+                arr = [x for x in arr if x != uuid]
+                subprocess.run(["gsettings", "set", "org.gnome.shell", "enabled-extensions", str(arr)], capture_output=True)
+        except Exception:
+            pass
 
     def _on_installed_filter_changed(self, entry):
         self.render_installed_list()
@@ -513,40 +631,9 @@ class GnomeExtensionsWidget(Gtk.Box):
         if state_val_label:
             state_val_label.set_text(new_state_str)
 
-        def worker():
-            if state:
-                for base in [os.path.expanduser("~/.local/share/gnome-shell/extensions"), "/usr/share/gnome-shell/extensions"]:
-                    s_dir = os.path.join(base, uuid, "schemas")
-                    if os.path.isdir(s_dir):
-                        subprocess.run(["glib-compile-schemas", s_dir], capture_output=True)
-                subprocess.run(["gdbus", "call", "--session", "--dest", "org.gnome.Shell.Extensions", "--object-path", "/org/gnome/Shell/Extensions", "--method", "org.gnome.Shell.Extensions.ReloadExtension", uuid], capture_output=True)
-                subprocess.run(["gnome-extensions", "enable", uuid], capture_output=True)
-                subprocess.run(["gdbus", "call", "--session", "--dest", "org.gnome.Shell.Extensions", "--object-path", "/org/gnome/Shell/Extensions", "--method", "org.gnome.Shell.Extensions.EnableExtension", uuid], capture_output=True)
-                try:
-                    res_en = subprocess.run(["gsettings", "get", "org.gnome.shell", "enabled-extensions"], capture_output=True, text=True)
-                    if res_en.returncode == 0 and uuid not in res_en.stdout:
-                        import ast
-                        arr = ast.literal_eval(res_en.stdout.strip())
-                        if isinstance(arr, list) and uuid not in arr:
-                            arr.append(uuid)
-                            subprocess.run(["gsettings", "set", "org.gnome.shell", "enabled-extensions", str(arr)], capture_output=True)
-                except Exception:
-                    pass
-            else:
-                subprocess.run(["gnome-extensions", "disable", uuid], capture_output=True)
-                subprocess.run(["gdbus", "call", "--session", "--dest", "org.gnome.Shell.Extensions", "--object-path", "/org/gnome/Shell/Extensions", "--method", "org.gnome.Shell.Extensions.DisableExtension", uuid], capture_output=True)
-                try:
-                    res_en = subprocess.run(["gsettings", "get", "org.gnome.shell", "enabled-extensions"], capture_output=True, text=True)
-                    if res_en.returncode == 0 and uuid in res_en.stdout:
-                        import ast
-                        arr = ast.literal_eval(res_en.stdout.strip())
-                        if isinstance(arr, list) and uuid in arr:
-                            arr = [x for x in arr if x != uuid]
-                            subprocess.run(["gsettings", "set", "org.gnome.shell", "enabled-extensions", str(arr)], capture_output=True)
-                except Exception:
-                    pass
-
-        threading.Thread(target=worker, daemon=True).start()
+        threading.Thread(
+            target=lambda: self._set_extension_enabled_sync(uuid, state),
+            daemon=True).start()
         return False
 
     def _on_uninstall_extension(self, button, uuid):

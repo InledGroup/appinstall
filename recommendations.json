@@ -1,0 +1,229 @@
+{
+  "_format": {
+    "description": "Recomendaciones curadas que se muestran en el inicio de AppInstall. Se publica en el repositorio: basta con editar este archivo para cambiar las secciones del inicio, sin tocar código. Se renderiza tantas secciones como haya en 'sections'.",
+    "sections": "Lista de secciones. Cada una lleva title (obligatorio), desc (opcional) y apps.",
+    "app.name": "Identificador del paquete: app-id de Flatpak, nombre del paquete del sistema/AUR, id de Pulsar Store o uuid de la extensión GNOME.",
+    "app.source": "Una de: flatpak | apt | pacman | aur | dnf | snap | pulsar | gnome-extension",
+    "app.display_name": "Nombre a mostrar (opcional).",
+    "app.desc": "Descripción corta (opcional).",
+    "app.icon": "URL del icono (opcional).",
+    "app.distros": "Lista opcional de IDs de distro (ID de /etc/os-release) o ['any']. La app solo se muestra en esas distros. Ej.: ['debian'] para apt, ['arch'] para AUR.",
+    "filtro": "Cada app se muestra solo si este equipo puede instalarla de verdad: la fuente tiene que existir (flatpak/apt/pacman/...) y la distro tiene que coincidir. Si una sección queda vacía, no se pinta."
+  },
+  "sections": [
+    {
+      "title": "Apps imprescindibles",
+      "desc": "Lo esencial para empezar, desde Flathub",
+      "apps": [
+        {
+          "name": "org.mozilla.firefox",
+          "source": "flatpak",
+          "display_name": "Firefox",
+          "desc": "Navegador web rápido y respetuoso con tu privacidad",
+          "icon": "https://dl.flathub.org/repo/appstream/x86_64/icons/128x128/org.mozilla.firefox.png"
+        },
+        {
+          "name": "org.libreoffice.LibreOffice",
+          "source": "flatpak",
+          "display_name": "LibreOffice",
+          "desc": "Suite de oficina completa: documentos, hojas de cálculo y presentaciones",
+          "icon": "https://dl.flathub.org/repo/appstream/x86_64/icons/128x128/org.libreoffice.LibreOffice.png"
+        },
+        {
+          "name": "org.videolan.VLC",
+          "source": "flatpak",
+          "display_name": "VLC",
+          "desc": "Reproductor de vídeo y audio que lee casi todo",
+          "icon": "https://dl.flathub.org/repo/appstream/x86_64/icons/128x128/org.videolan.VLC.png"
+        },
+        {
+          "name": "org.gimp.GIMP",
+          "source": "flatpak",
+          "display_name": "GIMP",
+          "desc": "Editor de imágenes profesional y libre",
+          "icon": "https://dl.flathub.org/repo/appstream/x86_64/icons/128x128/org.gimp.GIMP.png"
+        },
+        {
+          "name": "com.spotify.Client",
+          "source": "flatpak",
+          "display_name": "Spotify",
+          "desc": "Tu música, tus podcasts y tus listas de reproducción",
+          "icon": "https://dl.flathub.org/repo/appstream/x86_64/icons/128x128/com.spotify.Client.png"
+        },
+        {
+          "name": "org.telegram.desktop",
+          "source": "flatpak",
+          "display_name": "Telegram",
+          "desc": "Mensajería rápida, segura y sincronizada",
+          "icon": "https://dl.flathub.org/repo/appstream/x86_64/icons/128x128/org.telegram.desktop.png"
+        }
+      ]
+    },
+    {
+      "title": "Lo mejor de la semana",
+      "desc": "Novedades y apps que merece la pena probar",
+      "apps": [
+        {
+          "name": "org.blender.Blender",
+          "source": "flatpak",
+          "display_name": "Blender",
+          "desc": "Modelado, animación y renderizado 3D",
+          "icon": "https://dl.flathub.org/repo/appstream/x86_64/icons/128x128/org.blender.Blender.png"
+        },
+        {
+          "name": "com.obsproject.Studio",
+          "source": "flatpak",
+          "display_name": "OBS Studio",
+          "desc": "Graba y retransmite tu pantalla en directo",
+          "icon": "https://dl.flathub.org/repo/appstream/x86_64/icons/128x128/com.obsproject.Studio.png"
+        },
+        {
+          "name": "org.inkscape.Inkscape",
+          "source": "flatpak",
+          "display_name": "Inkscape",
+          "desc": "Editor de gráficos vectoriales",
+          "icon": "https://dl.flathub.org/repo/appstream/x86_64/icons/128x128/org.inkscape.Inkscape.png"
+        },
+        {
+          "name": "com.github.tchx84.Flatseal",
+          "source": "flatpak",
+          "display_name": "Flatseal",
+          "desc": "Gestiona los permisos de tus apps de Flatpak",
+          "icon": "https://dl.flathub.org/repo/appstream/x86_64/icons/128x128/com.github.tchx84.Flatseal.png"
+        },
+        {
+          "name": "io.bassi.Beaker",
+          "source": "flatpak",
+          "display_name": "Beaker Browser",
+          "desc": "Navegador descentralizado para la web peer-to-peer",
+          "icon": "https://dl.flathub.org/repo/appstream/x86_64/icons/128x128/io.bassi.Beaker.png"
+        },
+        {
+          "name": "dev.geopjr.Tuba",
+          "source": "flatpak",
+          "display_name": "Tuba",
+          "desc": "Cliente de redes sociales federadas para GNOME",
+          "icon": "https://dl.flathub.org/repo/appstream/x86_64/icons/128x128/dev.geopjr.Tuba.png"
+        }
+      ]
+    },
+    {
+      "title": "Extensiones para GNOME",
+      "desc": "Personaliza tu escritorio (solo se muestran en GNOME)",
+      "apps": [
+        {
+          "name": "dash-to-dock@micxgx.gmail.com",
+          "source": "gnome-extension",
+          "display_name": "Dash to Dock",
+          "desc": "Convierte el dock de GNOME en un dock permanente y configurable"
+        },
+        {
+          "name": "blur-my-shell@aunetx",
+          "source": "gnome-extension",
+          "display_name": "Blur my Shell",
+          "desc": "Añade desenfoque elegante a los elementos del escritorio"
+        },
+        {
+          "name": "clipboard-indicator@tudmotu.com",
+          "source": "gnome-extension",
+          "display_name": "Clipboard Indicator",
+          "desc": "Guarda tu portapapeles para volver a usar lo que copiaste antes"
+        },
+        {
+          "name": "gsconnect@andyholmes.github.io",
+          "source": "gnome-extension",
+          "display_name": "GSConnect",
+          "desc": "Conecta tu móvil con el escritorio (KDE Connect para GNOME)"
+        }
+      ]
+    },
+    {
+      "title": "De los repositorios del sistema",
+      "desc": "Paquetes nativos, ligeros y actualizados con el propio sistema",
+      "apps": [
+        {
+          "name": "gimp",
+          "source": "apt",
+          "display_name": "GIMP",
+          "desc": "Editor de imágenes nativo de los repositorios",
+          "distros": ["debian", "ubuntu", "pulsar", "pulsaros", "linuxmint", "pop"]
+        },
+        {
+          "name": "vlc",
+          "source": "apt",
+          "display_name": "VLC",
+          "desc": "Reproductor multimedia nativo",
+          "distros": ["debian", "ubuntu", "pulsar", "pulsaros", "linuxmint", "pop"]
+        },
+        {
+          "name": "htop",
+          "source": "apt",
+          "display_name": "htop",
+          "desc": "Monitor de procesos para la terminal",
+          "distros": ["debian", "ubuntu", "pulsar", "pulsaros", "linuxmint", "pop"]
+        },
+        {
+          "name": "neofetch",
+          "source": "pacman",
+          "display_name": "Neofetch",
+          "desc": "Muestra la información del sistema con estilo",
+          "distros": ["arch", "artix", "endeavouros", "manjaro"]
+        },
+        {
+          "name": "git",
+          "source": "pacman",
+          "display_name": "Git",
+          "desc": "Control de versiones, imprescindible para programar",
+          "distros": ["arch", "artix", "endeavouros", "manjaro"]
+        }
+      ]
+    },
+    {
+      "title": "Solo para Arch",
+      "desc": "Compiladas desde el AUR, disponibles solo en sistemas Arch",
+      "apps": [
+        {
+          "name": "visual-studio-code-bin",
+          "source": "aur",
+          "display_name": "Visual Studio Code",
+          "desc": "Editor de código ligero y extensible",
+          "distros": ["arch", "artix", "endeavouros", "manjaro"]
+        },
+        {
+          "name": "google-chrome",
+          "source": "aur",
+          "display_name": "Google Chrome",
+          "desc": "Navegador de Google",
+          "distros": ["arch", "artix", "endeavouros", "manjaro"]
+        },
+        {
+          "name": "spotify",
+          "source": "aur",
+          "display_name": "Spotify",
+          "desc": "Cliente de Spotify empaquetado para Arch",
+          "distros": ["arch", "artix", "endeavouros", "manjaro"]
+        }
+      ]
+    },
+    {
+      "title": "Extras de Pulsar Store",
+      "desc": "Paquetes y complementos curados por Pulsar OS",
+      "apps": [
+        {
+          "name": "pulsar",
+          "source": "pulsar",
+          "display_name": "Pulsar",
+          "desc": "Editor de código abierto y colaborativo, sucesor de Atom",
+          "type": "app"
+        },
+        {
+          "name": "sayri-assistant",
+          "source": "pulsar",
+          "display_name": "Sayri",
+          "desc": "Asistente inteligente integrado de Pulsar OS",
+          "type": "sayri_skill"
+        }
+      ]
+    }
+  ]
+}
