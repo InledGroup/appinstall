@@ -32,6 +32,17 @@
     <binary>appinstall</binary>
   </provides>
   <releases>
+    <release version="22.21" date="2026-10-22">
+      <description>
+        <p>Recomendaciones curadas por el mantenedor, extensiones en bloque y actualizaciones automáticas reales.</p>
+        <ul>
+          <li>Inicio: secciones de apps recomendadas definidas en recommendations.json, filtradas por gestor de paquetes y distro, con iconos resueltos automáticamente e indicador de carga</li>
+          <li>Extensiones GNOME: botón para desactivar las activadas y reactivar exactamente las mismas</li>
+          <li>Actualizaciones: lista completa sin límite, barra de progreso durante la comprobación e instalación real de actualizaciones del sistema en segundo plano</li>
+          <li>Fondos translúcidos para dejar pasar el blur del escritorio</li>
+        </ul>
+      </description>
+    </release>
     <release version="22.20" date="2026-10-14">
       <description>
         <p>Actualización con mejoras en el gestor de extensiones GNOME y correcciones de estabilidad.</p>
