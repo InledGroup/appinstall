@@ -527,6 +527,23 @@ class PackageInstaller(Adw.ApplicationWindow):
         self.recommended_sections_box.set_margin_top(4)
         self.main_box.append(self.recommended_sections_box)
 
+        # Indicator shown while the curated suggestions are being loaded
+        # (the icon resolution may need a couple of remote lookups).
+        self.recommendations_loading_box = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        self.recommendations_loading_box.set_margin_top(24)
+        self.recommendations_loading_box.set_margin_bottom(24)
+        loading_spinner = Gtk.Spinner()
+        loading_spinner.set_size_request(32, 32)
+        loading_spinner.set_halign(Gtk.Align.CENTER)
+        loading_spinner.start()
+        self.recommendations_loading_box.append(loading_spinner)
+        loading_lbl = Gtk.Label(label=_("Cargando sugerencias..."))
+        loading_lbl.add_css_class("dim-label")
+        loading_lbl.set_halign(Gtk.Align.CENTER)
+        self.recommendations_loading_box.append(loading_lbl)
+        self.recommended_sections_box.append(self.recommendations_loading_box)
+
         # 4. Local File Installation Banner (Moved to bottom)
         local_install_card = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16)
         local_install_card.add_css_class("card")
@@ -740,13 +757,24 @@ class PackageInstaller(Adw.ApplicationWindow):
         recommendations.json. Cada app declara su fuente y solo se muestra si
         este equipo puede instalarla realmente.
         """
-        sections = []
+        # En hilo de fondo: la resolución de iconos puede consultar
+        # Pulsar Store y extensions.gnome.org, y el indicador de carga se
+        # retira en _render_recommended_sections cuando ya hay datos.
         if self.recommendations_service is not None:
-            try:
-                sections = self.recommendations_service.load_sections()
-            except Exception as e:
-                print(f"Error loading recommendations.json: {e}")
+            threading.Thread(
+                target=self._load_recommended_sections_worker,
+                daemon=True).start()
+        else:
+            GLib.idle_add(self._render_recommended_sections, [])
 
+    def _load_recommended_sections_worker(self):
+        """English: Load the curated sections off the main thread.
+        Español: Carga las secciones curadas fuera del hilo principal."""
+        try:
+            sections = self.recommendations_service.load_sections()
+        except Exception as e:
+            print(f"Error loading recommendations.json: {e}")
+            sections = []
         GLib.idle_add(self._render_recommended_sections, sections)
 
     def _render_recommended_sections(self, sections):
@@ -754,6 +782,11 @@ class PackageInstaller(Adw.ApplicationWindow):
         Español: Dibuja una sección por cada entrada del JSON curado."""
         if not hasattr(self, 'recommended_sections_box'):
             return
+
+        # Quitar el indicador de carga (y cualquier sección anterior)
+        if getattr(self, 'recommendations_loading_box', None) is not None:
+            self.recommended_sections_box.remove(self.recommendations_loading_box)
+            self.recommendations_loading_box = None
 
         child = self.recommended_sections_box.get_first_child()
         while child is not None:

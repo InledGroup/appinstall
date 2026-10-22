@@ -6,7 +6,7 @@
     "app.source": "Una de: flatpak | apt | pacman | aur | dnf | snap | pulsar | gnome-extension",
     "app.display_name": "Nombre a mostrar (opcional).",
     "app.desc": "Descripción corta (opcional).",
-    "app.icon": "URL del icono (opcional).",
+    "app.icon": "URL (o ruta local, o nombre simbólico) del icono. TIENE PRIORIDAD: si lo indicas aquí se usa tal cual y no se resuelve automáticamente (ni Flathub, ni el catálogo de Pulsar Store, ni extensions.gnome.org).",
     "app.distros": "Lista opcional de IDs de distro (ID de /etc/os-release) o ['any']. La app solo se muestra en esas distros. Ej.: ['debian'] para apt, ['arch'] para AUR.",
     "filtro": "Cada app se muestra solo si este equipo puede instalarla de verdad: la fuente tiene que existir (flatpak/apt/pacman/...) y la distro tiene que coincidir. Si una sección queda vacía, no se pinta."
   },
